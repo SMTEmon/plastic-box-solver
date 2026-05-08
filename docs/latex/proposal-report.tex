@@ -92,7 +92,7 @@
 
 \section{Project Overview}
 
-Plastic\_box\_solver is a web-based Rubik's Cube assistant that lets users scan their scrambled cube using a phone camera, then either solve it themselves on an interactive 3D model or follow an animated step-by-step guide powered by the Kociemba algorithm. The app runs entirely in the browser, tracks solve time and efficiency, and maintains a global leaderboard so users can compare their progress.
+Plastic\_box\_solver is a web-based Rubik's Cube assistant that lets users scan their scrambled cube using a phone camera, then either solve it themselves on an interactive 3D model or follow an step-by-step guide powered by a user friendly algorithm. The app runs entirely in the browser, tracks solve time and efficiency, and maintains a global leaderboard so users can compare their progress.
 
 \vspace{0.5cm}
 \section{Motivation Behind the Project}
@@ -109,14 +109,14 @@ One of our friends, who recently got into Rubik's Cube solving, mentioned that h
 
 \subsection*{Functional Requirements}
 
-\begin{itemize}[noitemsep, topsep=5pt]
+\begin{itemize}[itemsep=0.5em, topsep=5pt]
     \item The system shall allow users to register, log in, and maintain a personal profile.
     \item The system shall accept a scrambled cube state via camera scan or manual color input.
     \item The system shall detect and validate all 54 sticker colors from the submitted images.
     \item The system shall render the cube as a fully interactive, rotatable 3D model in the browser.
-    \item The system shall compute an optimal solution using the Kociemba two-phase algorithm for auto-solve function.
+    \item The system shall compute an optimal solution using the Kociemba two-phase algorithm or CFOP or ROUX for auto-solve function.
     \item The system shall support an \textit{Interactive Solve} mode where users manipulate the cube themselves.
-    \item The system shall support a \textit{Guided Solve} mode with animated move-by-move instructions that follows traditional speed cube solving methods.
+    \item The system shall support a \textit{Guided Solve} mode with move-by-move instructions that follows traditional speed cube solving methods.
     \item The system shall track solve time and move count to calculate efficiency percentage per session.
     \item The system shall persist user history that the user can see in details along with their personal best.
     \item The system shall display a global leaderboard along with the rank of the user.
@@ -124,7 +124,7 @@ One of our friends, who recently got into Rubik's Cube solving, mentioned that h
 
 \subsection*{Non-Functional Requirements}
 
-\begin{itemize}[noitemsep, topsep=5pt]
+\begin{itemize}[itemsep=0.5em, topsep=5pt]
     \item Color detection shall be accurate under standard indoor lighting.
     \item Solution computation shall return a result within two seconds.
     \item The application shall be responsive and usable on mobile browsers without installation. (This doesn't follow SRS NFR guideline, can't test this requirement. Might wanna change it.)
@@ -211,24 +211,21 @@ The sidebar shows current solve time, moves taken, and efficiency percentage in 
 
 During our initial review, we received valuable feedback regarding both our development methodology. Below are the specific suggestions and our roadmap to address them.
 \\
-\begin{itemize}[noitemsep, topsep=5pt]
-    \item \textbf{Development Strategy: Iterative Implementation} \\
-    \\
-    \textbf{Suggestion:} We were told that theres tons of library and algorithms already built for solving the cube, so building a project like this should not take 3 months, that we should add more features. \\
-    \\
-    \textbf{Resolution:} We are focusing on the 3x3 cube first. There were already plans to add more features and more cube types, which we will be implementing in the later stages of the project if we finish the 3x3 cube early.
-    \\
-    \\
 
-    \item \textbf{Timeline?} \\
-    \\
+      \textbf{Development Strategy: Iterative Implementation} \\
+\begin{enumerate}[label=\arabic*., itemsep=1.5em, topsep=5pt]
     
-\end{itemize}
+    \item \textbf{There are tons of library and algorithms already built for solving the cube, so more features should be added} \\
+    \textit{Response:} Regarding the suggestion that we should add more features since there are tons of libraries and algorithms already built for solving the cube, we are focusing on the 3x3 cube first. There were already plans to add more features and more cube types, which we will be implementing in the later stages of the project if we finish the 3x3 cube early.
+
+    \item \textbf{Too many works are being done in parallel in the timeline?} \\
+    \textit{Response:} Since all the tasks are similar in nature, we scheduled them to be worked on in parallel. However, we will try our best to optimize our workflow and finish the work before the estimated time we wrote in the timeline.
+\end{enumerate}
 
 \vspace{0.5cm}
 \section{Links}
 \begin{enumerate}[noitemsep, topsep=5pt]
-    \item \href{https://www.canva.com}{Presentation Slide Link}
+    \item \href{https://canva.link/p8qdbdnkfnoi8o7}{Presentation Slide Link}
     \item \href{https://github.com/SMTEmon/plastic-box-solver.git}{GitHub Repository Link}
 \end{enumerate}
 
