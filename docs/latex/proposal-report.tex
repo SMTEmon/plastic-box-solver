@@ -47,7 +47,7 @@
 \begin{titlepage}
     \begin{figure}[!h]
     \centering
-    \includegraphics[width=.2\textwidth]{iut_logo.png}
+    \includegraphics[width=.2\textwidth]{assets/iut_logo.png}
     \end{figure}
 \begin{center}
 
@@ -114,11 +114,12 @@ One of our friends, who recently got into Rubik's Cube solving, mentioned that h
     \item The system shall accept a scrambled cube state via camera scan or manual color input.
     \item The system shall detect and validate all 54 sticker colors from the submitted images.
     \item The system shall render the cube as a fully interactive, rotatable 3D model in the browser.
-    \item The system shall compute an optimal solution using the Kociemba two-phase algorithm.
+    \item The system shall compute an optimal solution using the Kociemba two-phase algorithm for auto-solve function.
     \item The system shall support an \textit{Interactive Solve} mode where users manipulate the cube themselves.
-    \item The system shall support a \textit{Guided Solve} mode with animated move-by-move instructions.
-    \item The system shall track solve time, move count, and efficiency percentage per session.
-    \item The system shall persist user history and display a global leaderboard.
+    \item The system shall support a \textit{Guided Solve} mode with animated move-by-move instructions that follows traditional speed cube solving methods.
+    \item The system shall track solve time and move count to calculate efficiency percentage per session.
+    \item The system shall persist user history that the user can see in details along with their personal best.
+    \item The system shall display a global leaderboard along with the rank of the user.
 \end{itemize}
 
 \subsection*{Non-Functional Requirements}
@@ -126,7 +127,7 @@ One of our friends, who recently got into Rubik's Cube solving, mentioned that h
 \begin{itemize}[noitemsep, topsep=5pt]
     \item Color detection shall be accurate under standard indoor lighting.
     \item Solution computation shall return a result within two seconds.
-    \item The application shall be responsive and usable on mobile browsers without installation.
+    \item The application shall be responsive and usable on mobile browsers without installation. (This doesn't follow SRS NFR guideline, can't test this requirement. Might wanna change it.)
 \end{itemize}
 
 \newpage
@@ -134,7 +135,7 @@ One of our friends, who recently got into Rubik's Cube solving, mentioned that h
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{flowchart.png}
+    \includegraphics[width=0.95\textwidth]{assets/flowchart.png}
     \caption{Application Flow Chart}
     \label{fig:flowchart}
 \end{figure}
@@ -149,7 +150,7 @@ The user scans each face of their cube using a phone camera or webcam. The Pytho
 The cube is rendered in the browser using React Three Fiber, built from 26 individual cubie meshes. OrbitControls let the user drag to rotate the view freely. Face rotations triggered by on-screen buttons (U, R, F, etc.) are smoothly animated, and the 3D model stays in sync with the logical cube state at all times.
 
 \subsection*{Solve Modes}
-In \textbf{Interactive Mode}, the user solves the cube themselves; a timer and move counter run live, and the optimal move count is shown on completion for comparison. In \textbf{Guided Mode}, the Kociemba-generated move list appears in a sidebar and the user can step through moves one at a time or trigger Auto-Solve to watch the full solution animate automatically.
+In \textbf{Interactive Mode}, the user solves the cube themselves; a timer and move counter run live, and the optimal move count is shown on completion for comparison. In \textbf{Guided Mode}, the CFOP move list appears in a sidebar and the user can step through moves one at a time or trigger Auto-Solve to watch the full solution animate automatically with can follow both CFOP and Kociemba algorithms based on the user's preference.
 
 \subsection*{Statistics and Leaderboard}
 The sidebar shows current solve time, moves taken, and efficiency percentage in real time. All completed solves are saved to the database. Users can view their personal best and compare against others on a global leaderboard ranked by solve time and efficiency.
@@ -200,7 +201,7 @@ The sidebar shows current solve time, moves taken, and efficiency percentage in 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{timeline.png}
+    \includegraphics[width=1\linewidth]{assets/timeline.png}
     \caption{Timeline Diagram (Gantt Chart)}
     \label{fig:timeline}
 \end{figure}
@@ -208,11 +209,20 @@ The sidebar shows current solve time, moves taken, and efficiency percentage in 
 \newpage
 \section{Action Taken Based on the Feedback}
 
-The suggestions that we received are:
+During our initial review, we received valuable feedback regarding both our development methodology. Below are the specific suggestions and our roadmap to address them.
+\\
 \begin{itemize}[noitemsep, topsep=5pt]
-    \item \textbf{Suggestion 1:}
-    \item \textbf{Suggestion 2:}
-    \item \textbf{Suggestion 3:}
+    \item \textbf{Development Strategy: Iterative Implementation} \\
+    \\
+    \textbf{Suggestion:} We were told that theres tons of library and algorithms already built for solving the cube, so building a project like this should not take 3 months, that we should add more features. \\
+    \\
+    \textbf{Resolution:} We are focusing on the 3x3 cube first. There were already plans to add more features and more cube types, which we will be implementing in the later stages of the project if we finish the 3x3 cube early.
+    \\
+    \\
+
+    \item \textbf{Timeline?} \\
+    \\
+    
 \end{itemize}
 
 \vspace{0.5cm}
