@@ -91,15 +91,17 @@
 
 \section{Project Overview}
 
-Plastic\_box\_solver is a web-based Rubik's Cube assistant that lets users scan their scrambled cube using a phone camera, then either solve it themselves on an interactive 3D model or follow an step-by-step guide powered by a user friendly algorithm. The app runs entirely in the browser, tracks solve time and efficiency, and maintains a global leaderboard so users can compare their progress.
+Plastic\_box\_solver is a web-based Rubik's Cube assistant that lets users scan their scrambled cube using a phone camera, then either solve it themselves on an interactive 3D model or follow a step-by-step guide powered by user friendly algorithm(s). The app runs entirely in the browser with no installation required, making it accessible from any device. Once the cube state is captured and confirmed, users can choose between practicing on their own or letting the system walk them through the solution move by move with smooth animations. Throughout the session, the app tracks solve time and move count, calculates an efficiency percentage against the optimal solution, and maintains a global leaderboard so users can compare their progress with others over time.
 
 \vspace{0.5cm}
 \section{Motivation Behind the Project}
 
-Most people who own a Rubik's Cube never learn to solve it because available resources, video tutorials or raw algorithm sheets are difficult to follow alongside a physical cube. A browser-based tool that scans the cube, renders it in 3D, and walks the user through each move interactively removes that barrier entirely. Beyond learning, competitive solvers have a genuine need to measure their efficiency against the optimal solution. Having a live timer, move counter, and leaderboard turns a solitary puzzle into an engaging, trackable activity.
+Most people who own a Rubik's Cube never learn to solve it because the available resources, video tutorials or raw algorithm sheets are difficult to follow alongside a physical cube. Constantly switching attention between a screen and the cube in hand breaks concentration and slows down the learning process considerably. A browser-based tool that scans the cube, renders it in 3D, and walks the user through each move interactively removes that barrier entirely, keeping everything in one place. The 3D model mirrors the user's physical cube exactly, so there is never any confusion about orientation or face labelling. Beyond learning, competitive solvers have a genuine need to measure their efficiency against the optimal solution, since knowing how many extra moves were taken is the only way to identify where improvement is possible. Having a live timer, move counter, and leaderboard turns what is otherwise a solitary puzzle into an engaging, measurable, and socially trackable activity that motivates consistent practice.
+
 
 
 \vspace{0.5cm}
+\newpage
 \section{User Requirement Analysis}
 
 \subsection*{Stakeholder}
@@ -122,12 +124,20 @@ One of our friends, who recently got into Rubik's Cube solving, mentioned that h
     \item The system shall display a global leaderboard along with the rank of the user.
 \end{itemize}
 
+\newpage
+
 \subsection*{Non-Functional Requirements}
 
 \begin{itemize}[itemsep=0.5em, topsep=5pt]
     \item Color detection shall be accurate under standard indoor lighting.
     \item Solution computation shall return a result within two seconds.
     \item The application shall respond to user interactions with loaded functionality on mobile and desktop chromium based browsers without any extra installation.
+    \item The 3D cube animation shall render smoothly at a consistent frame rate without visible lag during face rotations or camera orbit.
+    \item The system shall validate the scanned cube state for correctness before attempting to solve, rejecting any input that does not represent a legal cube configuration.
+    \item All user passwords shall be stored in hashed form and sensitive data shall not be exposed through any public-facing API endpoint.
+    \item The database shall reliably persist all solve records and user history without data loss across sessions and devices.
+    \item The user interface shall remain responsive and usable on screen widths as small as 360 pixels to support low-end mobile devices.
+    \item The backend API shall return meaningful error messages when given invalid input, so the frontend can inform the user clearly without crashing.
 \end{itemize}
 
 \newpage
