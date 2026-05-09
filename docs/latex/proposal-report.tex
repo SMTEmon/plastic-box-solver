@@ -9,8 +9,8 @@
 \usepackage{lastpage}
 
 % --- Use Times font (compatible with pdfLaTeX on Overleaf) ---
-\usepackage{times}
-\usepackage{mathptmx}
+% \usepackage{times}
+% \usepackage{mathptmx}
 
 % --- Colors and Tables ---
 \usepackage[table, xcdraw, dvipsnames]{xcolor}
@@ -41,7 +41,6 @@
     urlcolor=black,
     urlbordercolor=blue
 }
-
 \begin{document}
 
 \begin{titlepage}
@@ -97,7 +96,7 @@ Plastic\_box\_solver is a web-based Rubik's Cube assistant that lets users scan 
 \vspace{0.5cm}
 \section{Motivation Behind the Project}
 
-Most people who own a Rubik's Cube never learn to solve it because available resources — video tutorials or raw algorithm sheets — are difficult to follow alongside a physical cube. A browser-based tool that scans the cube, renders it in 3D, and walks the user through each move interactively removes that barrier entirely. Beyond learning, competitive solvers have a genuine need to measure their efficiency against the optimal solution; having a live timer, move counter, and leaderboard turns a solitary puzzle into an engaging, trackable activity.
+Most people who own a Rubik's Cube never learn to solve it because available resources, video tutorials or raw algorithm sheets are difficult to follow alongside a physical cube. A browser-based tool that scans the cube, renders it in 3D, and walks the user through each move interactively removes that barrier entirely. Beyond learning, competitive solvers have a genuine need to measure their efficiency against the optimal solution. Having a live timer, move counter, and leaderboard turns a solitary puzzle into an engaging, trackable activity.
 
 
 \vspace{0.5cm}
@@ -105,18 +104,19 @@ Most people who own a Rubik's Cube never learn to solve it because available res
 
 \subsection*{Stakeholder}
 
-One of our friends, who recently got into Rubik's Cube solving, mentioned that he constantly struggles with following YouTube tutorials while also handling his physical cube. He expressed that he would find it far more convenient if an app could simply scan his cube and show him, on an animated model, exactly which moves to make next — without having to switch back and forth between a video and the physical cube.
+One of our friends, who recently got into Rubik's Cube solving, mentioned that he constantly struggles with following YouTube tutorials while also handling his physical cube. He expressed that he would find it far more convenient if an app could simply scan his cube and show him, on an animated model, exactly which moves to make next, without having to switch back and forth between a video and the physical cube.
 
 \subsection*{Functional Requirements}
 
 \begin{itemize}[itemsep=0.5em, topsep=5pt]
-    \item The system shall allow users to register, log in, and maintain a personal profile.
+    \item The system shall allow users to register, log in, and maintain their personal profile.
     \item The system shall accept a scrambled cube state via camera scan or manual color input.
     \item The system shall detect and validate all 54 sticker colors from the submitted images.
     \item The system shall render the cube as a fully interactive, rotatable 3D model in the browser.
     \item The system shall compute an optimal solution using the Kociemba two-phase algorithm or CFOP or ROUX for auto-solve function.
     \item The system shall support an \textit{Interactive Solve} mode where users manipulate the cube themselves.
     \item The system shall support a \textit{Guided Solve} mode with move-by-move instructions that follows traditional speed cube solving methods.
+    \item The system shall support a \textit{Auto-Solve} mode that animates the entire solution sequence for the user to watch.
     \item The system shall track solve time and move count to calculate efficiency percentage per session.
     \item The system shall persist user history that the user can see in details along with their personal best.
     \item The system shall display a global leaderboard along with the rank of the user.
@@ -127,7 +127,7 @@ One of our friends, who recently got into Rubik's Cube solving, mentioned that h
 \begin{itemize}[itemsep=0.5em, topsep=5pt]
     \item Color detection shall be accurate under standard indoor lighting.
     \item Solution computation shall return a result within two seconds.
-    \item The application shall be responsive and usable on mobile browsers without installation. (This doesn't follow SRS NFR guideline, can't test this requirement. Might wanna change it.)
+    \item The application shall respond to user interactions with loaded functionality on mobile and desktop chromium based browsers without any extra installation.
 \end{itemize}
 
 \newpage
@@ -135,7 +135,7 @@ One of our friends, who recently got into Rubik's Cube solving, mentioned that h
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{assets/flowchart.png}
+    \includegraphics[width=0.65\textwidth]{assets/flowchart2.png}
     \caption{Application Flow Chart}
     \label{fig:flowchart}
 \end{figure}
@@ -150,10 +150,19 @@ The user scans each face of their cube using a phone camera or webcam. The Pytho
 The cube is rendered in the browser using React Three Fiber, built from 26 individual cubie meshes. OrbitControls let the user drag to rotate the view freely. Face rotations triggered by on-screen buttons (U, R, F, etc.) are smoothly animated, and the 3D model stays in sync with the logical cube state at all times.
 
 \subsection*{Solve Modes}
-In \textbf{Interactive Mode}, the user solves the cube themselves; a timer and move counter run live, and the optimal move count is shown on completion for comparison. In \textbf{Guided Mode}, the CFOP move list appears in a sidebar and the user can step through moves one at a time or trigger Auto-Solve to watch the full solution animate automatically with can follow both CFOP and Kociemba algorithms based on the user's preference.
+\begin{itemize}[itemsep=0.5em, topsep=5pt]
+    \item \textbf{Interactive Mode}: The user solves the cube themselves. A timer and move counter run live, and the optimal move count is shown on completion for comparison.
+    \item \textbf{Guided Mode}: The CFOP move list appears in a sidebar and the user can step through moves one at a time or trigger \textbf{Auto-Solve Mode} to watch the full solution animate automatically.
+    \item \textbf{Auto-Solve Mode}: The user can choose to have the cube solved automatically. The system will compute the optimal solution (using Kociemba) or CFOP based on the user's preference and animate the moves in sequence, allowing the user to watch the cube solve itself.
+\end{itemize}
+ 
 
 \subsection*{Statistics and Leaderboard}
-The sidebar shows current solve time, moves taken, and efficiency percentage in real time. All completed solves are saved to the database. Users can view their personal best and compare against others on a global leaderboard ranked by solve time and efficiency.
+\begin{itemize}[itemsep=0.5em, topsep=5pt]
+    \item The sidebar shows current solve time, moves taken, and efficiency percentage in real time.
+    \item All completed solves are saved to the database.
+    \item Users can view their personal best and compare against others on a global leaderboard ranked by solve time/steps and efficiency.
+\end{itemize}
 
 \vspace{0.5cm}
 \section{Tools and Technologies}
@@ -183,7 +192,7 @@ The sidebar shows current solve time, moves taken, and efficiency percentage in 
         \hline
         Computer Vision         & OpenCV + NumPy \\
         \hline
-        Solving Algorithm       & kociemba \\
+        Solving Algorithm       & Kociemba + CFOP \\
         \hline
         ORM                     & SQLAlchemy \\
         \hline
@@ -201,7 +210,7 @@ The sidebar shows current solve time, moves taken, and efficiency percentage in 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{assets/timeline.png}
+    \includegraphics[width=1\linewidth]{assets/timeline2.png}
     \caption{Timeline Diagram (Gantt Chart)}
     \label{fig:timeline}
 \end{figure}
@@ -215,17 +224,17 @@ During our initial review, we received valuable feedback regarding both our deve
       \textbf{Development Strategy: Iterative Implementation} \\
 \begin{enumerate}[label=\arabic*., itemsep=1.5em, topsep=5pt]
     
-    \item \textbf{There are tons of library and algorithms already built for solving the cube, so more features should be added} \\
-    \textit{Response:} Regarding the suggestion that we should add more features since there are tons of libraries and algorithms already built for solving the cube, we are focusing on the 3x3 cube first. There were already plans to add more features and more cube types, which we will be implementing in the later stages of the project if we finish the 3x3 cube early.
+    \item \textbf{There are tons of library and algorithms already built for solving the cube, so more features should be added} \\ \\
+    \textbf{Response:} Regarding the suggestion that we should add more features since there are tons of libraries and algorithms already built for solving the cube, we are focusing on the 3x3 cube first. There were already plans to add more features and more cube types, which we will be implementing in the later stages of the project if we finish the 3x3 cube early.
 
-    \item \textbf{Too many works are being done in parallel in the timeline?} \\
-    \textit{Response:} Since all the tasks are similar in nature, we scheduled them to be worked on in parallel. However, we will try our best to optimize our workflow and finish the work before the estimated time we wrote in the timeline.
+    \item \textbf{Too many works are being done in parallel in the timeline} \\ \\
+    \textbf{Response:} Since all the tasks are similar in nature, we scheduled them to be worked on in parallel. However, we will try our best to optimize our workflow and finish the work before the estimated time we wrote in the timeline.
 \end{enumerate}
 
 \vspace{0.5cm}
 \section{Links}
 \begin{enumerate}[noitemsep, topsep=5pt]
-    \item \href{https://canva.link/p8qdbdnkfnoi8o7}{Presentation Slide Link}
+    \item \href{https://drive.google.com/file/d/12vKdl9qTvfLmDFZV5v-CBeZkiBFru-QV/view?usp=sharing}{Presentation Slide Link}
     \item \href{https://github.com/SMTEmon/plastic-box-solver.git}{GitHub Repository Link}
 \end{enumerate}
 
