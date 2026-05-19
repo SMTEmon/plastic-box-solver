@@ -1,3 +1,10 @@
 # plastic-box-solver
 
-## repo khula drim
+## How to Run
+
+Go to /code
+
+```
+npm install
+npm run dev
+```

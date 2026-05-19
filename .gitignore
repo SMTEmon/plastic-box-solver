@@ -1,3 +1,5 @@
+.refact/
+
 
 // Ignore LaTeX auxiliary files
 *.pdf
