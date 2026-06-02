@@ -13,3 +13,6 @@
 *.xdv
 
 
+*/dist
+*/.vscode
+*/node_modules
