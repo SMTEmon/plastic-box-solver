@@ -62,6 +62,7 @@ export default function CubeInput() {
             <textarea
               style={{
                 width: "100%",
+                boxSizing: "border-box",
                 height: 420,
                 borderRadius: 12,
                 padding: 16,

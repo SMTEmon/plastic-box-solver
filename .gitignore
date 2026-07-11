@@ -1,7 +1,7 @@
 .refact/
 
 
-// Ignore LaTeX auxiliary files
+# Ignore LaTeX auxiliary files
 *.pdf
 *.aux
 *.fdb_latexmk

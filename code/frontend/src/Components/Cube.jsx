@@ -8,7 +8,7 @@ import Buttons from "./Buttons";
 import { parseCubeString } from "../lib/cubeInput.js";
 import { mapFacesToCubelets } from "../lib/mapToCubelets.js";
 
-export default function Cube({ initialFaces }) {
+export default function Cube({ initialFaces, interactive = false }) {
   const ref = useRef();
 
   const roundedBoxGeometry = useMemo(() => {
@@ -55,7 +55,7 @@ export default function Cube({ initialFaces }) {
           ),
         )}
       </group>
-      <Buttons cubeGroup={ref} />
+      {interactive && <Buttons cubeGroup={ref} />}
     </>
   );
 }

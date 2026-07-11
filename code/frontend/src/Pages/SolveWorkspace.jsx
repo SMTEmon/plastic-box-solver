@@ -17,7 +17,7 @@ export default function SolveWorkspace() {
           background: "#0a0a12",
         }}
       >
-        <CubeScene />
+        <CubeScene interactive={true} />
       </div>
 
       <p style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
