@@ -1,5 +1,8 @@
+import { useState } from "react";
 import AppShell from "../Layout/AppShell";
 import { Link } from "react-router-dom";
+import { parseCubeString } from "../lib/cubeInput.js";
+import CubeScene from "../Three/CubeScene";
 
 function Card({ title, children }) {
   return (
@@ -20,6 +23,28 @@ function Card({ title, children }) {
 }
 
 export default function CubeInput() {
+  const [inputStr, setInputStr] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [validFaces, setValidFaces] = useState(null);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputStr(val);
+    if (!val.trim()) {
+      setErrorMsg("");
+      setValidFaces(null);
+      return;
+    }
+    try {
+      const parsed = parseCubeString(val);
+      setValidFaces(parsed);
+      setErrorMsg("");
+    } catch (err) {
+      setErrorMsg(err.message);
+      setValidFaces(null);
+    }
+  };
+
   return (
     <AppShell>
       <div style={{ display: "flex", gap: 12, height: "calc(100vh - 32px)" }}>
@@ -34,20 +59,22 @@ export default function CubeInput() {
           </div>
 
           <Card title="Input workspace">
-            <div
+            <textarea
               style={{
+                width: "100%",
                 height: 420,
                 borderRadius: 12,
-                border: "1px dashed rgba(255,255,255,0.12)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "rgba(255,255,255,0.65)",
-                fontSize: 13,
+                padding: 16,
+                background: "#0a0a12",
+                color: "#fff",
+                border: "1px solid rgba(255,255,255,0.2)",
+                fontFamily: "monospace",
+                resize: "none"
               }}
-            >
-              (Later: 2D net / photo input)
-            </div>
+              value={inputStr}
+              onChange={handleInputChange}
+              placeholder="Paste 54-char string here..."
+            />
 
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -67,8 +94,8 @@ export default function CubeInput() {
         {/* Right panel */}
         <div style={{ width: 320, display: "flex", flexDirection: "column", gap: 12 }}>
           <Card title="Status">
-            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 8 }}>
-              invalid state
+            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 8, color: errorMsg ? "#ff4d4d" : validFaces ? "#2ecc71" : "#fff" }}>
+              {errorMsg ? errorMsg : validFaces ? "Valid State!" : "Waiting for input..."}
             </div>
             <button
               style={{
@@ -98,8 +125,8 @@ export default function CubeInput() {
           </Card>
 
           <Card title="Preview">
-            <div style={{ fontSize: 12, opacity: 0.7 }}>
-              (Later: 3D cube preview or 2D preview)
+            <div style={{ height: 200, borderRadius: 8, overflow: "hidden", background: "#000" }}>
+              {validFaces ? <CubeScene initialFaces={validFaces} /> : <div style={{padding: 10, fontSize: 12, opacity: 0.7}}>Invalid/Empty state</div>}
             </div>
           </Card>
         </div>

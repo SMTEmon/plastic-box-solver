@@ -56,9 +56,9 @@ test("throws on invalid opposite centers", () => {
     "WWWWWWWWW",
     "RRRRRRRRR",
     "BBBBBBBBB",
-    "RRRRRRRRR", // D center is R which is invalid opposite for U
+    "YYYYRRYYY", // D center is R, swapped with Y below
     "OOOOOOOOO",
-    "GGGGGGGGG",
+    "GGGYYGGGG", // B center is Y
   ].join("\n");
 
   assert.throws(() => parseCubeString(bad));
