@@ -1,13 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from database import get_db
-from models import User
+from app.db.database import get_db
+from app.db.models import User
 from pydantic import BaseModel
-from utils.auth_utils import hash_password, verify_password, create_access_token
+from app.utils.auth_utils import hash_password, verify_password, create_access_token, decode_token
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+router = APIRouter(prefix="/api/auth", tags=["Auth"])
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 class UserCreate(BaseModel):
     username: str
@@ -47,5 +47,3 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if not user:
         raise HTTPException(404, "User not found")
     return user
-
-from utils.auth_utils import decode_token

@@ -6,9 +6,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
-EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+# We provide default fallback values so it works out of the box without a .env file
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback_secret_key_for_testing_only")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

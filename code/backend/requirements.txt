@@ -2,10 +2,11 @@ fastapi
 uvicorn
 numpy
 rubik-solver
+kociemba
 python-dotenv
 sqlalchemy
 psycopg2-binary
 passlib[bcrypt]
 python-jose[cryptography]
-python-multipart 
+python-multipart
 opencv-python
