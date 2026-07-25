@@ -6,8 +6,9 @@ from datetime import datetime
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True)          # login identity (FR-01/02)
+    display_name = Column(String, unique=True, index=True)    # shown on leaderboard (FR-03)
+    avatar = Column(String, nullable=True)                    # avatar URL / identifier (FR-03)
     hashed_password = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     solves = relationship("Solve", back_populates="user")

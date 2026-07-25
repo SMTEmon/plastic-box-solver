@@ -63,13 +63,38 @@ def _build_permutation(face):
 PERMS = {f: _build_permutation(f) for f in FACES}
 
 
+# --- Whole-cube rotations (X, Y, Z) -----------------------------------------
+# rubik_solver's Beginner method can emit whole-cube rotations (capitalised
+# X/Y/Z) as "rotate the cube in your hands" instructions. Unlike a face turn,
+# a rotation moves EVERY sticker, not just one layer. We generate their
+# permutations from the same geometry so segmentation (stages.py) can replay
+# a guided solution that contains rotations. X follows R's spin direction, Y
+# follows U, Z follows F.
+_ROT_AXIS = {"X": 0, "Y": 1, "Z": 2}   # 0=x 1=y 2=z
+_ROT_DIR = {"X": 1, "Y": 1, "Z": 1}
+
+
+def _build_rotation(letter):
+    """perm[new_index] = old_index, for a rotation of the whole cube."""
+    axis, direction = _ROT_AXIS[letter], _ROT_DIR[letter]
+    perm = list(range(54))
+    for i, g in enumerate(GEOM):   # ALL stickers — no layer filter
+        j = INDEX_OF[_key(_rot90(g["pos"], axis, direction), _rot90(g["normal"], axis, direction))]
+        perm[j] = i
+    return perm
+
+
+ROT_PERMS = {l: _build_rotation(l) for l in "XYZ"}
+
+
 def apply_move(facelets: str, move: str) -> str:
-    """move like 'R', "R'", 'R2'."""
-    face = move[0]
+    """move like 'R', "R'", 'R2', or a whole-cube rotation 'X'/'Y'/'Z' (+ '/2)."""
+    token = move[0]
+    perm_table = ROT_PERMS[token] if token in ROT_PERMS else PERMS[token]
     times = 2 if move.endswith("2") else 3 if move.endswith("'") else 1
     out = facelets
     for _ in range(times):
-        out = "".join(out[src] for src in PERMS[face])
+        out = "".join(out[src] for src in perm_table)
     return out
 
 

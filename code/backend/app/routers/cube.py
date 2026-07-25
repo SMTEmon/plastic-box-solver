@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from app.cube import solver, validate as validate_mod
+from app.cube import solver, stages as stages_mod, validate as validate_mod
 from app.cube.scramble import random_scramble
 from app.schemas import (
     ScrambleResponse,
@@ -39,12 +39,18 @@ def solve(body: SolveRequest):
 
     if body.method == "optimal":
         moves = optimal
+        # Auto-Solve has no teaching stages; expose one segment for the UI.
+        stages = (
+            [{"name": "Solution", "start": 0, "end": len(moves)}] if moves else []
+        )
     else:
         moves = solver.solve_guided(body.facelets, method="Beginner")
+        stages = stages_mod.segment(body.facelets, moves)
 
     return SolveResponse(
         moves=moves,
         moveCount=len(moves),
+        stages=stages,
         optimalMoves=optimal,
         optimalMoveCount=len(optimal),
     )

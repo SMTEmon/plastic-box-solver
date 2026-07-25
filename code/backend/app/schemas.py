@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -13,9 +14,16 @@ class SolveRequest(BaseModel):
     method: Literal["optimal", "beginner"] = "optimal"
 
 
+class Stage(BaseModel):
+    name: str
+    start: int   # index into moves[] where this stage begins (inclusive)
+    end: int     # index where it ends (exclusive); moves[start:end] complete it
+
+
 class SolveResponse(BaseModel):
     moves: list[str]
     moveCount: int
+    stages: list[Stage]
     optimalMoves: list[str]
     optimalMoveCount: int
 
@@ -27,3 +35,32 @@ class ValidateRequest(BaseModel):
 class ValidateResponse(BaseModel):
     valid: bool
     detail: Optional[str] = None
+
+
+# --- Persistence (FR-12a, FR-13a, FR-13b) -----------------------------------
+
+class SolveCreate(BaseModel):
+    solve_time: float = Field(..., gt=0)   # seconds the user took
+    move_count: int = Field(..., ge=1)     # user's actual move count
+    optimal_moves: int = Field(..., ge=0)  # optimalMoveCount from /solve
+    method: str = "Beginner"
+    scramble: Optional[str] = None
+    solution: Optional[str] = None
+
+
+class SolveOut(BaseModel):
+    id: int
+    solve_time: float
+    move_count: int
+    optimal_moves: int
+    efficiency: float
+    method: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True   # read straight off the SQLAlchemy row
+
+
+class HistoryResponse(BaseModel):
+    solves: list[SolveOut]
+    personal_best: Optional[SolveOut] = None

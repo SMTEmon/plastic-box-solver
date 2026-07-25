@@ -31,3 +31,13 @@ print("U sends F top row to L: OK")
 for f in "URFDLB":
     assert apply_move(apply_move(SOLVED, f), invert(f)) == SOLVED
 print("move + inverse = identity: OK")
+
+# Whole-cube rotations (X/Y/Z) used by the guided solver's replay.
+for r in "XYZ":
+    s = SOLVED
+    for _ in range(4):
+        s = apply_move(s, r)
+    assert s == SOLVED, f"4x {r} failed"
+    assert apply_move(apply_move(SOLVED, r), r + "'") == SOLVED, f"{r} + {r}' failed"
+    assert apply_move(SOLVED, r + "2") == apply_move(apply_move(SOLVED, r), r), f"{r}2 != {r}{r}"
+print("rotations X/Y/Z invariants: OK")

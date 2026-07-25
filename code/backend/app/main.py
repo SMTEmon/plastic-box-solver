@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Database imports
 from app.db.database import engine, Base
-from app.routers import cube, auth
+from app.routers import cube, auth, solves, leaderboard, profile
 
 # Creates all DB tables automatically when the app starts
 Base.metadata.create_all(bind=engine)
@@ -29,6 +29,9 @@ app.add_middleware(
 # Include Routers
 app.include_router(cube.router)
 app.include_router(auth.router)
+app.include_router(solves.router)
+app.include_router(leaderboard.router)
+app.include_router(profile.router)
 
 @app.get("/health")
 def health():

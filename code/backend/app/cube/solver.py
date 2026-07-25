@@ -3,18 +3,64 @@ from rubik_solver import utils as rs_utils
 
 from .adapters import to_kociemba, to_rubik_solver
 from .constants import SOLVED
+from .moves import apply_move, apply_moves
 
-# rubik_solver's "Beginner" method can emit WHOLE-CUBE rotations (x, y, z —
-# shown capitalised, e.g. "Y"), not just face turns. These re-orient the
-# cube in your hands without turning any layer. Our apply_move() (moves.py)
-# only understands face turns, so whole-cube rotations can't be replayed
-# against our facelet model yet. For M1 we surface them as-is in the move
-# list (a real beginner's-method app needs to show them too — "rotate the
-# cube so white is on top" is a real instruction). If/when you build the
-# replay-and-segment stage logic (build_guide.md §4.4), you'll need to
-# either extend apply_move to handle x/y/z, or eliminate rotations by
-# re-deriving each subsequent face move relative to the rotated frame.
-CUBE_ROTATIONS = {"X", "Y", "Z", "X'", "Y'", "Z'", "X2", "Y2", "Z2"}
+# rubik_solver's "Beginner" method emits WHOLE-CUBE rotations (X, Y, Z — cube
+# reorientations, not layer turns) alongside face turns. Two things must be
+# reconciled before its output is usable against our facelet model:
+#
+# 1. DIRECTION. rubik_solver's rotation convention is the mirror of ours:
+#    its X/Y/Z spin the opposite way to our apply_move's. (Face turns U..B
+#    match 1:1 — verified empirically against the rubik_solver engine.) So we
+#    invert every rotation token when translating into our notation.
+#
+# 2. FINAL ORIENTATION. rubik_solver stops when the cube is uniform, which can
+#    leave it visually solved but reoriented (a net cube rotation it never
+#    cancels). We detect that leftover reorientation and append a corrective
+#    rotation so the sequence lands on our exact SOLVED string — which the
+#    stage predicates (stages.py) and the frontend both depend on.
+_ROT_TOKENS = "XYZ"
+
+
+def _translate(move: str) -> str:
+    """rubik_solver token -> our token. Only rotations flip direction."""
+    if move[0] in _ROT_TOKENS:
+        if move.endswith("2"):
+            return move
+        return move[0] if move.endswith("'") else move + "'"
+    return move
+
+
+# The 24 whole-cube orientations, each as a short sequence of our rotation
+# tokens. Used to find the single corrective rotation that re-cans a
+# visually-solved-but-reoriented cube back onto SOLVED.
+def _orientation_sequences():
+    gens = [t + s for t in _ROT_TOKENS for s in ("", "'", "2")]
+    seen = {SOLVED: []}
+    frontier = [[]]
+    while frontier:
+        seq = frontier.pop()
+        state = apply_moves(SOLVED, seq)
+        for g in gens:
+            nxt = apply_move(state, g)
+            if nxt not in seen:
+                seen[nxt] = seq + [g]
+                frontier.append(seq + [g])
+    return seen  # facelets -> rotation-token sequence reaching it from SOLVED
+
+
+_ORIENTATIONS = _orientation_sequences()
+
+
+def _corrective_rotation(state: str) -> list[str]:
+    """Rotation tokens that turn a uniform-but-reoriented `state` into SOLVED,
+    or [] if it's already SOLVED / not a pure reorientation."""
+    if state == SOLVED:
+        return []
+    for target, seq in _ORIENTATIONS.items():
+        if apply_moves(state, seq) == SOLVED:
+            return seq
+    return []  # not a pure reorientation (shouldn't happen for a valid solve)
 
 
 def solve_optimal(facelets: str) -> list[str]:
@@ -27,13 +73,30 @@ def solve_optimal(facelets: str) -> list[str]:
 
 
 def solve_guided(facelets: str, method: str = "Beginner") -> list[str]:
-    """method: 'Beginner' | 'CFOP' | 'Kociemba' (rubik_solver's own, not the
-    kociemba package — avoid this one, only Beginner is reliable right now,
-    see note below)."""
+    """Beginner's-method move list in OUR notation, guaranteed to drive
+    `facelets` to the exact SOLVED string when replayed with apply_move.
+
+    method: 'Beginner' | 'CFOP' | 'Kociemba' (rubik_solver's own) — only
+    'Beginner' is reliable right now (see note at bottom of file)."""
     if facelets == SOLVED:
         return []
-    raw = rs_utils.solve(to_rubik_solver(facelets), method)
-    return [str(m) for m in raw]
+    raw = [str(m) for m in rs_utils.solve(to_rubik_solver(facelets), method)]
+    moves = [_translate(m) for m in raw]
+    moves += _corrective_rotation(apply_moves(facelets, moves))
+    return _trim_after_solved(facelets, moves)
+
+
+def _trim_after_solved(facelets: str, moves: list[str]) -> list[str]:
+    """rubik_solver often tacks redundant moves on after the cube is already
+    solved (e.g. a trailing 'U U U U'). Cut the list at the first move that
+    reaches SOLVED — always a correct, shorter solution, and it keeps the
+    stage segmentation's final 'Solved' boundary at len(moves)."""
+    state = facelets
+    for i, mv in enumerate(moves):
+        state = apply_move(state, mv)
+        if state == SOLVED:
+            return moves[: i + 1]
+    return moves
 
 
 # --- What we verified while building this, keep for whoever reads this file ---
