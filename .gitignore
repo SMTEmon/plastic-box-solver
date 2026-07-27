@@ -1,5 +1,5 @@
 .refact/
-
+*.DS_Store
 
 // Ignore LaTeX auxiliary files
 *.pdf
