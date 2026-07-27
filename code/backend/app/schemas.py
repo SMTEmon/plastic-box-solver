@@ -37,6 +37,21 @@ class ValidateResponse(BaseModel):
     detail: Optional[str] = None
 
 
+# --- Camera scan (FR-04, FR-06a, FR-17) -------------------------------------
+
+class FaceQuality(BaseModel):
+    face: str            # which face this frame is: one of U R F D L B
+    blurry: bool         # variance-of-Laplacian too low (prompt retake)
+    dark: bool           # mean brightness too low (prompt retake)
+
+
+class ScanResponse(BaseModel):
+    facelets: str                      # detected 54-char canonical state
+    valid: bool                        # passed validate.validate()?
+    detail: Optional[str] = None       # why invalid, for rescan guidance
+    faces: list[FaceQuality]           # per-face capture quality, URFDLB order
+
+
 # --- Persistence (FR-12a, FR-13a, FR-13b) -----------------------------------
 
 class SolveCreate(BaseModel):
