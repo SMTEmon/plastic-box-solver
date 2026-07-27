@@ -11,7 +11,7 @@
 *.synctex.gz
 *.toc
 *.xdv
-
+*.md
 
 */dist
 */.vscode
