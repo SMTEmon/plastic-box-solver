@@ -1,0 +1,16 @@
+# Python Virtual Environment
+venv/
+env/
+
+# Python Cache & Compiled Files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment Variables
+.env
+
+# Testing & Tooling
+.pytest_cache/
+.coverage
