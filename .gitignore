@@ -1,5 +1,5 @@
 .refact/
-
+*.DS_Store
 
 # Ignore LaTeX auxiliary files
 *.pdf
@@ -11,7 +11,7 @@
 *.synctex.gz
 *.toc
 *.xdv
-
+*.md
 
 */dist
 */.vscode

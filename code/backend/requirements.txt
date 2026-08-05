@@ -1,0 +1,13 @@
+fastapi
+email-validator
+uvicorn
+numpy
+rubik-solver
+kociemba
+python-dotenv
+sqlalchemy
+psycopg2-binary
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
+opencv-python
