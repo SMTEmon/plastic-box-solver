@@ -3,8 +3,8 @@ import AppShell from "../Layout/AppShell";
 export default function Leaderboard() {
   return (
     <AppShell>
-      <h2 style={{ margin: 0, fontSize: 18 }}>Leaderboard</h2>
-      <p style={{ opacity: 0.8 }}>Later: best solves, efficiency, etc.</p>
+      <h2 className="text-xl font-bold text-white mb-2">Leaderboard</h2>
+      <p className="text-xs text-gray-400">Later: best solves, efficiency, etc.</p>
     </AppShell>
   );
 }

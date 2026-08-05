@@ -1,107 +1,54 @@
 import { NavLink } from "react-router-dom";
 
-const linkBase = {
-  display: "block",
-  padding: "10px 12px",
-  borderRadius: 10,
-  textDecoration: "none",
-  color: "#cfcfe6",
-  fontSize: 13,
-  margin: "6px 0",
-};
-
-const linkActive = {
-  background: "#2b2a38",
-  color: "#ffffff",
-};
+function NavItem({ to, children }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `block px-3 py-2.5 rounded-lg text-sm my-1.5 transition-colors border ${
+          isActive
+            ? "bg-dark-surface text-white border-neon-blue"
+            : "text-gray-300 border-transparent hover:bg-gray-800 hover:text-white"
+        }`
+      }
+    >
+      {children}
+    </NavLink>
+  );
+}
 
 export default function AppShell({ title = "Plastic_box_solver", children }) {
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#0b0b10" }}>
-      <aside
-        style={{
-          width: 230,
-          padding: 14,
-          borderRight: "1px solid rgba(255,255,255,0.06)",
-          background: "#0f0f16",
-          color: "#fff",
-          boxSizing: "border-box",
-          position: "relative",
-        }}
-      >
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>
+    <div className="flex h-screen bg-dark-bg text-white overflow-hidden">
+      <aside className="w-[230px] p-4 border-r border-dark-border bg-dark-surface flex flex-col relative shrink-0">
+        <div className="font-bold text-sm mb-0.5 text-neon-blue">
           {title}
         </div>
-        <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 16 }}>
-          Precision cube tool
-        </div>
+        <div className="text-xs text-gray-400 mb-4">Precision cube tool</div>
 
-        <nav>
-          <NavLink
-            to="/dashboard"
-            style={({ isActive }) => ({
-              ...linkBase,
-              ...(isActive ? linkActive : null),
-            })}
-          >
-            Dashboard
-          </NavLink>
-
-          <NavLink
-            to="/cube-input"
-            style={({ isActive }) => ({
-              ...linkBase,
-              ...(isActive ? linkActive : null),
-            })}
-          >
-            Cube Input
-          </NavLink>
-
-          <NavLink
-            to="/solve"
-            style={({ isActive }) => ({
-              ...linkBase,
-              ...(isActive ? linkActive : null),
-            })}
-          >
-            Solve Workspace
-          </NavLink>
-
-          <NavLink
-            to="/leaderboard"
-            style={({ isActive }) => ({
-              ...linkBase,
-              ...(isActive ? linkActive : null),
-            })}
-          >
-            Leaderboard
-          </NavLink>
+        <nav className="flex-1">
+          <NavItem to="/dashboard">Dashboard</NavItem>
+          <NavItem to="/cube-input">Cube Input</NavItem>
+          <NavItem to="/solve">Solve Workspace</NavItem>
+          <NavItem to="/leaderboard">Leaderboard</NavItem>
         </nav>
 
-        <div style={{ position: "absolute", bottom: 14, left: 14, right: 14 }}>
+        <div className="mt-auto pt-4">
           <button
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.08)",
-              background: "#171726",
-              color: "#fff",
-              cursor: "pointer",
-            }}
+            className="w-full px-3 py-2.5 rounded-lg border border-dark-border bg-dark-bg text-white cursor-pointer transition-colors hover:border-neon-green hover:text-neon-green"
             onClick={() => alert("Later: create new solve")}
           >
             + New Solve
           </button>
 
-          <div style={{ marginTop: 10, fontSize: 12, opacity: 0.8 }}>
-            <div style={{ padding: "6px 4px" }}>Help</div>
-            <div style={{ padding: "6px 4px" }}>Logout</div>
+          <div className="mt-3 text-xs text-gray-400 flex flex-col gap-1">
+            <button className="text-left px-1 py-1.5 hover:text-white transition-colors cursor-pointer">Help</button>
+            <button className="text-left px-1 py-1.5 hover:text-white transition-colors cursor-pointer">Logout</button>
           </div>
         </div>
       </aside>
 
-      <main style={{ flex: 1, padding: 16, color: "#fff" }}>{children}</main>
+      <main className="flex-1 p-4 overflow-y-auto">{children}</main>
     </div>
   );
 }
