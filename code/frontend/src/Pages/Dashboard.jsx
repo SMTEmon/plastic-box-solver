@@ -3,8 +3,8 @@ import AppShell from "../Layout/AppShell";
 export default function Dashboard() {
   return (
     <AppShell>
-      <h2 style={{ margin: 0, fontSize: 18 }}>Dashboard</h2>
-      <p style={{ opacity: 0.8 }}>Later: stats, recent solves, etc.</p>
+      <h2 className="text-xl font-bold text-white mb-2">Dashboard</h2>
+      <p className="text-xs text-gray-400">Later: stats, recent solves, etc.</p>
     </AppShell>
   );
 }

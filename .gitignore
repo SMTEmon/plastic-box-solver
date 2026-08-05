@@ -1,7 +1,7 @@
 .refact/
 *.DS_Store
 
-// Ignore LaTeX auxiliary files
+# Ignore LaTeX auxiliary files
 *.pdf
 *.aux
 *.fdb_latexmk

@@ -1,5 +1,9 @@
-import kociemba
-from rubik_solver import utils as rs_utils
+try:
+    import kociemba  # type: ignore
+except Exception:
+    kociemba = None
+
+from rubik_solver import utils as rs_utils # type: ignore
 
 from .adapters import to_kociemba, to_rubik_solver
 from .constants import SOLVED
@@ -68,8 +72,13 @@ def solve_optimal(facelets: str) -> list[str]:
     and the optimalMoveCount denominator in efficiency % (build_guide.md §1.1)."""
     if facelets == SOLVED:
         return []  # guard: kociemba's C solver doesn't reliably return ""
-    moves = kociemba.solve(to_kociemba(facelets)).split()
-    return moves
+    if kociemba:
+        moves = kociemba.solve(to_kociemba(facelets)).split()
+        return moves
+    raw = [str(m) for m in rs_utils.solve(to_rubik_solver(facelets), "Kociemba")]
+    moves = [_translate(m) for m in raw]
+    moves += _corrective_rotation(apply_moves(facelets, moves))
+    return _trim_after_solved(facelets, moves)
 
 
 def solve_guided(facelets: str, method: str = "Beginner") -> list[str]:

@@ -1,17 +1,13 @@
+import { useState } from "react";
 import AppShell from "../Layout/AppShell";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { parseCubeString } from "../lib/cubeInput.js";
+import CubeScene from "../Three/CubeScene";
 
 function Card({ title, children }) {
   return (
-    <div
-      style={{
-        background: "#121221",
-        border: "1px solid rgba(255,255,255,0.07)",
-        borderRadius: 14,
-        padding: 14,
-      }}
-    >
-      <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 10 }}>
+    <div className="bg-dark-surface border border-dark-border rounded-xl p-4">
+      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
         {title}
       </div>
       {children}
@@ -20,86 +16,127 @@ function Card({ title, children }) {
 }
 
 export default function CubeInput() {
+  const navigate = useNavigate();
+  const [inputStr, setInputStr] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [validFaces, setValidFaces] = useState(null);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputStr(val);
+    if (!val.trim()) {
+      setErrorMsg("");
+      setValidFaces(null);
+      return;
+    }
+    try {
+      const parsed = parseCubeString(val);
+      setValidFaces(parsed);
+      setErrorMsg("");
+    } catch (err) {
+      setErrorMsg(err.message);
+      setValidFaces(null);
+    }
+  };
+
+  const handleSolveClick = () => {
+    if (validFaces) {
+      navigate("/solve", { state: { initialFaces: validFaces } });
+    }
+  };
+
   return (
     <AppShell>
-      <div style={{ display: "flex", gap: 12, height: "calc(100vh - 32px)" }}>
+      <div className="flex gap-4 h-[calc(100vh-2rem)]">
         {/* Center area */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <h2 style={{ margin: 0, fontSize: 18 }}>Cube Input</h2>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button style={topButtonStyle}>Camera</button>
-              <button style={{ ...topButtonStyle, background: "#2d4cff" }}>Manual</button>
+        <div className="flex-1 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold tracking-tight text-white">Cube Input</h2>
+            <div className="flex gap-2">
+              <button className="px-3 py-1.5 rounded-lg border border-dark-border bg-dark-surface text-gray-300 text-xs font-medium cursor-pointer hover:text-white transition-colors">
+                Camera
+              </button>
+              <button className="px-3 py-1.5 rounded-lg border border-neon-blue bg-neon-blue/10 text-neon-blue text-xs font-medium cursor-pointer">
+                Manual
+              </button>
             </div>
           </div>
 
           <Card title="Input workspace">
-            <div
-              style={{
-                height: 420,
-                borderRadius: 12,
-                border: "1px dashed rgba(255,255,255,0.12)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "rgba(255,255,255,0.65)",
-                fontSize: 13,
-              }}
-            >
-              (Later: 2D net / photo input)
-            </div>
+            <textarea
+              className="w-full h-[420px] rounded-xl p-4 bg-dark-bg text-white border border-dark-border font-mono text-sm resize-none focus:outline-none focus:border-neon-blue focus:ring-1 focus:ring-neon-blue transition-colors placeholder:text-gray-600"
+              value={inputStr}
+              onChange={handleInputChange}
+              placeholder="Paste 54-char string here..."
+            />
 
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <div style={{ fontSize: 11, opacity: 0.7 }}>Select color</div>
+            <div className="flex items-center justify-between mt-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">Select color</span>
                 {["#ffffff", "#ffd400", "#ff4d4d", "#ff8c00", "#2d4cff", "#2ecc71"].map((c) => (
-                  <div key={c} style={{ width: 16, height: 16, borderRadius: 4, background: c }} />
+                  <div
+                    key={c}
+                    className="w-4 h-4 rounded border border-white/10"
+                    style={{ background: c }}
+                  />
                 ))}
               </div>
 
-              <div style={{ fontSize: 11, opacity: 0.6 }}>
+              <span className="text-gray-500">
                 Tip: tap faces to apply colors (later)
-              </div>
+              </span>
             </div>
           </Card>
         </div>
 
         {/* Right panel */}
-        <div style={{ width: 320, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="w-80 flex flex-col gap-4">
           <Card title="Status">
-            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 8 }}>
-              invalid state
+            <div
+              className={`text-xs font-medium mb-3 ${
+                errorMsg
+                  ? "text-red-400"
+                  : validFaces
+                  ? "text-neon-green"
+                  : "text-gray-400"
+              }`}
+            >
+              {errorMsg ? errorMsg : validFaces ? "✓ Valid State!" : "Waiting for input..."}
             </div>
+
             <button
-              style={{
-                width: "100%",
-                padding: "12px 12px",
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.08)",
-                background: "#aab7ff",
-                color: "#101020",
-                cursor: "pointer",
-                fontWeight: 700,
-              }}
-              onClick={() => alert("Later: call backend / solve")}
+              className={`w-full py-3 px-4 rounded-xl font-bold text-sm cursor-pointer transition-colors ${
+                validFaces
+                  ? "bg-neon-blue text-dark-bg hover:opacity-90"
+                  : "bg-gray-800 text-gray-500 border border-dark-border cursor-not-allowed"
+              }`}
+              onClick={handleSolveClick}
+              disabled={!validFaces}
             >
               Solve Cube
             </button>
 
-            <div style={{ marginTop: 10 }}>
-              <Link to="/solve" style={{ color: "#aab7ff", fontSize: 12 }}>
+            <div className="mt-3 text-center">
+              <Link
+                to="/solve"
+                className="text-xs text-neon-blue hover:underline transition-colors"
+              >
                 Go to Solve Workspace →
               </Link>
             </div>
           </Card>
 
           <Card title="Algorithm">
-            <div style={{ fontSize: 12, opacity: 0.8 }}>Kociemba 2-phase</div>
+            <div className="text-xs text-gray-300 font-medium">Kociemba 2-phase</div>
           </Card>
 
           <Card title="Preview">
-            <div style={{ fontSize: 12, opacity: 0.7 }}>
-              (Later: 3D cube preview or 2D preview)
+            <div className="h-48 rounded-xl overflow-hidden bg-black border border-dark-border flex items-center justify-center">
+              {validFaces ? (
+                <CubeScene initialFaces={validFaces} />
+              ) : (
+                <span className="text-xs text-gray-600">Invalid / Empty state</span>
+              )}
             </div>
           </Card>
         </div>
@@ -107,12 +144,3 @@ export default function CubeInput() {
     </AppShell>
   );
 }
-
-const topButtonStyle = {
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "#171726",
-  color: "#fff",
-  cursor: "pointer",
-};

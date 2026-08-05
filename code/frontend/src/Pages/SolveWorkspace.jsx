@@ -1,26 +1,20 @@
 import AppShell from "../Layout/AppShell";
 import CubeScene from "../Three/CubeScene";
+import { useLocation } from "react-router-dom";
 
 export default function SolveWorkspace() {
+  const location = useLocation();
+  const initialFaces = location.state?.initialFaces;
+
   return (
     <AppShell>
-      <h2 style={{ margin: 0, fontSize: 18, marginBottom: 12 }}>
-        Solve Workspace
-      </h2>
+      <h2 className="text-xl font-bold mb-3 text-white">Solve Workspace</h2>
 
-      <div
-        style={{
-          height: 520,
-          borderRadius: 14,
-          overflow: "hidden",
-          border: "1px solid rgba(255,255,255,0.07)",
-          background: "#0a0a12",
-        }}
-      >
-        <CubeScene />
+      <div className="h-[520px] rounded-xl overflow-hidden border border-dark-border bg-dark-bg">
+        <CubeScene initialFaces={initialFaces} interactive={true} />
       </div>
 
-      <p style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
+      <p className="mt-3 text-xs text-gray-400">
         Keyboard (for now): U/D/L/R/F/B turns. Hold Shift for reverse.
       </p>
     </AppShell>
