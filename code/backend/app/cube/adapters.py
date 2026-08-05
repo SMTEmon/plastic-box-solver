@@ -32,4 +32,4 @@ def to_rubik_solver(facelets: str) -> str:
     colour scheme (see note above) — not our canonical one."""
     blocks = {FACE_ORDER[i]: facelets[i * 9:(i + 1) * 9] for i in range(6)}
     s = "".join(blocks[f] for f in "ULFRBD")
-    return "".join(_RUBIK_SOLVER_COLOUR_FIX[c] for c in s)
+    return "".join(_RUBIK_SOLVER_COLOUR_FIX[c.lower()] for c in s)
