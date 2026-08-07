@@ -5,8 +5,10 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 
 import Cubelet from "./Cubelet";
 import Buttons from "./Buttons";
+import { parseCubeString } from "../lib/cubeInput.js";
+import { mapFacesToCubelets } from "../lib/mapToCubelets.js";
 
-export default function Cube() {
+export default function Cube({ initialFaces, interactive = false }) {
   const ref = useRef();
 
   const roundedBoxGeometry = useMemo(() => {
@@ -16,6 +18,22 @@ export default function Cube() {
   useFrame(() => {
     JEASINGS.update();
   });
+
+  // prepare cubelet stickers map if initialFaces provided
+  let stickersMap = null;
+  try {
+    if (initialFaces) {
+      const faces =
+        typeof initialFaces === "string"
+          ? parseCubeString(initialFaces)
+          : initialFaces;
+      stickersMap = mapFacesToCubelets(faces);
+    }
+  } catch (e) {
+    // swallow parse errors for now, fall back to default rendering
+    console.warn("Invalid initialFaces provided:", e.message);
+    stickersMap = null;
+  }
 
   return (
     <>
@@ -27,12 +45,17 @@ export default function Cube() {
                 key={x + y * 3 + z * 9}
                 position={[x - 1, y - 1, z - 1]}
                 geometry={roundedBoxGeometry}
+                stickers={
+                  stickersMap
+                    ? stickersMap[`${x - 1},${y - 1},${z - 1}`]
+                    : undefined
+                }
               />
             )),
           ),
         )}
       </group>
-      <Buttons cubeGroup={ref} />
+      {interactive && <Buttons cubeGroup={ref} />}
     </>
   );
 }
