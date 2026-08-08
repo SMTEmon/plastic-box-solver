@@ -73,15 +73,40 @@ export default function CameraScan() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // webcam capture
+  // --- webcam -------------------------------------------------------------
   const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const [camOn, setCamOn] = useState(false);
+  const [stream, setStream] = useState(null);
   const [camSlot, setCamSlot] = useState(0);
+  const [camReady, setCamReady] = useState(false);
+  const [devices, setDevices] = useState([]);
+  const [deviceId, setDeviceId] = useState("");
+  const camOn = Boolean(stream);
 
+  /**
+   * Attach the stream AFTER the <video> element exists.
+   *
+   * This is what made the preview render solid black: the element lives
+   * inside `{camOn && ...}`, so at the moment getUserMedia resolved,
+   * videoRef.current was still null and `srcObject` was assigned to nothing.
+   * Setting the stream in state renders the element first; this effect then
+   * attaches it. play() is called explicitly because autoPlay does not always
+   * fire when srcObject is set after mount.
+   */
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !stream) return;
+    v.srcObject = stream;
+    const onReady = () => setCamReady(v.videoWidth > 0);
+    v.addEventListener("loadedmetadata", onReady);
+    if (v.readyState >= 1) onReady(); // metadata already there, no event coming
+    v.play().catch(() => {});
+    return () => v.removeEventListener("loadedmetadata", onReady);
+  }, [stream]);
+
+  // Stop the camera when leaving the page -- otherwise the webcam LED stays on.
   useEffect(
-    () => () => streamRef.current?.getTracks().forEach((t) => t.stop()),
-    [],
+    () => () => stream?.getTracks().forEach((t) => t.stop()),
+    [stream],
   );
 
   const setFace = (key, file) => {
@@ -94,33 +119,80 @@ export default function CameraScan() {
     setError("");
   };
 
-  const startCamera = async () => {
+  const startCamera = async (preferredId = deviceId) => {
     setError("");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: 640, height: 640 },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      setCamOn(true);
-    } catch {
+    setCamReady(false);
+
+    // getUserMedia only exists in a secure context: HTTPS, or localhost.
+    // Opening the dev server via a LAN IP (192.168.x.x:5173) silently has no
+    // navigator.mediaDevices at all, which is a confusing way to fail.
+    if (!navigator.mediaDevices?.getUserMedia) {
       setError(
-        "Could not open the camera. Browsers only allow this on localhost or HTTPS — " +
-          "you can still upload six photos below.",
+        `Camera access needs a secure context. You are on "${window.location.origin}" — ` +
+          "open the app at http://localhost:5173 instead, or use HTTPS. " +
+          "Uploading six photos below works either way.",
+      );
+      return;
+    }
+
+    stream?.getTracks().forEach((t) => t.stop());
+
+    try {
+      // Constraints are all "ideal", never "exact": a laptop webcam that
+      // cannot do 1280x720, or has no rear camera, should still open rather
+      // than throwing OverconstrainedError.
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: preferredId
+          ? { deviceId: { ideal: preferredId } }
+          : {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+      });
+      setStream(s);
+
+      // Labels are only populated after permission is granted, so enumerate
+      // now rather than on mount.
+      const all = await navigator.mediaDevices.enumerateDevices();
+      const cams = all.filter((d) => d.kind === "videoinput");
+      setDevices(cams);
+      if (!preferredId && cams[0]) setDeviceId(cams[0].deviceId);
+    } catch (err) {
+      const messages = {
+        NotAllowedError:
+          "Camera permission was blocked. Allow it in the padlock menu in the address bar, then try again.",
+        NotFoundError: "No camera was found on this device.",
+        NotReadableError:
+          "The camera is already in use by another app (Zoom, Meet, another browser tab). Close it and try again.",
+        OverconstrainedError:
+          "This camera does not support the requested resolution. Try a different camera below.",
+      };
+      setError(
+        (messages[err.name] ?? `Could not open the camera (${err.name}).`) +
+          " You can still upload six photos below.",
       );
     }
   };
 
   const stopCamera = () => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    setCamOn(false);
+    stream?.getTracks().forEach((t) => t.stop());
+    setStream(null);
+    setCamReady(false);
+  };
+
+  const switchCamera = (id) => {
+    setDeviceId(id);
+    startCamera(id);
   };
 
   /** Grab a centre square from the video -- the detector splits a 3x3 grid. */
   const capture = () => {
     const v = videoRef.current;
-    if (!v) return;
+    if (!v || !v.videoWidth) {
+      setError("The camera has not produced a frame yet — give it a second.");
+      return;
+    }
     const side = Math.min(v.videoWidth, v.videoHeight);
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = side;
@@ -189,7 +261,7 @@ export default function CameraScan() {
             <div className="flex gap-2">
               {!camOn ? (
                 <button
-                  onClick={startCamera}
+                  onClick={() => startCamera()}
                   className="px-3 py-1.5 rounded-lg border border-neon-green/60 bg-neon-green/10 text-neon-green text-xs font-medium cursor-pointer hover:bg-neon-green/20"
                 >
                   Use webcam
@@ -228,10 +300,30 @@ export default function CameraScan() {
                     <div key={i} className="border border-neon-blue/70" />
                   ))}
                 </div>
+                {!camReady && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-xs text-gray-400">
+                    Waiting for the first frame...
+                  </div>
+                )}
               </div>
               <p className="text-xs text-gray-400 mt-3">
                 {FACES[camSlot].hint}
               </p>
+
+              {devices.length > 1 && (
+                <select
+                  value={deviceId}
+                  onChange={(e) => switchCamera(e.target.value)}
+                  className="w-full mt-3 bg-dark-bg border border-dark-border rounded-lg px-2 py-2 text-xs text-gray-300"
+                >
+                  {devices.map((d, i) => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {d.label || `Camera ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+              )}
+
               <div className="flex gap-2 mt-3">
                 <select
                   value={camSlot}
@@ -246,7 +338,8 @@ export default function CameraScan() {
                 </select>
                 <button
                   onClick={capture}
-                  className="flex-1 py-2 rounded-lg bg-neon-blue text-dark-bg text-xs font-bold cursor-pointer hover:opacity-90"
+                  disabled={!camReady}
+                  className="flex-1 py-2 rounded-lg bg-neon-blue text-dark-bg text-xs font-bold cursor-pointer hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Capture {FACES[camSlot].key}
                 </button>
