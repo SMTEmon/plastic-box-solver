@@ -17,3 +17,11 @@
 */.vscode
 */node_modules
 .idea/
+.claude/
+
+# `*.md` above ignores all markdown by default. These project guides are
+# documentation we DO want tracked.
+!RUNNING_AND_UNDERSTANDING.md
+!IMPLEMENTATION_PLAN.md
+!README.md
+!docs/**/*.md

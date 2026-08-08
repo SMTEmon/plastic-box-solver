@@ -13,6 +13,8 @@ export default function Router() {
         <Route path="/cube-input" element={<CubeInput />} />
         <Route path="/solve" element={<SolveWorkspace />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
+        {/* Catch-all: an unknown URL used to render a blank page. */}
+        <Route path="*" element={<Navigate to="/cube-input" replace />} />
       </Routes>
     </BrowserRouter>
   );
