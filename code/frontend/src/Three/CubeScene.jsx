@@ -50,6 +50,7 @@ const HOME_CAMERA = [3.6, 3.4, 4.2];
  */
 export default function CubeScene({
   onAnimatorReady,
+  onProgress,
   showLabels = false,
   viewRef,
 }) {
@@ -64,7 +65,7 @@ export default function CubeScene({
       <Suspense fallback={null}>
         <Environment preset="forest" />
       </Suspense>
-      <Cube onAnimatorReady={onAnimatorReady} />
+      <Cube onAnimatorReady={onAnimatorReady} onProgress={onProgress} />
       {showLabels && <FaceLabels />}
       <OrbitControls ref={controls} target={[0, 0, 0]} enablePan={false} />
     </Canvas>

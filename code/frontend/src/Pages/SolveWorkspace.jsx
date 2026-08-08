@@ -5,6 +5,7 @@ import AppShell from "../Layout/AppShell";
 import CubeScene from "../Three/CubeScene";
 import KeyboardControls from "../Components/KeyboardControls";
 import MoveButtons from "../Components/MoveButtons";
+import PlaybackControls from "../Components/PlaybackControls";
 import { cubeApi } from "../lib/api.js";
 import { invert } from "../cube/moves.js";
 import {
@@ -133,6 +134,9 @@ export default function SolveWorkspace() {
   const [loading, setLoading] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
   const [tick, setTick] = useState(0);
+  const [speed, setSpeedState] = useState(1);
+  const [playback, setPlayback] = useState({ pending: 0, paused: false });
+  const [playbackTotal, setPlaybackTotal] = useState(0);
 
   const solved = useCubeStore((s) => s.isSolved)();
   const stage = useCubeStore((s) => s.currentStage)();
@@ -141,6 +145,19 @@ export default function SolveWorkspace() {
     animatorRef.current = a;
     setReady(true);
   }, []);
+
+  /** The animator pushes queue state up so the controls can be reactive. */
+  const onProgress = useCallback(({ pending, paused }) => {
+    setPlayback({ pending, paused });
+  }, []);
+
+  const changeSpeed = useCallback((value) => {
+    setSpeedState(value);
+    animatorRef.current?.setSpeed(value);
+  }, []);
+
+  const pausePlayback = useCallback(() => animatorRef.current?.pause(), []);
+  const resumePlayback = useCallback(() => animatorRef.current?.resume(), []);
 
   /** Landing here with a solved cube means there is nothing to solve. */
   useEffect(() => {
@@ -230,20 +247,22 @@ export default function SolveWorkspace() {
     useCubeStore.getState().setMode(MODES.AUTO);
     const data = await fetchSolution("optimal");
     if (!data) return;
-    animatorRef.current?.setSpeed(1.6);
+    setPlaybackTotal(data.moves.length);
+    animatorRef.current?.setSpeed(speed);
     animatorRef.current?.enqueue(data.moves, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facelets, assisted]);
+  }, [facelets, assisted, speed]);
 
   /** FR-10 -- beginner's method, one move at a time with instructions. */
   const startGuided = useCallback(async () => {
     if (!confirmAssist()) return;
     useCubeStore.getState().markAssisted();
     useCubeStore.getState().setMode(MODES.GUIDED);
-    animatorRef.current?.setSpeed(1);
+    animatorRef.current?.setSpeed(speed);
+    setPlaybackTotal(0);
     await fetchSolution("beginner");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facelets, assisted]);
+  }, [facelets, assisted, speed]);
 
   const stepForward = () => {
     const s = useCubeStore.getState();
@@ -272,12 +291,15 @@ export default function SolveWorkspace() {
 
   const backToInteractive = useCallback(() => {
     animatorRef.current?.clear();
-    animatorRef.current?.setSpeed(1);
+    animatorRef.current?.resume();
+    setPlaybackTotal(0);
     useCubeStore.getState().setMode(MODES.INTERACTIVE);
   }, []);
 
   const resetCube = useCallback(() => {
     animatorRef.current?.clear();
+    animatorRef.current?.resume();
+    setPlaybackTotal(0);
     useCubeStore.getState().reset();
   }, []);
 
@@ -324,6 +346,7 @@ export default function SolveWorkspace() {
           <div className="relative flex-1 rounded-xl overflow-hidden border border-dark-border bg-dark-bg min-h-[320px]">
             <CubeScene
               onAnimatorReady={onAnimatorReady}
+              onProgress={onProgress}
               showLabels={showLabels}
               viewRef={viewRef}
             />
@@ -504,10 +527,29 @@ export default function SolveWorkspace() {
             </Panel>
           )}
 
+          {mode !== MODES.INTERACTIVE && (
+            <Panel title="Playback speed">
+              <PlaybackControls
+                speed={speed}
+                onSpeed={changeSpeed}
+                paused={playback.paused}
+                onPause={pausePlayback}
+                onResume={resumePlayback}
+                pending={playback.pending}
+                total={playbackTotal}
+              />
+              <p className="text-[11px] text-gray-500 mt-2 leading-relaxed">
+                Slow it to <span className="font-mono">0.25x</span> if you are
+                copying the moves onto a real cube. A speed change applies from
+                the next move.
+              </p>
+            </Panel>
+          )}
+
           {mode === MODES.AUTO && solution && (
             <Panel title="Auto-solve">
               <div className="text-xs text-gray-400 mb-2">
-                {solution.moveCount} moves, playing back
+                {solution.moveCount} moves
               </div>
               <div className="text-[11px] font-mono text-gray-300 break-words leading-relaxed">
                 {solution.moves.join(" ")}

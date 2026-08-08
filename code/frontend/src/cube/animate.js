@@ -89,13 +89,22 @@ function attachLayer(cubeGroup, rotationGroup, axis, limit) {
  * place logical state should advance, so the render and the truth can never
  * drift apart.
  */
-export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
+export function createAnimator({
+  cubeGroup,
+  rotationGroup,
+  onMoveDone,
+  onProgress,
+}) {
   const queue = [];
   let busy = false;
+  let paused = false;
   let speed = 1;
 
+  const report = () =>
+    onProgress?.({ pending: queue.length + (busy ? 1 : 0), busy, paused, speed });
+
   function runNext() {
-    if (busy || queue.length === 0) return;
+    if (busy || paused || queue.length === 0) return;
     if (!cubeGroup.current || !rotationGroup.current) return;
 
     const { move, count } = queue.shift();
@@ -123,9 +132,12 @@ export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
         reparentBack(cubeGroup.current, rotationGroup.current);
         busy = false;
         onMoveDone?.(move, count); // <-- logical state advances HERE
+        report();
         runNext(); // <-- drain the rest of the queue
       })
       .start();
+
+    report();
   }
 
   return {
@@ -139,12 +151,41 @@ export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
         queue.push({ move, count }),
       );
       runNext();
+      report();
     },
+
     clear() {
       queue.length = 0;
+      report();
     },
+
+    /**
+     * 1 = 220ms per quarter turn. Higher is faster.
+     * Takes effect from the NEXT move -- a tween's duration is fixed when it
+     * starts, so the turn already in flight finishes at its original speed.
+     */
     setSpeed(multiplier) {
-      speed = Math.max(0.25, multiplier);
+      speed = Math.min(8, Math.max(0.15, multiplier));
+      report();
+    },
+
+    /** Stop draining the queue after the current turn finishes. */
+    pause() {
+      paused = true;
+      report();
+    },
+
+    resume() {
+      paused = false;
+      runNext();
+      report();
+    },
+
+    get speed() {
+      return speed;
+    },
+    get isPaused() {
+      return paused;
     },
     get pending() {
       return queue.length + (busy ? 1 : 0);

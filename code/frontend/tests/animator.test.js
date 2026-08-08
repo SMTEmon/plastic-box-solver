@@ -61,6 +61,7 @@ function harness() {
       }
 
   const done = [];
+  const progress = [];
   const animator = createAnimator({
     cubeGroup: { current: cube },
     rotationGroup: { current: rot },
@@ -68,6 +69,7 @@ function harness() {
       done.push(move);
       useCubeStore.getState().applyMove(move, count);
     },
+    onProgress: (p) => progress.push(p),
   });
 
   // JEASINGS.update() reads the wall clock, so this must be a real loop.
@@ -76,7 +78,15 @@ function harness() {
     while (animator.pending) await new Promise((r) => setTimeout(r, 20));
     await new Promise((r) => setTimeout(r, 40));
   };
-  return { cube, rot, done, animator, drain, stop: () => clearInterval(raf) };
+  return {
+    cube,
+    rot,
+    done,
+    progress,
+    animator,
+    drain,
+    stop: () => clearInterval(raf),
+  };
 }
 
 const SEXY = ["R", "U", "R'", "U'"];
@@ -119,6 +129,81 @@ test("whole-cube rotations play back without crashing", async () => {
   await h.drain();
 
   assert.strictEqual(useCubeStore.getState().facelets.length, 54);
+  h.stop();
+});
+
+test("speed multiplier changes how long playback actually takes", async () => {
+  const seq = ["R", "U", "F", "L", "D", "B"];
+
+  const fast = harness();
+  useCubeStore.getState().loadScramble(SOLVED, 0);
+  fast.animator.setSpeed(4);
+  let t0 = Date.now();
+  fast.animator.enqueue(seq, false);
+  await fast.drain();
+  const fastMs = Date.now() - t0;
+  fast.stop();
+
+  const slow = harness();
+  useCubeStore.getState().loadScramble(SOLVED, 0);
+  slow.animator.setSpeed(0.5);
+  t0 = Date.now();
+  slow.animator.enqueue(seq, false);
+  await slow.drain();
+  const slowMs = Date.now() - t0;
+  slow.stop();
+
+  assert.ok(
+    slowMs > fastMs * 2,
+    `0.5x (${slowMs}ms) should take well over 4x (${fastMs}ms)`,
+  );
+  assert.strictEqual(fast.done.length, 6);
+  assert.strictEqual(slow.done.length, 6);
+});
+
+test("speed is clamped to a sane range", () => {
+  const h = harness();
+  h.animator.setSpeed(999);
+  assert.strictEqual(h.animator.speed, 8);
+  h.animator.setSpeed(0);
+  assert.strictEqual(h.animator.speed, 0.15);
+  h.stop();
+});
+
+test("pause halts the queue and resume drains the rest", async () => {
+  const h = harness();
+  useCubeStore.getState().loadScramble(SOLVED, 0);
+  h.animator.setSpeed(4);
+
+  h.animator.enqueue(["R", "U", "F", "L", "D", "B"], false);
+  h.animator.pause();
+
+  // Let plenty of time pass -- at most the in-flight turn should land.
+  await new Promise((r) => setTimeout(r, 400));
+  const whilePaused = h.done.length;
+  assert.ok(whilePaused <= 1, `expected <=1 move while paused, got ${whilePaused}`);
+  assert.ok(h.animator.isPaused);
+  assert.ok(h.animator.pending > 0, "queue must be preserved, not dropped");
+
+  h.animator.resume();
+  await h.drain();
+  assert.strictEqual(h.done.length, 6, "all moves play after resume");
+  h.stop();
+});
+
+test("progress is reported so the UI can show a pending count", async () => {
+  const h = harness();
+  useCubeStore.getState().loadScramble(SOLVED, 0);
+  h.animator.setSpeed(4);
+
+  h.animator.enqueue(["R", "U", "F"], false);
+  assert.ok(
+    h.progress.some((p) => p.pending === 3),
+    "should report the full queue length on enqueue",
+  );
+
+  await h.drain();
+  assert.strictEqual(h.progress.at(-1).pending, 0, "drains to zero");
   h.stop();
 });
 
