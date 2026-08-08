@@ -56,6 +56,26 @@ for f in "URFDLB":
 assert detect_facelets(dim_faces) == SOLVED, "dimmed scan must classify identically"
 print("FR-17 brightness robustness (V x0.6 unchanged): OK")
 
+# --- FR-17, the harder case: UNEVEN lighting within a single face -----------
+# A uniform dim (above) is easy: the centre reference dims by the same amount.
+# The realistic failure is a gradient ACROSS one face, so a sticker sits in
+# shadow while its own reference centre does not. This is what forced the
+# switch to chroma-only distance -- with lightness included, the darkest
+# corner walked down the warm colours (yellow -> orange -> red).
+def gradient_face(bgr, size=150):
+    img = np.full((size, size, 3), bgr, dtype=np.float32)
+    gx = np.linspace(0.70, 1.15, size, dtype=np.float32)
+    gy = np.linspace(0.85, 1.10, size, dtype=np.float32)
+    img *= np.outer(gy, gx)[:, :, None]
+    ok, enc = cv2.imencode(".png", np.clip(img, 0, 255).astype(np.uint8))
+    assert ok
+    return enc.tobytes()
+
+
+uneven = [gradient_face(FACE_BGR[f]) for f in "URFDLB"]
+assert detect_facelets(uneven) == SOLVED, "uneven lighting must classify identically"
+print("FR-17 uneven-lighting robustness (1.6x gradient per face): OK")
+
 # --- White special case: a low-saturation face is 'w', not a random hue -----
 grey_U = [solid_face((150, 150, 150))] + [solid_face(FACE_BGR[f]) for f in "RFDLB"]
 grey_detected = detect_facelets(grey_U)

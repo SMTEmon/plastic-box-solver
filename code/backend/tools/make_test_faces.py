@@ -69,7 +69,7 @@ def add_noise(img: np.ndarray, seed: int) -> np.ndarray:
     out = img.astype(np.float32) * gradient
     out += rng.normal(0, 4.0, out.shape)
     out = np.clip(out, 0, 255).astype(np.uint8)
-    return cv2.GaussianBlur(out, (5, 5), 0)
+    return cv2.GaussianBlur(out, (3, 3), 0)   # soft, like a hand-held photo
 
 
 def main() -> int:
@@ -101,20 +101,43 @@ def main() -> int:
     detected = detect.detect_facelets(encoded)
     matches = sum(a == b for a, b in zip(detected, facelets))
 
-    print(f"\ndetected : {detected}")
+    print("\n--- detection accuracy (this is the thing under test) ---")
+    print(f"detected : {detected}")
     print(f"stickers : {matches}/54 correct")
 
+    if detected != facelets:
+        for i, face in enumerate(FACE_ORDER):
+            for j in range(9):
+                k = i * 9 + j
+                if detected[k] != facelets[k]:
+                    print(f"  {face} cell {j} (row {j // 3}, col {j % 3}): "
+                          f"expected {facelets[k]!r}, got {detected[k]!r}")
+
+    # --- capture-quality heuristics (informational, NOT a pass/fail) -----
+    # These are the FR-04 "prompt a retake" flags. They are absolute
+    # thresholds on a real photo's edge energy and brightness, and a flat
+    # synthetic render has far less high-frequency detail than a photograph,
+    # so `blurry` is expected to trip here. The numbers are printed so the
+    # thresholds can be tuned against real phone photos, which is what
+    # detect.py's own comments ask for.
+    print("\n--- capture quality (informational) ---")
+    print(f"thresholds: blur variance < {detect.BLUR_VAR_MIN}, "
+          f"mean brightness < {detect.DARK_V_MAX}")
     for i, face in enumerate(FACE_ORDER):
+        img = cv2.imdecode(np.frombuffer(encoded[i], np.uint8), cv2.IMREAD_COLOR)
+        var = cv2.Laplacian(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), cv2.CV_64F).var()
+        val = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)[:, :, 2].mean()
         q = detect.assess_quality(encoded[i])
-        flags = [k for k, v in q.items() if v] or ["ok"]
-        print(f"  {face}: {', '.join(flags)}")
+        flags = ", ".join(k for k, v in q.items() if v) or "ok"
+        print(f"  {face}: blur_var={var:8.1f}  brightness={val:5.1f}  -> {flags}")
 
     if detected == facelets:
         print("\nROUND TRIP OK -- the detector recovered the exact cube state.")
         print(f"Upload {args.out}/ (in numbered order) on the Camera Scan page.")
         return 0
 
-    print("\nMISMATCH -- tune the thresholds at the top of app/vision/detect.py")
+    print("\nMISMATCH -- a sticker was misread. Check the cells listed above "
+          "against the thresholds at the top of app/vision/detect.py")
     return 1
 
 
