@@ -19,12 +19,20 @@ import JEASINGS, { JEasing } from "jeasings";
 /**
  * token -> which cubelets move, about which axis, in which direction.
  *
- * The six face entries are lifted verbatim from the working Buttons.jsx, so
- * they are already visually calibrated against the model.
  *   limit > 0  -> cubelets with position[axis] >  limit
  *   limit < 0  -> cubelets with position[axis] <  limit
  *   limit null -> every cubelet (whole-cube rotation)
- * `sign` is the direction of a CLOCKWISE turn seen from outside that face.
+ * `sign` is the rotation direction about that axis, right-hand rule.
+ *
+ * A face turn's sign is -LAYER (a clockwise turn seen from outside), which is
+ * where the six face entries come from. The whole-cube rotations do NOT follow
+ * that rule -- the model gives X/Y/Z a direction of +1 regardless (see ROT_DIR
+ * in moves.js), so they spin the opposite way to R/U/F.
+ *
+ * Getting this wrong is silent and nasty: the store reports "solved" while the
+ * cube on screen is visibly scrambled, because a guided solution contains
+ * whole-cube rotations. tests/visualParity.test.js pins every one of these
+ * signs against the model's own permutation tables.
  */
 export const MOVE_SPEC = {
   U: { axis: "y", limit: 0.5, sign: -1 },
@@ -33,9 +41,9 @@ export const MOVE_SPEC = {
   L: { axis: "x", limit: -0.5, sign: 1 },
   F: { axis: "z", limit: 0.5, sign: -1 },
   B: { axis: "z", limit: -0.5, sign: 1 },
-  X: { axis: "x", limit: null, sign: -1 },
-  Y: { axis: "y", limit: null, sign: -1 },
-  Z: { axis: "z", limit: null, sign: -1 },
+  X: { axis: "x", limit: null, sign: 1 },
+  Y: { axis: "y", limit: null, sign: 1 },
+  Z: { axis: "z", limit: null, sign: 1 },
 };
 
 export const BASE_DURATION_MS = 220;
@@ -44,7 +52,18 @@ function reparentBack(cubeGroup, rotationGroup) {
   rotationGroup.children
     .slice()
     .reverse()
-    .forEach((c) => cubeGroup.attach(c));
+    .forEach((c) => {
+      cubeGroup.attach(c);
+      // Every .attach() recomputes a world transform, so positions drift a
+      // little each turn (0.9999998 instead of 1). Over a 168-move guided
+      // playback that drift can grow past the +/-0.5 layer test and the wrong
+      // cubelets get picked up. Snap back to the integer lattice each time.
+      c.position.set(
+        Math.round(c.position.x),
+        Math.round(c.position.y),
+        Math.round(c.position.z),
+      );
+    });
   rotationGroup.quaternion.set(0, 0, 0, 1);
   rotationGroup.rotation.set(0, 0, 0);
 }
