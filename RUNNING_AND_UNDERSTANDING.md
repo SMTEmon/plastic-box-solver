@@ -398,8 +398,25 @@ The classification is the clever part, and it's **FR-17 itself**:
 > distance in **LAB colour space**, not by hardcoded HSV ranges.
 
 Why LAB? Because euclidean distance in LAB approximates *perceptual* colour difference — so
-"nearest colour" actually means what a human would call nearest. That's why the scan survives
-different lighting.
+"nearest colour" actually means what a human would call nearest.
+
+**And why only two of LAB's three channels.** The distance uses the chroma channels `a` and `b`
+and *ignores* lightness `L`. This was a real bug, found by the test generator:
+
+> A yellow sticker in the shadowed corner of a frame was read as **orange**, because with
+> lightness included, dark yellow sits closer to the orange reference than to its own. The error
+> walks down the warm colours — yellow→orange, orange→red.
+
+Lightness is precisely what uneven lighting changes; chroma is what identifies the colour.
+Measured on rendered faces with a 1.6× brightness gradient: **full LAB misread 12 of 324
+stickers, chroma-only misread 0.** White is unaffected because it's caught by the saturation
+short-circuit before this distance is ever computed.
+
+Worth telling as a story, because the *original* FR-17 test passed the whole time: it dimmed
+every face uniformly, which the old code handled fine since the reference centres dimmed by the
+same amount. It took a gradient *across* a single face — a sticker in shadow while its own
+reference is not — to expose it. **A test that only exercises the easy case is worse than no
+test, because it buys confidence you haven't earned.**
 
 White is a special case handled first: it's *low saturation*, not a hue, so a saturation threshold
 short-circuits before the distance comparison. Red is the other special case — its hue **wraps past
@@ -653,6 +670,14 @@ It renders six face images for a random scramble, then **reads its own images ba
 detector** and prints `stickers: 54/54 correct` and `ROUND TRIP OK`. Run it on stage — it's a
 five-second end-to-end proof of FR-06a and FR-17.
 
+⚠️ **The "capture quality" section will flag the faces as blurry, and that is not a failure.**
+Those are the FR-04 retake heuristics: absolute thresholds on a photo's edge energy. A flat
+synthetic render has far less high-frequency detail than a real photograph, so it trips the blur
+threshold by construction. The script prints the raw blur variance and brightness next to the
+thresholds so you can see exactly how close it is — and `detect.py`'s own comments already say
+those numbers are first guesses that need tuning against real phone photos. If someone asks,
+that's the answer, and it's a legitimate known limitation rather than a bug.
+
 Then go to **`/scan`** in the app:
 
 1. Upload the six PNGs into the numbered slots. **Order is enforced by the slots** — URFDLB.
@@ -843,10 +868,20 @@ Ending on a specific, technical next step beats trailing off.
 
 **"How accurate is the colour detection?"**
 > On rendered faces with uneven lighting, blur and sensor noise, it recovers all 54 stickers
-> exactly — `tools/make_test_faces.py --noise` proves that end to end in one command. On real
-> photos it will be worse, and that's fine by design: the module docstring says the bar is only
-> that correcting the scan is faster than typing 54 letters by hand. The thresholds in
-> `detect.py` are first guesses and should be tuned against real phone photos.
+> exactly — `tools/make_test_faces.py --noise` proves that end to end in one command. Getting
+> there required one real fix: the nearest-centre comparison originally included LAB's lightness
+> channel, so a sticker in shadow could read as a genuinely darker colour, and yellow in a dark
+> corner came back as orange. Dropping lightness and comparing chroma only took it from 12 errors
+> in 324 to zero. On real photos it will be worse than on renders, and that's fine by design —
+> the bar is that correcting the scan beats typing 54 letters by hand.
+
+**"Your test suite passed while that bug existed. Why?"**
+> Because the FR-17 test only exercised the easy case. It dimmed all six faces uniformly, which
+> the old code handled fine — every reference centre dimmed by the same amount, so the relative
+> distances didn't change. The realistic case is a gradient *across* one face, where a sticker is
+> in shadow but its own reference centre is not. I added that, and it fails against the old code.
+> Same lesson as the rotation bug: a test that only covers the easy path buys confidence you
+> haven't earned.
 
 **"Does the leaderboard scale?"**
 > No, and I know why. It's a full table scan with an in-Python reduction — fine at class-project
