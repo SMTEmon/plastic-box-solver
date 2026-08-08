@@ -23,12 +23,12 @@ that gap:
 3. **An HTTP layer.** `src/lib/api.js` plus a Vite proxy. The scramble button, the validation
    check, auto-solve and guided mode all hit the real FastAPI backend.
 
-**What this means for your presentation:** you can now demo one continuous story instead of two
-disconnected halves. Scramble → 3D → auto-solve → solved, with every step crossing the network.
-
 4. **The camera scan UI.** `/scan` takes six face photos (webcam or upload), posts them to the
    OpenCV pipeline, and shows you what it saw sticker by sticker plus per-face blur/darkness
    flags. There's a generator script so you can test it without a physical cube.
+
+**What this means for your presentation:** you can now demo one continuous story instead of two
+disconnected halves. Scramble → 3D → auto-solve → solved, with every step crossing the network.
 
 **What is still honest to say:** auth pages, the dashboard and the leaderboard UI are not built
 yet. Those backend endpoints work and you can show them in Swagger, but there's no screen for
@@ -154,7 +154,7 @@ Run the frontend tests (no server needed, uses Node's built-in test runner):
 ```bash
 cd code/frontend
 npm test
-# → 20 tests, 20 pass    ✅ verified
+# → 24 tests, 24 pass    ✅ verified
 ```
 
 And the cross-language parity test, which needs the backend running:
@@ -164,9 +164,9 @@ npm run test:parity
 # → 5 tests, 5 pass    ✅ verified
 ```
 
-What the 20 cover: input parsing (6), the animation engine's queue / assisted playback /
-rotations / undo (4), **animation-vs-model direction for all nine move tokens (4)**, and the
-exact HTTP request shapes the backend expects (6).
+What the 24 cover: input parsing (6), the animation engine's queue / assisted playback /
+rotations / undo / speed / pause / progress (8), **animation-vs-model direction for all nine move
+tokens (4)**, and the exact HTTP request shapes the backend expects (6).
 
 ### Run the backend tests
 
@@ -630,7 +630,9 @@ WWWWWWWWWRRRRRRRRRGGGGGGGGGYYYYYYYYYOOOOOOOOOBBBBBBBBB
    > all real. Before this, the 3D view was just a scene graph with nothing behind it."
 
 6. **Click "Auto-Solve."** Accept the warning dialog. The whole solution animates continuously to
-   a solved cube, and the sidebar shows the move list.
+   a solved cube, and the sidebar shows the move list. Use the **speed buttons** (0.25x–4x) and
+   **Pause** — drop to 0.25x if you want the audience to actually follow a turn, or 4x to get to
+   the solved cube fast. A progress bar tracks moves played.
    > "Every one of those moves came from the backend's Kociemba solver, and they're being replayed
    > through a JavaScript engine whose permutation tables are byte-identical to the Python ones.
    > That's why it lands exactly on solved."
@@ -691,8 +693,12 @@ Then go to **`/scan`** in the app:
 3. Click **Solve this cube** — it goes straight into the solve workspace.
 
 If you *do* have a cube and a webcam, **Use webcam** gives you a 3×3 guide frame and captures the
-six faces in order. Note that browsers only allow camera access on `localhost` or HTTPS, which
-`localhost:5173` satisfies.
+six faces in order, with a camera picker if you have more than one.
+
+⚠️ **Open the app at `http://localhost:5173`, not at a LAN address like `192.168.x.x:5173`.**
+Browsers only expose `getUserMedia` in a secure context — HTTPS or localhost. Over plain HTTP on
+a LAN IP the API doesn't exist at all. The page now detects this and tells you, but it's the
+single most likely reason the camera won't open on demo day.
 
 ---
 

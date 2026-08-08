@@ -26,7 +26,7 @@
 | ✅ | Test-image generator with a self-checking round trip | `code/backend/tools/make_test_faces.py` |
 | ✅ | Test suites: parity, animator, visual parity, API contract | `tests/*.test.js` |
 
-Verified: `npm test` → **20/20**, `npm run test:parity` → **5/5** against a live API,
+Verified: `npm test` → **24/24**, `npm run test:parity` → **5/5** against a live API,
 `npx eslint src tests` → **clean**, `npm run build` → **succeeds**.
 
 ### One real bug found and fixed after the first integration round
