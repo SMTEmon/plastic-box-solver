@@ -52,7 +52,13 @@ function harness() {
   const rot = mkGroup();
   for (let x = -1; x <= 1; x++)
     for (let y = -1; y <= 1; y++)
-      for (let z = -1; z <= 1; z++) cube.attach({ position: { x, y, z } });
+      for (let z = -1; z <= 1; z++) {
+        // Three.js positions are Vector3, so they carry .set() -- the animator
+        // uses it to snap cubelets back onto the integer lattice each turn.
+        const p = mkVec();
+        p.set(x, y, z);
+        cube.attach({ position: p });
+      }
 
   const done = [];
   const animator = createAnimator({
