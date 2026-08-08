@@ -57,6 +57,7 @@ export default function AppShell({ title = "Plastic_box_solver", children }) {
         <nav className="flex-1">
           <NavItem to="/dashboard">Dashboard</NavItem>
           <NavItem to="/cube-input">Cube Input</NavItem>
+          <NavItem to="/scan">Camera Scan</NavItem>
           <NavItem to="/solve">Solve Workspace</NavItem>
           <NavItem to="/leaderboard">Leaderboard</NavItem>
         </nav>

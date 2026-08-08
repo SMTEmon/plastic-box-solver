@@ -33,9 +33,20 @@ function normaliseDetail(body, fallback) {
   return fallback;
 }
 
+/** localStorage is absent outside the browser (e.g. the Node test runner). */
+function storedToken() {
+  try {
+    return typeof localStorage === "undefined"
+      ? null
+      : localStorage.getItem("token");
+  } catch {
+    return null;
+  }
+}
+
 async function request(path, { method = "GET", json, form, raw } = {}) {
   const headers = {};
-  const token = localStorage.getItem("token");
+  const token = storedToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let body;

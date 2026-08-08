@@ -169,7 +169,13 @@ export default function CubeInput() {
                 {busy ? "..." : "Random Scramble"}
               </button>
               <button
-                className="px-3 py-1.5 rounded-lg border border-neon-blue bg-neon-blue/10 text-neon-blue text-xs font-medium cursor-pointer"
+                onClick={() => navigate("/scan")}
+                className="px-3 py-1.5 rounded-lg border border-dark-border bg-dark-surface text-gray-300 text-xs font-medium cursor-pointer hover:text-white hover:border-neon-blue transition-colors"
+              >
+                Camera
+              </button>
+              <button
+                className="px-3 py-1.5 rounded-lg border border-neon-blue bg-neon-blue/10 text-neon-blue text-xs font-medium cursor-default"
                 disabled
               >
                 Manual

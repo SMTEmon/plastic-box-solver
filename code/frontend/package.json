@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --test tests/cubeInput.test.js tests/animator.test.js",
+    "test": "node --test tests/cubeInput.test.js tests/animator.test.js tests/visualParity.test.js tests/apiContract.test.js",
     "test:parity": "node --test tests/engineParity.test.js"
   },
   "dependencies": {
