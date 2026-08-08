@@ -26,9 +26,34 @@ that gap:
 **What this means for your presentation:** you can now demo one continuous story instead of two
 disconnected halves. Scramble → 3D → auto-solve → solved, with every step crossing the network.
 
+4. **The camera scan UI.** `/scan` takes six face photos (webcam or upload), posts them to the
+   OpenCV pipeline, and shows you what it saw sticker by sticker plus per-face blur/darkness
+   flags. There's a generator script so you can test it without a physical cube.
+
 **What is still honest to say:** auth pages, the dashboard and the leaderboard UI are not built
 yet. Those backend endpoints work and you can show them in Swagger, but there's no screen for
 them. Don't claim otherwise — Part 6 has the exact coverage table.
+
+### The bug that was hiding in here, and how it was found
+
+Guided mode used to finish with the sidebar reporting **"Cube solved"** while the cube on screen
+was visibly scrambled. That is the worst kind of bug: the model and the screen disagreed, and
+neither one was obviously wrong.
+
+The cause: the animation's direction table (`MOVE_SPEC` in `animate.js`) is written by hand and
+was never tied to the model's permutation tables. The six face turns matched. The three
+**whole-cube rotations `X`/`Y`/`Z` were inverted** — the model gives them a fixed direction of
+`+1`, but the animation copied the face-turn rule (`-layer`), which is the opposite. A guided
+beginner's-method solution is full of whole-cube rotations, so every one of them pushed the
+screen further away from the model. Auto-Solve looked fine because Kociemba solutions are pure
+face turns.
+
+The fix is one character per line, but the interesting part is the test: `tests/visualParity.test.js`
+rebuilds the permutation *implied by the animation table* and asserts it equals the permutation
+*the model uses*, for all nine tokens. That class of bug can't come back silently now.
+
+**This is your best "how did you debug it" story** — better than the colour-scheme one, because
+you can show the failing test.
 
 ---
 
@@ -129,7 +154,7 @@ Run the frontend tests (no server needed, uses Node's built-in test runner):
 ```bash
 cd code/frontend
 npm test
-# → 10 tests, 10 pass    ✅ verified
+# → 20 tests, 20 pass    ✅ verified
 ```
 
 And the cross-language parity test, which needs the backend running:
@@ -138,6 +163,10 @@ And the cross-language parity test, which needs the backend running:
 npm run test:parity
 # → 5 tests, 5 pass    ✅ verified
 ```
+
+What the 20 cover: input parsing (6), the animation engine's queue / assisted playback /
+rotations / undo (4), **animation-vs-model direction for all nine move tokens (4)**, and the
+exact HTTP request shapes the backend expects (6).
 
 ### Run the backend tests
 
@@ -170,6 +199,7 @@ rotations X/Y/Z invariants: OK
   Browser  ────────► │  main.jsx → Router.jsx                                                │
                      │      ├── /dashboard    Dashboard.jsx      (placeholder)               │
                      │      ├── /cube-input   CubeInput.jsx      ← paste 54 chars            │
+                     │      ├── /scan         CameraScan.jsx     ← 6 photos → OpenCV         │
                      │      ├── /solve        SolveWorkspace.jsx ← 3 modes + live stats     │
                      │      └── /leaderboard  Leaderboard.jsx    (placeholder)               │
                      │                                                                       │
@@ -591,14 +621,53 @@ WWWWWWWWWRRRRRRRRRGGGGGGGGGYYYYYYYYYOOOOOOOOOBBBBBBBBB
    Point at the yellow **"Assisted run"** banner: that attempt is flagged and will never be
    submitted to the leaderboard. That's what keeps the ranking honest.
 
-7. **Click "Guided."** The sidebar fills with the **seven beginner stages** — Bottom cross,
-   Bottom layer, Middle layer, Top cross, Top face, Position corners, Solved — each with its move
-   count. Click **Next** a few times and watch the active stage highlight advance and the "next
-   move" indicator change.
+7. **Click "Guided."** The top of the sidebar becomes a single instruction card:
+   > **Right face — clockwise** · a red swatch · `notation: R`
+   > *"Turn the right layer (the red centre) 90° clockwise, looking at it from the right."*
+
+   Click **Next** a few times. The card updates, the active stage highlights, and the stage help
+   line tells you what you're building ("Make a plus sign on the bottom face…"). **"Play the rest
+   of this stage"** runs one whole stage at a time so you're not clicking Next 26 times on stage.
    > "Neither solver library provides stages. I replay the solver's own move list against my
    > engine and cut it wherever each stage's predicate flips true."
 
+   If you get lost after orbiting, hit **Reset view** in the top-right of the canvas, and turn on
+   **Face labels** — every instruction is phrased by face name, so the names are drawn in the
+   scene. The "Which side is which" panel shows the current centre colour per face, which is what
+   actually tells you the cube's orientation.
+
 **Do not click:** Dashboard or Leaderboard — those pages are still stubs.
+
+---
+
+### Act 1b — Camera scan (3 min) — the OpenCV story
+
+You do not need a physical cube. Generate a test set first:
+
+```bash
+cd code/backend && source venv/bin/activate
+python tools/make_test_faces.py --noise
+```
+
+It renders six face images for a random scramble, then **reads its own images back through the
+detector** and prints `stickers: 54/54 correct` and `ROUND TRIP OK`. Run it on stage — it's a
+five-second end-to-end proof of FR-06a and FR-17.
+
+Then go to **`/scan`** in the app:
+
+1. Upload the six PNGs into the numbered slots. **Order is enforced by the slots** — URFDLB.
+   Say: *"Wrong order or a rotated face produces a physically inconsistent cube, which the
+   validator rejects. So the UI doesn't let the user get the order wrong."*
+2. Click **Detect cube state.** You get back: the 54-character string, a legality verdict, a
+   **3×3 colour grid of what it saw for each face**, and per-face blur/darkness flags.
+   > "Every sticker is classified by distance to its own face's centre cubelet in LAB colour
+   > space, not by fixed HSV ranges. That's FR-17, and it's why the `--noise` run with uneven
+   > lighting still comes back exact."
+3. Click **Solve this cube** — it goes straight into the solve workspace.
+
+If you *do* have a cube and a webcam, **Use webcam** gives you a 3×3 guide frame and captures the
+six faces in order. Note that browsers only allow camera access on `localhost` or HTTPS, which
+`localhost:5173` satisfies.
 
 ---
 
@@ -682,9 +751,9 @@ Ending on a specific, technical next step beats trailing off.
 | FR-01 | Register (email + ≥8 char password) | ✅ `auth.py` | ❌ no page | Swagger |
 | FR-02 | Login | ✅ JWT | ❌ | Swagger |
 | FR-03 | View/update profile | ✅ `profile.py` | ❌ | Swagger |
-| FR-04 | Camera capture | ✅ `/scan` + quality checks | ❌ button is inert | Swagger (upload 6 files) |
+| FR-04 | Camera capture | ✅ `/scan` + quality checks | ✅ `/scan` page, webcam + upload | **In the app** |
 | FR-05 | Manual colour input | n/a | ⚠️ textarea only, no 2D net picker | Yes |
-| FR-06a | Extract 54 colours from 6 images | ✅ `detect.py` | ❌ | Swagger |
+| FR-06a | Extract 54 colours from 6 images | ✅ `detect.py` | ✅ wired + result grid | **In the app** |
 | FR-06b | Validate legality + solvability | ✅ `validate.py` | ✅ local **+ backend** | **In the app** |
 | FR-06c | 2D preview before solving | ❌ | ⚠️ 3D preview instead of 2D | Partially |
 | FR-07 | Interactive rotatable 3D model | n/a | ✅ | **In the app** |
@@ -700,15 +769,15 @@ Ending on a specific, technical next step beats trailing off.
 | FR-14 | Global leaderboard | ✅ ranked + `is_me` | ❌ stub page | Swagger |
 | FR-15 | Password reset via email | ❌ deferred | ❌ | No |
 | FR-16 | Random solvable scramble | ✅ `scramble.py` | ✅ button | **In the app** |
-| FR-17 | Centre-cubelet auto-calibration | ✅ `_label_centres` | n/a | Code walkthrough |
+| FR-17 | Centre-cubelet auto-calibration | ✅ `_label_centres` | n/a | **`make_test_faces.py --noise`** |
 | FR-18 | Undo / redo | n/a | ✅ Ctrl+Z / Ctrl+Shift+Z | **In the app** |
 | FR-19 | Export / share solve summary | ❌ | ❌ | No |
 | FR-20 | Keyboard shortcuts | n/a | ✅ U D L R F B, Shift, 2 | **In the app** |
 | FR-21 | Badges / milestones | ❌ deferred | ❌ | No |
 | FR-22 | Logout from any page | n/a | ❌ no auth UI yet | No |
 
-**Count: 19 of 29 implemented on at least one side, 13 of them demonstrable in the running app.
-3 partial, 7 not started.** Say a number. Vagueness reads as not knowing.
+**Count: 21 of 29 implemented on at least one side, 15 of them demonstrable in the running app.
+2 partial, 6 not started.** Say a number. Vagueness reads as not knowing.
 
 ---
 
@@ -755,11 +824,29 @@ Ending on a specific, technical next step beats trailing off.
 > reach the leaderboard. The banner in the sidebar makes that visible while you're solving.
 
 **"What was the hardest bug?"**
+> Guided mode reporting "solved" while the cube on screen was visibly scrambled. Two independent
+> descriptions of the same geometry had drifted: the model's permutation tables, which are
+> generated from 3D geometry, and the animation's direction table, which is written by hand. They
+> agreed on the six face turns but disagreed on the three whole-cube rotations — the model gives
+> those a fixed direction while a face turn derives its direction from which layer it is. Guided
+> solutions are full of whole-cube rotations, so every one pushed the screen further from the
+> model; auto-solve looked fine because Kociemba solutions are pure face turns. The fix was three
+> signs. The real fix was a test that rebuilds the permutation implied by the animation table and
+> asserts it equals the model's, so the two can never diverge silently again.
+
+**"What was the hardest bug before that?"**
 > The `rubik_solver` colour scheme. It hardcodes its own internal scheme, and if you feed it a
 > different one it doesn't error — it silently mis-parses and then hangs forever inside its own
 > lookup tables. An infinite hang gives you no stack trace. I isolated it by applying single moves
 > through their engine and diffing the resulting facelet strings against mine, which revealed both
 > the colour mismatch and, separately, that their whole-cube rotations spin the opposite way.
+
+**"How accurate is the colour detection?"**
+> On rendered faces with uneven lighting, blur and sensor noise, it recovers all 54 stickers
+> exactly — `tools/make_test_faces.py --noise` proves that end to end in one command. On real
+> photos it will be worse, and that's fine by design: the module docstring says the bar is only
+> that correcting the scan is faster than typing 54 letters by hand. The thresholds in
+> `detect.py` are first guesses and should be tuned against real phone photos.
 
 **"Does the leaderboard scale?"**
 > No, and I know why. It's a full table scan with an in-Python reduction — fine at class-project

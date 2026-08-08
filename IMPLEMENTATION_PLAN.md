@@ -20,10 +20,25 @@
 | ✅ | Keyboard (FR-20) + on-screen turn controls; Leva removed | `src/Components/{KeyboardControls,MoveButtons}.jsx` |
 | ✅ | Backend scramble, dual validation, live API status badge | `src/Pages/CubeInput.jsx`, `src/Layout/AppShell.jsx` |
 | ✅ | Interactive / Guided / Auto-Solve with live time, moves, efficiency | `src/Pages/SolveWorkspace.jsx` |
-| ✅ | Parity + animator test suites | `tests/{engineParity,animator}.test.js` |
+| ✅ | Plain-English guided instructions + stage help + "play this stage" | `src/cube/notation.js` |
+| ✅ | Orientation aids: in-scene face labels, reset view, live face/colour legend | `src/Three/CubeScene.jsx` |
+| ✅ | **Camera scan UI** (FR-04/06a): webcam or upload, quality flags, result grid | `src/Pages/CameraScan.jsx` |
+| ✅ | Test-image generator with a self-checking round trip | `code/backend/tools/make_test_faces.py` |
+| ✅ | Test suites: parity, animator, visual parity, API contract | `tests/*.test.js` |
 
-Verified: `npm test` → **10/10**, `npm run test:parity` → **5/5** against a live API,
+Verified: `npm test` → **20/20**, `npm run test:parity` → **5/5** against a live API,
 `npx eslint src tests` → **clean**, `npm run build` → **succeeds**.
+
+### One real bug found and fixed after the first integration round
+
+Guided mode finished with the store reporting **solved** while the cube on screen was scrambled.
+`MOVE_SPEC` in `animate.js` (how the scene physically spins) had the three whole-cube rotations
+`X`/`Y`/`Z` inverted relative to `moves.js` (how the model says they permute). Face turns were
+right; rotations were not, and beginner-method solutions are full of them.
+
+`tests/visualParity.test.js` now rebuilds the permutation implied by `MOVE_SPEC` and asserts it
+equals the model's, for all nine tokens. **Any hand-written table describing the same geometry as
+a generated one needs a test tying them together** — that's the general lesson.
 
 **Deliberately different from the plan below:** `api.js` uses the browser's native `fetch`
 instead of axios. One less dependency, same interceptor behaviour written by hand. `zustand` was
@@ -34,7 +49,8 @@ installed as planned.
 1. **Phase 3 — auth pages** (§ below). Blocks everything in Phase 4.
 2. **Phase 4.1–4.3 — submit the solve, then the Dashboard and Leaderboard screens.** These
    endpoints already work; it's screen work, not logic.
-3. **Phase 5 — 2D net picker and camera capture.**
+3. **Phase 5.1 — the 2D net picker.** The camera half (5.2) is done; the correction editor is
+   not, so a scan that comes back with two wrong stickers currently can't be fixed in the UI.
 4. **Phase 6 — security items** (untrack `sql_app.db`, fail loudly on a missing `SECRET_KEY`,
    pin `requirements.txt`). Ten minutes, disproportionate marks.
 
