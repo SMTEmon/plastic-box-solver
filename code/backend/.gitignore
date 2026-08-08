@@ -14,3 +14,5 @@ __pycache__/
 # Testing & Tooling
 .pytest_cache/
 .coverage
+# Generated test fixtures
+tools/test_faces/
