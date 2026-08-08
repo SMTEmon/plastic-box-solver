@@ -1,5 +1,3 @@
-import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-
 const colorSides = [
   [0, 1, "red"],         // +x Right
   [0, -1, "darkorange"], // -x Left

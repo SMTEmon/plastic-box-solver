@@ -1,43 +1,69 @@
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
-import JEASINGS, { JEasing } from "jeasings";
+import { useEffect, useMemo, useRef } from "react";
+import JEASINGS from "jeasings";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 import Cubelet from "./Cubelet";
-import Buttons from "./Buttons";
-import { parseCubeString } from "../lib/cubeInput.js";
 import { mapFacesToCubelets } from "../lib/mapToCubelets.js";
+import { faceletsToFaces } from "../cube/facelets.js";
+import { createAnimator } from "../cube/animate.js";
+import { useCubeStore } from "../store/cubeStore.js";
 
-export default function Cube({ initialFaces, interactive = false }) {
-  const ref = useRef();
+/**
+ * 27 cubelets plus the rotation group the animator re-parents layers into.
+ *
+ * Sticker colours are derived from the store's logical facelets ONCE per
+ * sceneEpoch (i.e. on load/reset). In between, the animation owns the visuals:
+ * turning a layer physically moves those meshes and their colours travel with
+ * them. Re-deriving colours on every move would apply each turn twice.
+ */
+export default function Cube({ onAnimatorReady }) {
+  const cubeGroup = useRef();
+  const rotationGroup = useRef();
 
-  const roundedBoxGeometry = useMemo(() => {
-    return new RoundedBoxGeometry(1, 1, 1, 3, 0.1);
-  }, []);
+  const sceneEpoch = useCubeStore((s) => s.sceneEpoch);
+
+  const roundedBoxGeometry = useMemo(
+    () => new RoundedBoxGeometry(1, 1, 1, 3, 0.1),
+    [],
+  );
 
   useFrame(() => {
     JEASINGS.update();
   });
 
-  // prepare cubelet stickers map if initialFaces provided
-  let stickersMap = null;
-  try {
-    if (initialFaces) {
-      const faces =
-        typeof initialFaces === "string"
-          ? parseCubeString(initialFaces)
-          : initialFaces;
-      stickersMap = mapFacesToCubelets(faces);
+  // Read facelets imperatively so this only recomputes when the epoch changes.
+  const stickersMap = useMemo(() => {
+    try {
+      return mapFacesToCubelets(
+        faceletsToFaces(useCubeStore.getState().facelets),
+      );
+    } catch (e) {
+      console.warn("Cube: could not map facelets ->", e.message);
+      return null;
     }
-  } catch (e) {
-    // swallow parse errors for now, fall back to default rendering
-    console.warn("Invalid initialFaces provided:", e.message);
-    stickersMap = null;
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sceneEpoch]);
+
+  // One animator for the lifetime of the scene.
+  useEffect(() => {
+    const animator = createAnimator({
+      cubeGroup,
+      rotationGroup,
+      onMoveDone: (move, count) => {
+        useCubeStore.getState().applyMove(move, count);
+      },
+    });
+    onAnimatorReady?.(animator);
+    return () => animator.clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
-      <group ref={ref}>
+      {/* key on sceneEpoch: remount all cubelets at their home positions
+          whenever a new cube is loaded, so the scene matches the logical state. */}
+      <group ref={cubeGroup} key={sceneEpoch}>
         {[...Array(3).keys()].map((x) =>
           [...Array(3).keys()].map((y) =>
             [...Array(3).keys()].map((z) => (
@@ -55,7 +81,7 @@ export default function Cube({ initialFaces, interactive = false }) {
           ),
         )}
       </group>
-      {interactive && <Buttons cubeGroup={ref} />}
+      <group ref={rotationGroup} />
     </>
   );
 }
