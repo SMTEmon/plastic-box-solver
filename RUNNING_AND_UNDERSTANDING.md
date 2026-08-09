@@ -34,9 +34,14 @@ that gap:
 Register → scramble → solve → your time appears on the Dashboard and the leaderboard, with every
 step crossing the network.
 
-**What is still honest to say:** password reset, badges, exporting a solve, and the 2D net editor
-for correcting a scan are not built. There's no profile *edit* form either, though the endpoint
-exists. Part 6 has the exact coverage table.
+6. **A 2D net editor.** After a scan you get the unfolded cube with every sticker clickable, so a
+   couple of misread squares can be repainted instead of re-shooting six photos. Each captured
+   face is labelled with the colour the detector read from its **centre**, so you can confirm the
+   six photos really were six different sides.
+
+**What is still honest to say:** password reset, badges and exporting a solve are not built.
+There's no profile *edit* form either, though the endpoint exists. Part 6 has the exact coverage
+table.
 
 ### The bug that was hiding in here, and how it was found
 
@@ -158,7 +163,7 @@ Run the frontend tests (no server needed, uses Node's built-in test runner):
 ```bash
 cd code/frontend
 npm test
-# → 24 tests, 24 pass    ✅ verified
+# → 26 tests, 26 pass    ✅ verified
 ```
 
 And the cross-language parity test, which needs the backend running:
@@ -168,9 +173,9 @@ npm run test:parity
 # → 5 tests, 5 pass    ✅ verified
 ```
 
-What the 24 cover: input parsing (6), the animation engine's queue / assisted playback /
+What the 26 cover: input parsing (6), the animation engine's queue / assisted playback /
 rotations / undo / speed / pause / progress (8), **animation-vs-model direction for all nine move
-tokens (4)**, and the exact HTTP request shapes the backend expects (6).
+tokens (4)**, and the exact HTTP request shapes the backend expects (8).
 
 ### Run the backend tests
 
@@ -823,10 +828,10 @@ Ending on a specific, technical next step beats trailing off.
 | FR-02 | Login | ✅ JWT | ✅ `/login`, token persists | **In the app** |
 | FR-03 | View/update profile | ✅ `profile.py` | ⚠️ shown in sidebar, no edit form | Partially |
 | FR-04 | Camera capture | ✅ `/scan` + quality checks | ✅ `/scan` page, webcam + upload | **In the app** |
-| FR-05 | Manual colour input | n/a | ⚠️ textarea only, no 2D net picker | Yes |
+| FR-05 | Manual colour input | n/a | ✅ 2D net editor on the scan page | **In the app** |
 | FR-06a | Extract 54 colours from 6 images | ✅ `detect.py` | ✅ wired + result grid | **In the app** |
 | FR-06b | Validate legality + solvability | ✅ `validate.py` | ✅ local **+ backend** | **In the app** |
-| FR-06c | 2D preview before solving | ❌ | ⚠️ 3D preview instead of 2D | Partially |
+| FR-06c | 2D preview before solving | ❌ | ✅ editable 2D net + 3D preview | **In the app** |
 | FR-07 | Interactive rotatable 3D model | n/a | ✅ | **In the app** |
 | FR-08a | Kociemba optimal solution | ✅ | ✅ wired | **In the app** |
 | FR-08b | Beginner's-method solution | ✅ **+ CFOP** | ✅ method picker in Guided | **In the app** |
@@ -847,8 +852,8 @@ Ending on a specific, technical next step beats trailing off.
 | FR-21 | Badges / milestones | ❌ deferred | ❌ | No |
 | FR-22 | Logout from any page | n/a | ✅ sidebar user block | **In the app** |
 
-**Count: 26 of 29 implemented on at least one side, 21 of them demonstrable in the running app.
-2 partial, 3 not started.** Say a number. Vagueness reads as not knowing.
+**Count: 26 of 29 implemented on at least one side, 23 of them demonstrable in the running app.
+0 partial, 3 not started.** Say a number. Vagueness reads as not knowing.
 
 ---
 
