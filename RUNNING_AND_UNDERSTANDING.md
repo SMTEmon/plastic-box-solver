@@ -179,6 +179,7 @@ cd code/backend && source venv/bin/activate
 python tests/test_moves.py       # geometry engine invariants
 python tests/test_stages.py      # 50 random scrambles solve + segment correctly
 python tests/test_vision.py      # OpenCV colour detection on synthetic faces
+python tests/test_methods.py     # Beginner vs CFOP, fallback, stage vocabularies
 ```
 
 `test_moves.py` runs with **zero dependencies** — I verified it. Good fallback if the venv
@@ -349,10 +350,45 @@ spatial rotation, so it's valid for any facelet string.
 **This is a great "what went wrong and how did you debug it" story.** A silent hang is much harder
 to diagnose than a clean exception, and you found it by testing against the library's own engine.
 
-#### `solver.py` — three fixes stacked on top of a third-party library
-`solve_optimal` → Kociemba two-phase, ~20 moves. Used for **both** Auto-Solve **and** as the
-denominator of the efficiency percentage.
-`solve_guided` → beginner's method, human-followable, longer.
+#### `solver.py` — three solving methods, and three fixes on top of the library
+
+| Method | Length | Job |
+|---|---|---|
+| **Kociemba** (`solve_optimal`) | ~21 moves | Auto-Solve, and the efficiency denominator |
+| **Beginner** (`solve_teaching`) | ~191 moves | Guided Mode, the default |
+| **CFOP** (`solve_teaching`) | ~106 moves | Guided Mode, what speedcubers use |
+
+Measured over 40 random 20-move scrambles, each solution checked to replay to the exact
+solved string:
+
+```
+method     solved    avg moves    avg time
+Beginner   40/40         190.6        78 ms
+CFOP       34/40         105.9        52 ms   (6x KeyError)
+Kociemba   40/40           ~21          --
+```
+
+**CFOP is roughly half the moves** because it builds the first two layers *together* (F2L)
+rather than one at a time — that's the whole idea of the method. It also gets its own
+four-stage vocabulary (Cross → F2L → OLL → PLL) instead of the beginner's seven, because
+those seven boundaries are never crossed separately and segmenting CFOP against them
+produces empty stages.
+
+**But CFOP is unreliable.** It raises `KeyError` deep inside `rubik_solver`'s own lookup
+tables on about 15% of cubes. The same cubes solve fine with the beginner method, so it's
+a library bug, not bad input. `solve_teaching()` catches it, falls back to Beginner, and
+reports which one actually ran — the UI shows a note when it happened.
+
+> **A teaching mode that occasionally returns a 500 is worse than one that occasionally
+> returns a longer solution.** That's the whole justification, and it's the kind of
+> trade-off worth stating out loud.
+
+**Kociemba is deliberately not a guided option.** It's a near-optimal search, so the moves
+are correct but arbitrary — there's no human-legible reason why move 7 is what it is.
+Nothing to learn by following it.
+
+`POST /api/cube/compare` solves one cube all three ways, which is the clearest possible
+answer to "why does your project need more than one solver?"
 
 Three non-obvious corrections applied to `rubik_solver`'s raw output:
 
@@ -793,7 +829,7 @@ Ending on a specific, technical next step beats trailing off.
 | FR-06c | 2D preview before solving | ❌ | ⚠️ 3D preview instead of 2D | Partially |
 | FR-07 | Interactive rotatable 3D model | n/a | ✅ | **In the app** |
 | FR-08a | Kociemba optimal solution | ✅ | ✅ wired | **In the app** |
-| FR-08b | Beginner's-method solution | ✅ | ✅ wired | **In the app** |
+| FR-08b | Beginner's-method solution | ✅ **+ CFOP** | ✅ method picker in Guided | **In the app** |
 | FR-09 | Interactive solve mode | n/a | ✅ state, timer, move count | **In the app** |
 | FR-10 | Guided mode, move-by-move | ✅ `stages[]` | ✅ stage sidebar + stepping | **In the app** |
 | FR-11 | Auto-solve animation | ✅ solution | ✅ queued playback | **In the app** |
@@ -824,12 +860,21 @@ Ending on a specific, technical next step beats trailing off.
 > is longer but follows the algorithms people actually learn, which is what guided mode needs.
 > They're complementary, not alternatives.
 
-**"Why beginner's method instead of CFOP? The proposal says CFOP."**
-> Two reasons. Technically, `rubik_solver`'s CFOP implementation throws a `KeyError` on ordinary
-> inputs in this package version — it's documented at the bottom of `solver.py`. Pedagogically,
-> beginner's method serves the stated motivation better: the target user is someone who never
-> learned to solve a cube, and CFOP assumes you already can. I'll note the substitution in the
-> report.
+**"Does it support CFOP? The proposal says CFOP."**
+> Yes — Guided Mode offers both, and you pick before you start. CFOP averages about 106 moves
+> against the beginner method's 191, because it builds the first two layers together rather than
+> one at a time, and it gets its own four-stage vocabulary: Cross, F2L, OLL, PLL. The catch is
+> that `rubik_solver`'s CFOP raises a `KeyError` on roughly 15% of cubes — a library bug, since
+> the same cubes solve fine with the beginner method — so the server falls back to Beginner and
+> the UI tells you it did. Beginner stays the default, because the target user is someone who
+> never learned to solve a cube at all.
+
+**"Why isn't Kociemba a guided option?"**
+> Because its output teaches nothing. It's a near-optimal search, so the moves are correct but
+> arbitrary — there's no human-legible reason why move 7 is what it is. It powers Auto-Solve and
+> it's the denominator of the efficiency score. Guided Mode needs methods with named, repeatable
+> stages, which is exactly what Beginner and CFOP have. `/api/cube/compare` shows all three
+> side by side on the same cube.
 
 **"Is the frontend connected to the backend?"**
 > Yes. Vite proxies `/api` to the FastAPI server, and `src/lib/api.js` is the single place every

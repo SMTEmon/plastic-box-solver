@@ -22,16 +22,39 @@ const SPEED_CHOICES = [
   { value: 4, label: "Very fast", hint: "Just show me the end" },
 ];
 
+/**
+ * The two teaching methods. Kociemba is deliberately absent: it produces a
+ * ~20-move solution, but the moves are near-optimal rather than meaningful,
+ * so there is nothing to learn by following them. It powers Auto-Solve
+ * instead.
+ */
+const METHODS = [
+  {
+    value: "beginner",
+    label: "Beginner's method",
+    hint: "The one people are actually taught. Longest, but every step has a reason.",
+    typical: "~190 moves",
+  },
+  {
+    value: "cfop",
+    label: "CFOP (Fridrich)",
+    hint: "What speedcubers use. About half the moves — it builds the first two layers together.",
+    typical: "~105 moves",
+  },
+];
+
 export default function AssistDialog({
   open,
   mode, // "auto" | "guided"
   moveCount,
   alreadyAssisted,
   initialSpeed = 0.5,
+  initialMethod = "beginner",
   onCancel,
   onStart,
 }) {
   const [speed, setSpeed] = useState(initialSpeed);
+  const [method, setMethod] = useState(initialMethod);
 
   const isAuto = mode === "auto";
 
@@ -43,8 +66,8 @@ export default function AssistDialog({
     >
       <p className="text-xs text-gray-400 leading-relaxed mb-4">
         {isAuto
-          ? "The full solution will play out on the cube from start to finish. Pick a speed first — you can still change it or pause while it runs."
-          : "You will be walked through the solution one move at a time, in plain language. Pick how fast each move animates."}
+          ? "Kociemba's two-phase algorithm will solve this cube in about 20 moves and play the whole thing out. Pick a speed first — you can still change it or pause while it runs."
+          : "You will be walked through the solution one move at a time, in plain language."}
         {typeof moveCount === "number" && moveCount > 0 && (
           <>
             {" "}
@@ -53,6 +76,55 @@ export default function AssistDialog({
           </>
         )}
       </p>
+
+      {!isAuto && (
+        <>
+          <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-2">
+            Which method should teach you?
+          </div>
+          <div className="space-y-1.5 mb-4">
+            {METHODS.map((m) => (
+              <button
+                key={m.value}
+                onClick={() => setMethod(m.value)}
+                className={`w-full flex items-start justify-between gap-3 px-3 py-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                  method === m.value
+                    ? "border-accent-violet bg-accent-violet/10"
+                    : "border-dark-border bg-dark-bg/50 hover:border-dark-border-strong"
+                }`}
+              >
+                <span className="min-w-0">
+                  <span
+                    className={`block text-sm font-medium ${
+                      method === m.value ? "text-accent-violet" : "text-white"
+                    }`}
+                  >
+                    {m.label}
+                  </span>
+                  <span className="block text-[11px] text-gray-500 leading-relaxed">
+                    {m.hint}
+                  </span>
+                </span>
+                <span className="text-[10px] font-mono text-gray-500 shrink-0 pt-0.5">
+                  {m.typical}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {method === "cfop" && (
+            <Note tone="info" className="mb-4">
+              CFOP trips a bug inside the solver library on roughly 1 cube in 7.
+              If this is one of them you will be given the beginner method
+              instead, and told so — you will never just get an error.
+            </Note>
+          )}
+
+          <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-2">
+            Animation speed
+          </div>
+        </>
+      )}
 
       <div className="space-y-1.5 mb-4">
         {SPEED_CHOICES.map((s) => (
@@ -98,7 +170,7 @@ export default function AssistDialog({
           size="md"
           variant="primary"
           className="flex-1"
-          onClick={() => onStart(speed)}
+          onClick={() => onStart({ speed, method })}
         >
           {isAuto ? "Start solving" : "Start guide"}
         </Button>

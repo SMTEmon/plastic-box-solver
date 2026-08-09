@@ -95,8 +95,26 @@ STAGES = [
     ("Solved", is_solved),
 ]
 
+# CFOP is a different pedagogy, not just a shorter beginner's method: it does
+# the first two layers TOGETHER (F2L) rather than layer by layer, and orients
+# then permutes the last layer in one algorithm each. Segmenting a CFOP
+# solution against the beginner list produces empty stages -- "Middle layer: 0
+# moves", "Top face: 0 moves" -- because those boundaries are never crossed
+# separately. These four are the real ones, built from the same predicates.
+CFOP_STAGES = [
+    ("Cross", down_cross_done),
+    ("F2L — first two layers", middle_layer_done),
+    ("OLL — orient last layer", up_face_done),
+    ("PLL — permute last layer", is_solved),
+]
 
-def segment(facelets: str, moves: list[str]) -> list[dict]:
+STAGE_SETS = {
+    "Beginner": STAGES,
+    "CFOP": CFOP_STAGES,
+}
+
+
+def segment(facelets: str, moves: list[str], method: str = "Beginner") -> list[dict]:
     """Replay `moves` from `facelets`, returning labelled stage segments:
     [{"name", "start", "end"}], where moves[start:end] complete that stage.
 
@@ -104,10 +122,11 @@ def segment(facelets: str, moves: list[str]) -> list[dict]:
     skipped (its moves fold into the following segment), so the result stays
     contiguous no matter how the solver ordered things.
     """
+    table = STAGE_SETS.get(method, STAGES)
     state, out, cursor, si = facelets, [], 0, 0
     for i, mv in enumerate(moves):
         state = apply_move(state, mv)
-        while si < len(STAGES) and STAGES[si][1](state):
-            out.append({"name": STAGES[si][0], "start": cursor, "end": i + 1})
+        while si < len(table) and table[si][1](state):
+            out.append({"name": table[si][0], "start": cursor, "end": i + 1})
             cursor, si = i + 1, si + 1
     return out

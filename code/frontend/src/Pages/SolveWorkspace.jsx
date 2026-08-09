@@ -8,6 +8,7 @@ import MoveButtons from "../Components/MoveButtons";
 import PlaybackControls from "../Components/PlaybackControls";
 import AssistDialog from "../Components/AssistDialog";
 import GuidedPanel, { StageProgress } from "../Components/GuidedPanel";
+import MethodComparison from "../Components/MethodComparison";
 import {
   Panel,
   PageHeader,
@@ -60,6 +61,7 @@ export default function SolveWorkspace() {
   const startedAt = useCubeStore((s) => s.startedAt);
   const finishedAt = useCubeStore((s) => s.finishedAt);
   const optimalMoveCount = useCubeStore((s) => s.optimalMoveCount);
+  const initial = useCubeStore((s) => s.initial);
 
   const token = useAuthStore((s) => s.token);
 
@@ -76,6 +78,7 @@ export default function SolveWorkspace() {
   const [playback, setPlayback] = useState({ pending: 0, paused: false });
   const [playbackTotal, setPlaybackTotal] = useState(0);
   const [dialog, setDialog] = useState(null); // "auto" | "guided" | null
+  const [guidedMethod, setGuidedMethod] = useState("beginner");
   const [saveState, setSaveState] = useState(null); // null | "saving" | "saved" | msg
 
   const solved = useCubeStore((s) => s.isSolved)();
@@ -200,25 +203,28 @@ export default function SolveWorkspace() {
     }
   };
 
-  /** Speed is chosen in the dialog, so nothing moves until the user says go. */
-  const beginAssisted = async (chosenSpeed) => {
+  /**
+   * Speed and method are chosen in the dialog, so nothing moves until the user
+   * says go. Auto-Solve is always Kociemba; Guided is Beginner or CFOP.
+   */
+  const beginAssisted = async ({ speed: chosenSpeed, method }) => {
     const which = dialog;
     setDialog(null);
     changeSpeed(chosenSpeed);
     useCubeStore.getState().markAssisted();
+    animatorRef.current?.setSpeed(chosenSpeed);
 
     if (which === "auto") {
       useCubeStore.getState().setMode(MODES.AUTO);
       const data = await fetchSolution("optimal");
       if (!data) return;
       setPlaybackTotal(data.moves.length);
-      animatorRef.current?.setSpeed(chosenSpeed);
       animatorRef.current?.enqueue(data.moves, false);
     } else {
+      setGuidedMethod(method);
       useCubeStore.getState().setMode(MODES.GUIDED);
       setPlaybackTotal(0);
-      animatorRef.current?.setSpeed(chosenSpeed);
-      await fetchSolution("beginner");
+      await fetchSolution(method);
     }
   };
 
@@ -285,6 +291,7 @@ export default function SolveWorkspace() {
         moveCount={dialog === "auto" ? optimalMoveCount : undefined}
         alreadyAssisted={assisted}
         initialSpeed={speed}
+        initialMethod={guidedMethod}
         onCancel={() => setDialog(null)}
         onStart={beginAssisted}
       />
@@ -313,8 +320,26 @@ export default function SolveWorkspace() {
 
       {error && <Note tone="error" className="mb-4">{error}</Note>}
 
+      {guided && solution.fellBack && (
+        <Note tone="warn" className="mb-3">
+          CFOP hit a bug in the solver library on this particular cube, so you
+          are being shown the <strong>beginner method</strong> instead. Same
+          destination, more moves.
+        </Note>
+      )}
+
       {guided && (
         <div className="mb-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-[11px] text-gray-500">
+              Teaching with{" "}
+              <span className="text-accent-violet font-medium">
+                {solution.methodLabel}
+              </span>{" "}
+              &middot; {solution.moveCount} moves &middot; Kociemba would take{" "}
+              {optimalMoveCount}
+            </span>
+          </div>
           <StageProgress
             stages={solution.stages}
             cursor={cursor}
@@ -455,6 +480,8 @@ export default function SolveWorkspace() {
           <Panel title="Which side is which">
             <FaceLegend facelets={facelets} />
           </Panel>
+
+          <MethodComparison key={initial} facelets={initial} />
 
           <Panel title="Actions">
             <div className="grid gap-2">

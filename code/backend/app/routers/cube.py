@@ -3,7 +3,9 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from app.cube import solver, stages as stages_mod, validate as validate_mod
 from app.cube.scramble import random_scramble
 from app.schemas import (
+    CompareResponse,
     FaceQuality,
+    MethodResult,
     ScanResponse,
     ScrambleResponse,
     SolveRequest,
@@ -75,6 +77,16 @@ def scan(images: list[UploadFile] = File(...)):
     return ScanResponse(facelets=facelets, valid=True, faces=faces)
 
 
+# API method name -> rubik_solver's own name for the same thing.
+_TEACHING = {"beginner": "Beginner", "cfop": "CFOP"}
+
+_METHOD_NOTES = {
+    "optimal": "Near-optimal. Fast and short, but the moves teach you nothing — this is what Auto-Solve plays.",
+    "beginner": "The method people are actually taught. Longest, but every step has a reason you can follow.",
+    "cfop": "What speedcubers use. Roughly half the moves of the beginner method because it builds the first two layers together.",
+}
+
+
 @router.post("/solve", response_model=SolveResponse)
 def solve(body: SolveRequest):
     try:
@@ -82,6 +94,8 @@ def solve(body: SolveRequest):
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
+    # Always computed: it is the efficiency denominator (FR-12b) even when the
+    # user is running a teaching method.
     optimal = solver.solve_optimal(body.facelets)
 
     if body.method == "optimal":
@@ -90,9 +104,19 @@ def solve(body: SolveRequest):
         stages = (
             [{"name": "Solution", "start": 0, "end": len(moves)}] if moves else []
         )
-    else:
-        moves = solver.solve_guided(body.facelets, method="Beginner")
-        stages = stages_mod.segment(body.facelets, moves)
+        return SolveResponse(
+            moves=moves,
+            moveCount=len(moves),
+            stages=stages,
+            optimalMoves=optimal,
+            optimalMoveCount=len(optimal),
+            method="optimal",
+            methodLabel="Kociemba two-phase",
+        )
+
+    requested = _TEACHING[body.method]
+    moves, used = solver.solve_teaching(body.facelets, method=requested)
+    stages = stages_mod.segment(body.facelets, moves, method=used)
 
     return SolveResponse(
         moves=moves,
@@ -100,4 +124,59 @@ def solve(body: SolveRequest):
         stages=stages,
         optimalMoves=optimal,
         optimalMoveCount=len(optimal),
+        method=used.lower(),
+        methodLabel=solver.TEACHING_METHODS[used],
+        fellBack=(used != requested),
     )
+
+
+@router.post("/compare", response_model=CompareResponse)
+def compare(body: ValidateRequest):
+    """Solve the same cube three ways, for a side-by-side comparison.
+
+    This is the clearest way to show why the project uses more than one solver:
+    Kociemba is short and unreadable, the beginner method is long and
+    teachable, CFOP sits in between. Run on one cube, the difference is
+    obvious.
+    """
+    try:
+        validate_mod.validate(body.facelets)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    results = []
+
+    try:
+        optimal = solver.solve_optimal(body.facelets)
+        results.append(MethodResult(
+            method="optimal", label="Kociemba two-phase", available=True,
+            moveCount=len(optimal), moves=optimal, note=_METHOD_NOTES["optimal"],
+        ))
+    except Exception as e:
+        results.append(MethodResult(
+            method="optimal", label="Kociemba two-phase", available=False,
+            detail=str(e), note=_METHOD_NOTES["optimal"],
+        ))
+
+    for api_name, rs_name in _TEACHING.items():
+        try:
+            # Deliberately NOT solve_teaching here: a comparison that silently
+            # substituted the beginner method for CFOP would be a lie about
+            # what CFOP did on this cube.
+            moves = solver.solve_guided(body.facelets, method=rs_name)
+            results.append(MethodResult(
+                method=api_name, label=solver.TEACHING_METHODS[rs_name],
+                available=True, moveCount=len(moves), moves=moves,
+                note=_METHOD_NOTES[api_name],
+            ))
+        except Exception as e:
+            results.append(MethodResult(
+                method=api_name, label=solver.TEACHING_METHODS[rs_name],
+                available=False,
+                detail=f"{type(e).__name__} inside rubik_solver — this cube "
+                       f"trips a bug in the library; Guided Mode falls back to "
+                       f"the beginner method.",
+                note=_METHOD_NOTES[api_name],
+            ))
+
+    return CompareResponse(facelets=body.facelets, results=results)

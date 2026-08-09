@@ -104,12 +104,28 @@ export const cubeApi = {
     request("/cube/validate", { method: "POST", json: { facelets } }),
 
   /**
+   * method: "optimal" (Kociemba, for Auto-Solve)
+   *       | "beginner" | "cfop"  (teaching methods, for Guided)
+   *
    * -> { moves, moveCount, stages:[{name,start,end}],
-   *      optimalMoves, optimalMoveCount }
+   *      optimalMoves, optimalMoveCount, method, methodLabel, fellBack }
+   *
+   * `method` in the RESPONSE is what actually ran. CFOP trips a bug inside
+   * rubik_solver on roughly 15% of cubes, and the server falls back to the
+   * beginner method rather than failing -- `fellBack` says when it did.
+   *
    * Throws ApiError with status 422 if the cube is not solvable.
    */
   solve: (facelets, method = "optimal") =>
     request("/cube/solve", { method: "POST", json: { facelets, method } }),
+
+  /**
+   * Solve the same cube three ways for a side-by-side comparison.
+   * -> { facelets, results: [{ method, label, available, moveCount, moves,
+   *                            detail, note }] }
+   */
+  compare: (facelets) =>
+    request("/cube/compare", { method: "POST", json: { facelets } }),
 
   /**
    * Six face photos in URFDLB order, field name "images".

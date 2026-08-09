@@ -11,7 +11,10 @@ class ScrambleResponse(BaseModel):
 
 class SolveRequest(BaseModel):
     facelets: str = Field(..., min_length=54, max_length=54)
-    method: Literal["optimal", "beginner"] = "optimal"
+    # "optimal" = Kociemba, for Auto-Solve. The other two are teaching methods
+    # for Guided Mode. Kociemba is deliberately not a guided option: its moves
+    # are near-optimal but arbitrary, so there is nothing to learn from them.
+    method: Literal["optimal", "beginner", "cfop"] = "optimal"
 
 
 class Stage(BaseModel):
@@ -26,6 +29,29 @@ class SolveResponse(BaseModel):
     stages: list[Stage]
     optimalMoves: list[str]
     optimalMoveCount: int
+    # Which method actually produced `moves`. Not always what was requested:
+    # CFOP fails on ~15% of cubes inside rubik_solver, and we fall back to the
+    # beginner method rather than returning an error. The UI says so.
+    method: str = "optimal"
+    methodLabel: str = "Kociemba two-phase"
+    fellBack: bool = False
+
+
+# --- Method comparison (FR-08a vs FR-08b) -----------------------------------
+
+class MethodResult(BaseModel):
+    method: str            # "optimal" | "beginner" | "cfop"
+    label: str             # human name
+    available: bool        # did it produce a solution for this cube?
+    moveCount: int = 0
+    moves: list[str] = []
+    detail: str | None = None   # why it failed, when available is False
+    note: str = ""              # what this method is for
+
+
+class CompareResponse(BaseModel):
+    facelets: str
+    results: list[MethodResult]
 
 
 class ValidateRequest(BaseModel):

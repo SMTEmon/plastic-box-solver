@@ -250,4 +250,28 @@ export const STAGE_HELP = {
     goal: "Final turns.",
     detail: "The last few moves line up the remaining edges. The cube is done.",
   },
+
+  // CFOP's four stages. It is a different pedagogy, not a shorter version of
+  // the beginner method: the first two layers are built together rather than
+  // one at a time, which is where most of the move saving comes from.
+  Cross: {
+    goal: "Make a cross on the bottom face.",
+    detail:
+      "Same start as the beginner method: four edges around the bottom centre, each arm matching the side it touches.",
+  },
+  "F2L — first two layers": {
+    goal: "Build the bottom AND middle layers at the same time.",
+    detail:
+      "This is what makes CFOP shorter. Instead of finishing the bottom layer and then the middle one, a corner and its matching edge are paired up and dropped in together. Two thirds of the cube is done after this.",
+  },
+  "OLL — orient last layer": {
+    goal: "Make the whole top face one colour.",
+    detail:
+      "Orient the last layer in one go. The sides will still look scrambled — every piece is in the right layer but facing the wrong way.",
+  },
+  "PLL — permute last layer": {
+    goal: "Slide the last-layer pieces into their correct spots.",
+    detail:
+      "Everything is already facing the right way, so this only moves pieces around. When it finishes, the cube is solved.",
+  },
 };
