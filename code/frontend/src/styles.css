@@ -1,11 +1,41 @@
 @import "tailwindcss";
 
+/**
+ * Palette.
+ *
+ * The old theme was two neon accents on near-black, which reads as flat and
+ * lifeless once there is more than one panel on screen. This keeps the dark
+ * base but gives it depth (three surface levels instead of one) and a spread
+ * of accents so different kinds of information can be told apart at a glance:
+ * cyan for actions, violet for guidance, amber for warnings, green for
+ * success, rose for errors.
+ *
+ * The cube's own six colours are theme tokens too, so sticker swatches,
+ * instruction cards and the leaderboard all use the exact same values.
+ */
 @theme {
-  --color-neon-blue: #00f3ff;
-  --color-neon-green: #39ff14;
-  --color-dark-bg: #0a0a12;
-  --color-dark-surface: #171726;
-  --color-dark-border: rgba(255, 255, 255, 0.08);
+  /* surfaces, dark -> light */
+  --color-dark-bg: #0a0a16;
+  --color-dark-surface: #16162b;
+  --color-dark-raised: #1e1e3a;
+  --color-dark-border: rgba(255, 255, 255, 0.09);
+  --color-dark-border-strong: rgba(255, 255, 255, 0.16);
+
+  /* accents */
+  --color-neon-blue: #22d3ee;
+  --color-neon-green: #4ade80;
+  --color-accent-violet: #a78bfa;
+  --color-accent-pink: #f472b6;
+  --color-accent-amber: #fbbf24;
+  --color-accent-rose: #fb7185;
+
+  /* the cube's own colours */
+  --color-cube-w: #f1f5f9;
+  --color-cube-y: #fbbf24;
+  --color-cube-r: #f43f5e;
+  --color-cube-o: #fb923c;
+  --color-cube-g: #22c55e;
+  --color-cube-b: #3b82f6;
 }
 
 html,
@@ -13,5 +43,71 @@ body,
 #root {
   height: 100%;
   margin: 0;
-  background: #000000;
+  background: var(--color-dark-bg);
+  color-scheme: dark;
+}
+
+/* Soft coloured glows behind everything, so large dark areas are not flat. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60rem 40rem at 12% -10%, rgba(34, 211, 238, 0.1), transparent 60%),
+    radial-gradient(50rem 35rem at 92% 8%, rgba(167, 139, 250, 0.11), transparent 60%),
+    radial-gradient(45rem 35rem at 60% 110%, rgba(244, 114, 182, 0.07), transparent 60%);
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* Scrollbars that do not look like a light-mode afterthought. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes pbs-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.pbs-enter {
+  animation: pbs-fade-up 0.22s ease-out both;
+}
+
+@keyframes pbs-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.pbs-pulse {
+  animation: pbs-pulse 1.6s ease-in-out infinite;
 }
