@@ -1,5 +1,62 @@
-import { describeMove, shortLabel, STAGE_HELP } from "../cube/notation.js";
+import { useState } from "react";
+import {
+  describeMove,
+  shortLabel,
+  STAGE_HELP,
+  CUBE_BASICS,
+  COLOUR_NAMES,
+  COLOUR_HEX,
+} from "../cube/notation.js";
 import { Button } from "./ui.jsx";
+
+/**
+ * The concepts a beginner needs before the first move. Collapsed by default so
+ * it does not get in the way of someone who already knows, but present -- the
+ * whole point of Guided Mode is that you learn while doing, not just copy.
+ */
+export function CubeBasics({ firstColour }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-2xl border border-dark-border bg-dark-surface/70">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-2 px-4 py-3 cursor-pointer"
+      >
+        <span className="text-xs font-semibold text-white">
+          New to this? Four things worth knowing first
+        </span>
+        <span className="text-gray-500 text-xs">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-3 pbs-enter">
+          {firstColour && (
+            <p className="text-[11px] text-gray-300 leading-relaxed">
+              <span
+                className="inline-block w-3 h-3 rounded-sm border border-white/20 align-[-1px] mr-1.5"
+                style={{ background: COLOUR_HEX[firstColour] }}
+              />
+              You are building the{" "}
+              <strong className="capitalize">{COLOUR_NAMES[firstColour]}</strong>{" "}
+              side first. Hold the cube with that colour on the BOTTOM and keep
+              it there — the instructions assume it stays put.
+            </p>
+          )}
+          {CUBE_BASICS.map((b) => (
+            <div key={b.title}>
+              <div className="text-[11px] font-semibold text-accent-violet">
+                {b.title}
+              </div>
+              <p className="text-[11px] text-gray-400 leading-relaxed mt-0.5">
+                {b.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Guided Mode's instruction, as the main event.
@@ -124,16 +181,41 @@ export default function GuidedPanel({
       </div>
 
       {stageHelp && (
-        <div className="mt-4 pt-4 border-t border-white/10">
-          <div className="text-[11px] text-gray-400">
-            <span className="text-white font-semibold">
-              Right now you are building: {currentStage.name}.
-            </span>{" "}
-            {stageHelp.goal}
+        <div className="mt-4 pt-4 border-t border-white/10 grid gap-3 sm:grid-cols-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.12em] text-gray-500 mb-1">
+              Building now — {currentStage.name}
+            </div>
+            <p className="text-[11px] text-gray-300 leading-relaxed">
+              {stageHelp.goal}
+            </p>
+            <p className="text-[11px] text-gray-500 leading-relaxed mt-1">
+              {stageHelp.detail}
+            </p>
           </div>
-          <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-            {stageHelp.detail}
-          </p>
+
+          {/* The "why" is what turns copying into learning. */}
+          {stageHelp.why && (
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.12em] text-gray-500 mb-1">
+                Why it works this way
+              </div>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                {stageHelp.why}
+              </p>
+            </div>
+          )}
+
+          {stageHelp.check && (
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.12em] text-gray-500 mb-1">
+                How to check you got it
+              </div>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                {stageHelp.check}
+              </p>
+            </div>
+          )}
         </div>
       )}
 

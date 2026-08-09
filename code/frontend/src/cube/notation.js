@@ -17,7 +17,7 @@
 
 import { FACE_ORDER } from "./facelets.js";
 
-const COLOUR_NAMES = {
+export const COLOUR_NAMES = {
   w: "white",
   y: "yellow",
   r: "red",
@@ -212,6 +212,34 @@ export function shortLabel(move) {
 }
 
 /**
+ * The three kinds of piece. Almost every "why did that move break what I just
+ * did?" moment comes from not knowing this, so it is worth teaching before the
+ * first move rather than after the tenth mistake.
+ */
+export const CUBE_BASICS = [
+  {
+    title: "Centres never move",
+    body:
+      "The six centre stickers are bolted to the core. Turn a face and the centre just spins in place. That means the centre colour IS that side's identity: the side with the red centre is the red side, permanently, no matter how scrambled the rest looks.",
+  },
+  {
+    title: "Edges have 2 colours, corners have 3",
+    body:
+      "There are 12 edge pieces (two stickers each) and 8 corner pieces (three stickers each). A sticker never leaves its piece. So you are not moving 54 stickers around — you are moving 20 pieces, and each one has exactly one correct home.",
+  },
+  {
+    title: "You solve layer by layer",
+    body:
+      "Every beginner method builds one layer, then the next, then the last. The hard part is placing new pieces without destroying what you already built — which is what the repeated sequences (algorithms) are for. They take a piece the long way round so the finished part ends up untouched.",
+  },
+  {
+    title: "A quarter turn is one click",
+    body:
+      "Every instruction here is a 90° turn of one layer, or 180° for a half turn. If you ever lose your place, press Back and watch the 3D cube replay the move.",
+  },
+];
+
+/**
  * What each of the seven stages is actually building, in plain words, plus
  * what "done" looks like so a beginner can check their own progress.
  */
@@ -219,36 +247,50 @@ export const STAGE_HELP = {
   "Bottom cross": {
     goal: "Make a plus sign on the bottom face.",
     detail:
-      "Four edge pieces around the bottom centre, forming a cross. Each arm must also match the colour of the side it touches — a cross that looks right from below but has mismatched sides does not count.",
+      "Four edge pieces around the bottom centre, forming a cross. Each arm must ALSO match the colour of the side it touches — a cross that looks right from underneath but has mismatched sides is wrong and will break later.",
+    why: "This is the anchor for everything else. Every later stage assumes these four edges are correct, so an error here quietly ruins the whole solve.",
+    check: "Turn the cube over and look at the bottom: a plus sign in one colour. Then look at the four sides — each arm's second colour should match that side's centre.",
   },
   "Bottom layer": {
     goal: "Finish the entire bottom face and the ring around it.",
     detail:
-      "Drop the four corner pieces into place. When this is done the bottom is one solid colour and the bottom row of all four sides matches their own centres.",
+      "Drop the four corner pieces in. Each corner has three colours, so there is exactly one slot where all three match.",
+    why: "Corners are placed with a repeated sequence that takes the piece up, around and back down. That detour is the point: it returns everything else to where it was, so the cross you just built survives.",
+    check: "The whole bottom face is one solid colour, and the bottom ROW of all four sides matches each side's centre.",
   },
   "Middle layer": {
     goal: "Fill in the middle row.",
     detail:
-      "Four edge pieces belong in the middle band. The bottom two layers will be completely finished after this — only the top remains.",
+      "Four edge pieces belong in the middle band. None of them has the top colour on it — that is how you spot which pieces belong here.",
+    why: "You cannot reach the middle without briefly disturbing the bottom, so the algorithm dips into the bottom layer and puts it straight back. Trust the sequence and do not stop half way.",
+    check: "Two full layers done. On every side, the bottom two rows are solid and only the top row is still mixed.",
   },
   "Top cross": {
     goal: "Make a plus sign on the top face.",
     detail:
-      "Only the top face colour matters here. The sides of those edge pieces will be wrong for now, and that is expected.",
+      "Only the top colour matters right now. The sides of those edges will look wrong, and that is expected — you are ORIENTING them, not placing them.",
+    why: "Solving the last layer is split into two jobs: turn the pieces the right way up, then slide them to the right spots. Trying to do both at once is what makes the last layer feel impossible.",
+    check: "A plus sign on top in the top colour. Ignore the sides completely.",
   },
   "Top face": {
     goal: "Make the whole top face one colour.",
     detail:
-      "Twist the top corners so the entire top is a single colour. The sides will still look scrambled — the pieces are in the right place but facing wrong.",
+      "Twist the top corners so the entire top face is a single colour. The sides will still look scrambled — normal, and it is about to be fixed.",
+    why: "Still orienting, not placing. The corners may already be in the right positions; they are just facing the wrong way. The sequence twists them in place.",
+    check: "The whole top face is one solid colour. The sides are still a mess.",
   },
   "Position corners": {
     goal: "Slide the top corners into their correct spots.",
     detail:
-      "Each corner has three colours and only one spot they all match. This puts them there.",
+      "Each corner has three colours, and only one slot where all three match a centre. This moves them there without disturbing the top face.",
+    why: "Now you are PLACING rather than orienting. Everything is facing the right way, so the pieces only need to swap around.",
+    check: "The three colours on every top corner match the three sides it touches.",
   },
   Solved: {
     goal: "Final turns.",
-    detail: "The last few moves line up the remaining edges. The cube is done.",
+    detail: "The last few moves cycle the remaining top edges into place.",
+    why: "This is the last thing left: a few edges in the right layer, facing the right way, but in each other's spots.",
+    check: "Every face is a single colour. Done.",
   },
 
   // CFOP's four stages. It is a different pedagogy, not a shorter version of
@@ -258,20 +300,28 @@ export const STAGE_HELP = {
     goal: "Make a cross on the bottom face.",
     detail:
       "Same start as the beginner method: four edges around the bottom centre, each arm matching the side it touches.",
+    why: "CFOP and the beginner method agree completely on step one. Everything after this is where they differ.",
+    check: "A plus sign on the bottom, and each arm's side colour matches that side's centre.",
   },
   "F2L — first two layers": {
-    goal: "Build the bottom AND middle layers at the same time.",
+    goal: "Build the bottom AND middle layers together.",
     detail:
-      "This is what makes CFOP shorter. Instead of finishing the bottom layer and then the middle one, a corner and its matching edge are paired up and dropped in together. Two thirds of the cube is done after this.",
+      "A corner and its matching edge are paired up in the top layer and dropped into place as a unit, four times over.",
+    why: "This is where CFOP saves its moves. The beginner method places the corner, then goes back for the edge; CFOP does both in one trip. Same result, roughly half the turns.",
+    check: "The bottom two layers are completely solid. Only the top layer is still mixed.",
   },
   "OLL — orient last layer": {
-    goal: "Make the whole top face one colour.",
+    goal: "Make the whole top face one colour, in one go.",
     detail:
-      "Orient the last layer in one go. The sides will still look scrambled — every piece is in the right layer but facing the wrong way.",
+      "Where the beginner method needs two separate stages (cross, then corners), CFOP orients the entire last layer with a single algorithm.",
+    why: "Orientation before placement, same principle as the beginner method — just done in one step instead of two.",
+    check: "The whole top face is a single colour. The sides are still wrong.",
   },
   "PLL — permute last layer": {
     goal: "Slide the last-layer pieces into their correct spots.",
     detail:
-      "Everything is already facing the right way, so this only moves pieces around. When it finishes, the cube is solved.",
+      "Everything already faces the right way, so this only swaps pieces around. One algorithm finishes the cube.",
+    why: "The final half of CFOP's two-step last layer. Orient, then permute.",
+    check: "Every face is a single colour. Done.",
   },
 };

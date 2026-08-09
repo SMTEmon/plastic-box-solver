@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { Modal, Button, Note } from "./ui.jsx";
+import { COLOUR_HEX, COLOUR_NAMES, centreColour } from "../cube/notation.js";
+
+const FIRST_COLOURS = ["w", "y", "r", "o", "g", "b"];
 
 /**
  * Pre-flight for Auto-Solve and Guided.
@@ -50,11 +53,17 @@ export default function AssistDialog({
   alreadyAssisted,
   initialSpeed = 0.5,
   initialMethod = "beginner",
+  facelets,
   onCancel,
   onStart,
 }) {
   const [speed, setSpeed] = useState(initialSpeed);
   const [method, setMethod] = useState(initialMethod);
+  // Default to whatever is already on the bottom: that is what the solver does
+  // with no instruction, and it means zero setup moves.
+  const [firstColour, setFirstColour] = useState(
+    () => (facelets ? centreColour(facelets, "D") : "y"),
+  );
 
   const isAuto = mode === "auto";
 
@@ -79,6 +88,31 @@ export default function AssistDialog({
 
       {!isAuto && (
         <>
+          <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-2">
+            Which colour do you want to solve first?
+          </div>
+          <div className="flex gap-1.5 mb-2">
+            {FIRST_COLOURS.map((c) => (
+              <button
+                key={c}
+                onClick={() => setFirstColour(c)}
+                title={COLOUR_NAMES[c]}
+                className={`flex-1 aspect-square rounded-xl border-2 cursor-pointer transition-transform ${
+                  firstColour === c
+                    ? "border-neon-blue scale-105"
+                    : "border-white/10 hover:border-white/35"
+                }`}
+                style={{ background: COLOUR_HEX[c] }}
+              />
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-500 mb-4 leading-relaxed">
+            Every beginner method builds one face first and works up from
+            there. Tutorials usually say white; it genuinely does not matter
+            which you pick. The guide will start by telling you how to turn the
+            cube so your colour is on the bottom.
+          </p>
+
           <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-2">
             Which method should teach you?
           </div>
@@ -170,7 +204,7 @@ export default function AssistDialog({
           size="md"
           variant="primary"
           className="flex-1"
-          onClick={() => onStart({ speed, method })}
+          onClick={() => onStart({ speed, method, firstColour })}
         >
           {isAuto ? "Start solving" : "Start guide"}
         </Button>

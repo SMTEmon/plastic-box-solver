@@ -7,7 +7,7 @@ import KeyboardControls from "../Components/KeyboardControls";
 import MoveButtons from "../Components/MoveButtons";
 import PlaybackControls from "../Components/PlaybackControls";
 import AssistDialog from "../Components/AssistDialog";
-import GuidedPanel, { StageProgress } from "../Components/GuidedPanel";
+import GuidedPanel, { StageProgress, CubeBasics } from "../Components/GuidedPanel";
 import MethodComparison from "../Components/MethodComparison";
 import {
   Panel,
@@ -19,7 +19,7 @@ import {
 } from "../Components/ui.jsx";
 import { cubeApi, solvesApi } from "../lib/api.js";
 import { invert } from "../cube/moves.js";
-import { centreColour, COLOUR_HEX } from "../cube/notation.js";
+import { centreColour, COLOUR_HEX, COLOUR_NAMES } from "../cube/notation.js";
 import { useCubeStore, MODES } from "../store/cubeStore.js";
 import { useAuthStore } from "../store/authStore.js";
 
@@ -184,11 +184,15 @@ export default function SolveWorkspace() {
 
   // --- assisted modes -----------------------------------------------------
 
-  const fetchSolution = async (method) => {
+  const fetchSolution = async (method, firstColour = null) => {
     setLoading(true);
     setError("");
     try {
-      const data = await cubeApi.solve(useCubeStore.getState().facelets, method);
+      const data = await cubeApi.solve(
+        useCubeStore.getState().facelets,
+        method,
+        firstColour,
+      );
       useCubeStore.getState().setSolution(data);
       return data;
     } catch (err) {
@@ -207,7 +211,7 @@ export default function SolveWorkspace() {
    * Speed and method are chosen in the dialog, so nothing moves until the user
    * says go. Auto-Solve is always Kociemba; Guided is Beginner or CFOP.
    */
-  const beginAssisted = async ({ speed: chosenSpeed, method }) => {
+  const beginAssisted = async ({ speed: chosenSpeed, method, firstColour }) => {
     const which = dialog;
     setDialog(null);
     changeSpeed(chosenSpeed);
@@ -224,7 +228,7 @@ export default function SolveWorkspace() {
       setGuidedMethod(method);
       useCubeStore.getState().setMode(MODES.GUIDED);
       setPlaybackTotal(0);
-      await fetchSolution(method);
+      await fetchSolution(method, firstColour);
     }
   };
 
@@ -292,6 +296,7 @@ export default function SolveWorkspace() {
         alreadyAssisted={assisted}
         initialSpeed={speed}
         initialMethod={guidedMethod}
+        facelets={facelets}
         onCancel={() => setDialog(null)}
         onStart={beginAssisted}
       />
@@ -335,7 +340,20 @@ export default function SolveWorkspace() {
               Teaching with{" "}
               <span className="text-accent-violet font-medium">
                 {solution.methodLabel}
-              </span>{" "}
+              </span>
+              {solution.firstColour && (
+                <>
+                  {" "}&middot; building the{" "}
+                  <span
+                    className="inline-block w-2.5 h-2.5 rounded-sm border border-white/20 align-[-1px]"
+                    style={{ background: COLOUR_HEX[solution.firstColour] }}
+                  />{" "}
+                  <span className="capitalize">
+                    {COLOUR_NAMES[solution.firstColour]}
+                  </span>{" "}
+                  face first
+                </>
+              )}{" "}
               &middot; {solution.moveCount} moves &middot; Kociemba would take{" "}
               {optimalMoveCount}
             </span>
@@ -384,6 +402,10 @@ export default function SolveWorkspace() {
           </div>
 
           {/* In Guided Mode the instruction is the product, not a sidebar note. */}
+          {guided && (
+            <CubeBasics firstColour={solution.firstColour} />
+          )}
+
           {guided && (
             <GuidedPanel
               solution={solution}
