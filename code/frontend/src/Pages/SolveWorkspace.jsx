@@ -6,110 +6,44 @@ import CubeScene from "../Three/CubeScene";
 import KeyboardControls from "../Components/KeyboardControls";
 import MoveButtons from "../Components/MoveButtons";
 import PlaybackControls from "../Components/PlaybackControls";
-import { cubeApi } from "../lib/api.js";
-import { invert } from "../cube/moves.js";
+import AssistDialog from "../Components/AssistDialog";
+import GuidedPanel, { StageProgress } from "../Components/GuidedPanel";
 import {
-  describeMove,
-  shortLabel,
-  centreColour,
-  COLOUR_HEX,
-  STAGE_HELP,
-} from "../cube/notation.js";
+  Panel,
+  PageHeader,
+  Button,
+  Note,
+  Segmented,
+  Stat,
+} from "../Components/ui.jsx";
+import { cubeApi, solvesApi } from "../lib/api.js";
+import { invert } from "../cube/moves.js";
+import { centreColour, COLOUR_HEX } from "../cube/notation.js";
 import { useCubeStore, MODES } from "../store/cubeStore.js";
+import { useAuthStore } from "../store/authStore.js";
 
-function Panel({ title, children, className = "" }) {
-  return (
-    <div
-      className={`bg-dark-surface border border-dark-border rounded-xl p-4 ${className}`}
-    >
-      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-        {title}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function ModeButton({ active, disabled, onClick, label }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors border disabled:opacity-40 ${
-        active
-          ? "border-neon-blue bg-neon-blue/10 text-neon-blue"
-          : "border-dark-border bg-dark-surface text-gray-300 hover:text-white"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function Stat({ label, value, tone = "text-white" }) {
-  return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wider text-gray-500">
-        {label}
-      </div>
-      <div className={`text-lg font-bold font-mono ${tone}`}>{value}</div>
-    </div>
-  );
-}
-
-/** The big "do this next" card. This is the whole point of Guided Mode. */
-function InstructionCard({ move, facelets }) {
-  const d = describeMove(move, facelets);
-  return (
-    <div className="rounded-xl border border-neon-blue/60 bg-neon-blue/5 p-4">
-      <div className="flex items-center gap-3">
-        {d.colourHex ? (
-          <span
-            className="w-9 h-9 rounded-lg border border-white/20 shrink-0"
-            style={{ background: d.colourHex }}
-            title={d.colourName}
-          />
-        ) : (
-          <span className="w-9 h-9 rounded-lg border border-white/20 bg-dark-bg flex items-center justify-center text-lg shrink-0">
-            ⟳
-          </span>
-        )}
-        <div className="min-w-0">
-          <div className="text-sm font-bold text-white leading-tight">
-            {d.title}
-          </div>
-          <div className="text-[11px] text-gray-400 font-mono mt-0.5">
-            notation: {d.token}
-          </div>
-        </div>
-        <span className="ml-auto text-2xl text-neon-blue leading-none">
-          {d.arrow}
-        </span>
-      </div>
-      <p className="text-xs text-gray-300 mt-3 leading-relaxed">{d.detail}</p>
-    </div>
-  );
-}
+const FACE_LABELS = {
+  U: "Top",
+  D: "Bottom",
+  L: "Left",
+  R: "Right",
+  F: "Front",
+  B: "Back",
+};
 
 /** Which colour is on which face right now -- centres move during rotations. */
 function FaceLegend({ facelets }) {
   return (
-    <div className="grid grid-cols-3 gap-1.5">
-      {["U", "D", "L", "R", "F", "B"].map((f) => {
-        const c = centreColour(facelets, f);
-        return (
-          <div
-            key={f}
-            className="flex items-center gap-1.5 text-[11px] text-gray-400"
-          >
-            <span
-              className="w-3 h-3 rounded border border-white/15 shrink-0"
-              style={{ background: COLOUR_HEX[c] }}
-            />
-            {{ U: "Top", D: "Bottom", L: "Left", R: "Right", F: "Front", B: "Back" }[f]}
-          </div>
-        );
-      })}
+    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+      {Object.keys(FACE_LABELS).map((f) => (
+        <div key={f} className="flex items-center gap-1.5 text-[11px] text-gray-400">
+          <span
+            className="w-3 h-3 rounded border border-white/15 shrink-0"
+            style={{ background: COLOUR_HEX[centreColour(facelets, f)] }}
+          />
+          {FACE_LABELS[f]}
+        </div>
+      ))}
     </div>
   );
 }
@@ -127,26 +61,32 @@ export default function SolveWorkspace() {
   const finishedAt = useCubeStore((s) => s.finishedAt);
   const optimalMoveCount = useCubeStore((s) => s.optimalMoveCount);
 
+  const token = useAuthStore((s) => s.token);
+
   const animatorRef = useRef(null);
   const viewRef = useRef(null);
+  const submittedRef = useRef(false);
+
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
   const [tick, setTick] = useState(0);
-  const [speed, setSpeedState] = useState(1);
+  const [speed, setSpeedState] = useState(0.5);
   const [playback, setPlayback] = useState({ pending: 0, paused: false });
   const [playbackTotal, setPlaybackTotal] = useState(0);
+  const [dialog, setDialog] = useState(null); // "auto" | "guided" | null
+  const [saveState, setSaveState] = useState(null); // null | "saving" | "saved" | msg
 
   const solved = useCubeStore((s) => s.isSolved)();
   const stage = useCubeStore((s) => s.currentStage)();
 
   const onAnimatorReady = useCallback((a) => {
     animatorRef.current = a;
+    a.setSpeed(0.5);
     setReady(true);
   }, []);
 
-  /** The animator pushes queue state up so the controls can be reactive. */
   const onProgress = useCallback(({ pending, paused }) => {
     setPlayback({ pending, paused });
   }, []);
@@ -196,6 +136,33 @@ export default function SolveWorkspace() {
     [tick, history.length, finishedAt, optimalMoveCount],
   );
 
+  /**
+   * FR-13a: save a finished solve.
+   *
+   * Only when it was genuinely the user's own work: solved, unassisted, at
+   * least one move made, and signed in. submittedRef guards against the effect
+   * firing twice for one solve.
+   */
+  useEffect(() => {
+    if (!solved || assisted || !history.length || !token) return;
+    if (submittedRef.current) return;
+    submittedRef.current = true;
+
+    const s = useCubeStore.getState();
+    setSaveState("saving");
+    solvesApi
+      .create({
+        solve_time: s.elapsedSeconds(),
+        move_count: s.history.length,
+        optimal_moves: s.optimalMoveCount,
+        method: "Interactive",
+        scramble: s.initial,
+        solution: s.history.join(" "),
+      })
+      .then(() => setSaveState("saved"))
+      .catch((err) => setSaveState(err.message));
+  }, [solved, assisted, history.length, token]);
+
   // --- user moves ---------------------------------------------------------
 
   const doMove = useCallback((move) => {
@@ -213,13 +180,6 @@ export default function SolveWorkspace() {
   }, []);
 
   // --- assisted modes -----------------------------------------------------
-
-  const confirmAssist = () =>
-    assisted ||
-    window.confirm(
-      "Using a system solve means this attempt won't count toward your " +
-        "efficiency or the leaderboard. Continue?",
-    );
 
   const fetchSolution = async (method) => {
     setLoading(true);
@@ -240,29 +200,27 @@ export default function SolveWorkspace() {
     }
   };
 
-  /** FR-11 -- queue the whole optimal solution and let it play. */
-  const runAutoSolve = useCallback(async () => {
-    if (!confirmAssist()) return;
+  /** Speed is chosen in the dialog, so nothing moves until the user says go. */
+  const beginAssisted = async (chosenSpeed) => {
+    const which = dialog;
+    setDialog(null);
+    changeSpeed(chosenSpeed);
     useCubeStore.getState().markAssisted();
-    useCubeStore.getState().setMode(MODES.AUTO);
-    const data = await fetchSolution("optimal");
-    if (!data) return;
-    setPlaybackTotal(data.moves.length);
-    animatorRef.current?.setSpeed(speed);
-    animatorRef.current?.enqueue(data.moves, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facelets, assisted, speed]);
 
-  /** FR-10 -- beginner's method, one move at a time with instructions. */
-  const startGuided = useCallback(async () => {
-    if (!confirmAssist()) return;
-    useCubeStore.getState().markAssisted();
-    useCubeStore.getState().setMode(MODES.GUIDED);
-    animatorRef.current?.setSpeed(speed);
-    setPlaybackTotal(0);
-    await fetchSolution("beginner");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facelets, assisted, speed]);
+    if (which === "auto") {
+      useCubeStore.getState().setMode(MODES.AUTO);
+      const data = await fetchSolution("optimal");
+      if (!data) return;
+      setPlaybackTotal(data.moves.length);
+      animatorRef.current?.setSpeed(chosenSpeed);
+      animatorRef.current?.enqueue(data.moves, false);
+    } else {
+      useCubeStore.getState().setMode(MODES.GUIDED);
+      setPlaybackTotal(0);
+      animatorRef.current?.setSpeed(chosenSpeed);
+      await fetchSolution("beginner");
+    }
+  };
 
   const stepForward = () => {
     const s = useCubeStore.getState();
@@ -278,7 +236,6 @@ export default function SolveWorkspace() {
     s.setCursor(s.cursor - 1);
   };
 
-  /** Play out the rest of the current stage without clicking Next 26 times. */
   const playStage = () => {
     const s = useCubeStore.getState();
     if (!s.solution) return;
@@ -296,16 +253,22 @@ export default function SolveWorkspace() {
     useCubeStore.getState().setMode(MODES.INTERACTIVE);
   }, []);
 
+  const onModeChange = (next) => {
+    if (next === MODES.INTERACTIVE) return backToInteractive();
+    setDialog(next === MODES.AUTO ? "auto" : "guided");
+  };
+
   const resetCube = useCallback(() => {
     animatorRef.current?.clear();
     animatorRef.current?.resume();
     setPlaybackTotal(0);
+    setSaveState(null);
+    submittedRef.current = false;
     useCubeStore.getState().reset();
   }, []);
 
   const guided = mode === MODES.GUIDED && solution;
   const canTurn = ready && mode === MODES.INTERACTIVE;
-  const atEnd = solution ? cursor >= solution.moves.length : false;
 
   return (
     <AppShell>
@@ -316,53 +279,75 @@ export default function SolveWorkspace() {
         enabled={canTurn}
       />
 
-      <div className="flex gap-4 h-[calc(100vh-2rem)]">
-        {/* --- 3D --- */}
-        <div className="flex-1 flex flex-col gap-3 min-w-0">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">Solve Workspace</h2>
-            <div className="flex gap-2">
-              <ModeButton
-                active={mode === MODES.INTERACTIVE}
-                disabled={loading}
-                onClick={backToInteractive}
-                label="Interactive"
-              />
-              <ModeButton
-                active={mode === MODES.GUIDED}
-                disabled={loading}
-                onClick={startGuided}
-                label="Guided"
-              />
-              <ModeButton
-                active={mode === MODES.AUTO}
-                disabled={loading}
-                onClick={runAutoSolve}
-                label="Auto-Solve"
-              />
-            </div>
-          </div>
+      <AssistDialog
+        open={dialog !== null}
+        mode={dialog}
+        moveCount={dialog === "auto" ? optimalMoveCount : undefined}
+        alreadyAssisted={assisted}
+        initialSpeed={speed}
+        onCancel={() => setDialog(null)}
+        onStart={beginAssisted}
+      />
 
-          <div className="relative flex-1 rounded-xl overflow-hidden border border-dark-border bg-dark-bg min-h-[320px]">
+      <PageHeader
+        title="Solve"
+        subtitle={
+          guided
+            ? "Follow one step at a time — the cube shows you what each move does"
+            : mode === MODES.AUTO
+              ? "Watch the computed solution play out"
+              : "Turn the cube yourself. The timer starts on your first move."
+        }
+      >
+        <Segmented
+          value={mode}
+          onChange={onModeChange}
+          disabled={loading}
+          options={[
+            { value: MODES.INTERACTIVE, label: "Interactive" },
+            { value: MODES.GUIDED, label: "Guided" },
+            { value: MODES.AUTO, label: "Auto-Solve" },
+          ]}
+        />
+      </PageHeader>
+
+      {error && <Note tone="error" className="mb-4">{error}</Note>}
+
+      {guided && (
+        <div className="mb-3">
+          <StageProgress
+            stages={solution.stages}
+            cursor={cursor}
+            currentStage={stage}
+          />
+        </div>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_18rem] items-start">
+        {/* --- main column --- */}
+        <div className="min-w-0 space-y-3">
+          <div
+            className={`relative rounded-2xl overflow-hidden border border-dark-border bg-dark-bg/70 ${
+              guided ? "h-[42vh] min-h-[260px]" : "h-[54vh] min-h-[340px]"
+            }`}
+          >
             <CubeScene
               onAnimatorReady={onAnimatorReady}
               onProgress={onProgress}
               showLabels={showLabels}
               viewRef={viewRef}
             />
-            {/* Orbiting makes it very easy to lose track of which side is
-                which, and every instruction is phrased by face name. */}
-            <div className="absolute top-2 right-2 flex gap-2">
+            <div className="absolute top-2 right-2 flex gap-1.5">
               <button
                 onClick={() => viewRef.current?.resetView()}
-                className="px-2.5 py-1.5 rounded-lg border border-dark-border bg-dark-surface/90 text-gray-300 text-[11px] cursor-pointer hover:text-white hover:border-neon-blue transition-colors"
-                title="Put the camera back to the front-top-right view"
+                className="px-2.5 py-1.5 rounded-lg border border-dark-border bg-dark-surface/90 backdrop-blur text-gray-300 text-[11px] cursor-pointer hover:text-white hover:border-neon-blue transition-colors"
+                title="Put the camera back to the default view"
               >
                 Reset view
               </button>
               <button
                 onClick={() => setShowLabels((v) => !v)}
-                className={`px-2.5 py-1.5 rounded-lg border bg-dark-surface/90 text-[11px] cursor-pointer transition-colors ${
+                className={`px-2.5 py-1.5 rounded-lg border bg-dark-surface/90 backdrop-blur text-[11px] cursor-pointer transition-colors ${
                   showLabels
                     ? "border-neon-blue text-neon-blue"
                     : "border-dark-border text-gray-400 hover:text-white"
@@ -373,162 +358,88 @@ export default function SolveWorkspace() {
             </div>
           </div>
 
-          <MoveButtons onMove={doMove} disabled={!canTurn} />
-
-          <p className="text-xs text-gray-500">
-            Keyboard: <span className="font-mono text-gray-400">U D L R F B</span>{" "}
-            turn clockwise &middot;{" "}
-            <span className="font-mono text-gray-400">Shift</span> reverses
-            &middot; <span className="font-mono text-gray-400">2</span> then a
-            key gives a double turn &middot;{" "}
-            <span className="font-mono text-gray-400">Ctrl+Z</span> undo
-          </p>
-        </div>
-
-        {/* --- sidebar --- */}
-        <div className="w-80 flex flex-col gap-4 shrink-0 overflow-y-auto">
-          {/* Guided instructions come first: it is the thing you are reading. */}
+          {/* In Guided Mode the instruction is the product, not a sidebar note. */}
           {guided && (
-            <Panel title={`Step ${Math.min(cursor + 1, solution.moves.length)} of ${solution.moves.length}`}>
-              {atEnd ? (
-                <div className="text-neon-green text-sm font-bold">
-                  All steps complete — the cube is solved.
-                </div>
-              ) : (
-                <InstructionCard
-                  move={solution.moves[cursor]}
-                  facelets={facelets}
-                />
-              )}
+            <GuidedPanel
+              solution={solution}
+              cursor={cursor}
+              facelets={facelets}
+              currentStage={stage}
+              onBack={stepBack}
+              onNext={stepForward}
+              onPlayStage={playStage}
+              busy={loading}
+            />
+          )}
 
-              {stage && (
-                <div className="mt-3">
-                  <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-1">
-                    Working on: {stage.name}
-                  </div>
-                  <p className="text-[11px] text-gray-400 leading-relaxed">
-                    {STAGE_HELP[stage.name]}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={stepBack}
-                  disabled={cursor <= 0}
-                  className="flex-1 py-2 rounded-lg border border-dark-border bg-dark-bg text-gray-300 text-xs cursor-pointer hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  &larr; Back
-                </button>
-                <button
-                  onClick={stepForward}
-                  disabled={atEnd}
-                  className="flex-1 py-2 rounded-lg bg-neon-blue text-dark-bg text-xs font-bold cursor-pointer hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Next &rarr;
-                </button>
-              </div>
-              <button
-                onClick={playStage}
-                disabled={atEnd}
-                className="w-full mt-2 py-2 rounded-lg border border-dark-border bg-dark-bg text-gray-300 text-xs cursor-pointer hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Play the rest of this stage
-              </button>
-
-              {!atEnd && (
-                <div className="mt-3 text-[11px] text-gray-500">
-                  Coming up:{" "}
-                  <span className="text-gray-400">
-                    {solution.moves
-                      .slice(cursor + 1, cursor + 4)
-                      .map(shortLabel)
-                      .join(" · ") || "—"}
-                  </span>
-                </div>
-              )}
+          {mode === MODES.INTERACTIVE && (
+            <Panel title="Turn the cube">
+              <MoveButtons onMove={doMove} disabled={!canTurn} />
+              <p className="text-[11px] text-gray-500 mt-3">
+                Keyboard:{" "}
+                <span className="font-mono text-gray-400">U D L R F B</span> turn
+                clockwise &middot;{" "}
+                <span className="font-mono text-gray-400">Shift</span> reverses
+                &middot; <span className="font-mono text-gray-400">2</span> then
+                a key gives a half turn &middot;{" "}
+                <span className="font-mono text-gray-400">Ctrl+Z</span> undo
+              </p>
             </Panel>
           )}
 
-          <Panel title="This attempt">
-            <div className="grid grid-cols-3 gap-3">
+          {mode === MODES.AUTO && solution && (
+            <Panel title="Solution">
+              <p className="text-[11px] font-mono text-gray-400 break-words leading-relaxed">
+                {solution.moves.join("  ")}
+              </p>
+            </Panel>
+          )}
+        </div>
+
+        {/* --- sidebar: status only --- */}
+        <div className="space-y-3 lg:sticky lg:top-0">
+          <Panel title="This attempt" tone={solved ? "green" : "default"}>
+            <div className="grid grid-cols-3 gap-2">
               <Stat label="Time" value={`${elapsed.toFixed(1)}s`} />
               <Stat label="Moves" value={history.length} />
               <Stat
                 label="Efficiency"
                 value={efficiency ? `${efficiency.toFixed(0)}%` : "--"}
-                tone={efficiency >= 50 ? "text-neon-green" : "text-white"}
+                tone={efficiency >= 50 ? "green" : "default"}
               />
             </div>
             <div className="mt-3 text-[11px] text-gray-500">
-              Optimal solution for this scramble:{" "}
+              Optimal for this scramble:{" "}
               <span className="text-gray-300 font-mono">
                 {optimalMoveCount || "?"}
               </span>{" "}
               moves
             </div>
-            {assisted && (
-              <div className="mt-3 text-[11px] text-yellow-400 border border-yellow-500/30 bg-yellow-500/5 rounded-lg p-2">
-                Assisted run &mdash; this attempt will not be submitted to the
+
+            {solved && (
+              <Note tone="success" className="mt-3">
+                <strong>Solved</strong> in {elapsed.toFixed(1)}s and{" "}
+                {history.length} moves{assisted ? " (assisted)" : ""}.
+                {saveState === "saving" && " Saving..."}
+                {saveState === "saved" && " Saved to your history."}
+                {!token && !assisted && " Sign in to save it."}
+              </Note>
+            )}
+            {assisted && !solved && (
+              <Note tone="warn" className="mt-3">
+                Assisted run — this attempt will not be submitted to the
                 leaderboard.
-              </div>
+              </Note>
+            )}
+            {saveState && saveState !== "saving" && saveState !== "saved" && (
+              <Note tone="error" className="mt-3">
+                Could not save: {saveState}
+              </Note>
             )}
           </Panel>
 
-          {solved && (
-            <Panel title="Result" className="border-neon-green/50">
-              <div className="text-neon-green font-bold text-sm mb-1">
-                Cube solved
-              </div>
-              <div className="text-xs text-gray-400">
-                {elapsed.toFixed(1)}s &middot; {history.length} moves
-                {assisted ? " (assisted)" : ""}
-              </div>
-            </Panel>
-          )}
-
-          {error && (
-            <Panel title="Error" className="border-red-500/40">
-              <div className="text-xs text-red-400">{error}</div>
-            </Panel>
-          )}
-
-          <Panel title="Which side is which">
-            <FaceLegend facelets={facelets} />
-            <p className="text-[11px] text-gray-500 mt-2 leading-relaxed">
-              Centres never move relative to each other, so these colours tell
-              you the cube&apos;s orientation. Whole-cube rotations change them.
-            </p>
-          </Panel>
-
-          {guided && (
-            <Panel title="Guided stages">
-              <div className="space-y-1.5">
-                {solution.stages.map((s) => {
-                  const active = stage?.name === s.name;
-                  const done = cursor >= s.end;
-                  return (
-                    <div
-                      key={s.name}
-                      className={`flex items-center justify-between text-xs rounded-lg px-2.5 py-2 border ${
-                        active
-                          ? "border-neon-blue bg-neon-blue/10 text-neon-blue"
-                          : done
-                            ? "border-transparent text-neon-green/70"
-                            : "border-transparent text-gray-500"
-                      }`}
-                    >
-                      <span>{s.name}</span>
-                      <span className="font-mono">{s.end - s.start}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </Panel>
-          )}
-
           {mode !== MODES.INTERACTIVE && (
-            <Panel title="Playback speed">
+            <Panel title="Playback">
               <PlaybackControls
                 speed={speed}
                 onSpeed={changeSpeed}
@@ -538,39 +449,17 @@ export default function SolveWorkspace() {
                 pending={playback.pending}
                 total={playbackTotal}
               />
-              <p className="text-[11px] text-gray-500 mt-2 leading-relaxed">
-                Slow it to <span className="font-mono">0.25x</span> if you are
-                copying the moves onto a real cube. A speed change applies from
-                the next move.
-              </p>
             </Panel>
           )}
 
-          {mode === MODES.AUTO && solution && (
-            <Panel title="Auto-solve">
-              <div className="text-xs text-gray-400 mb-2">
-                {solution.moveCount} moves
-              </div>
-              <div className="text-[11px] font-mono text-gray-300 break-words leading-relaxed">
-                {solution.moves.join(" ")}
-              </div>
-            </Panel>
-          )}
+          <Panel title="Which side is which">
+            <FaceLegend facelets={facelets} />
+          </Panel>
 
           <Panel title="Actions">
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={resetCube}
-                className="w-full py-2.5 rounded-lg border border-dark-border bg-dark-bg text-gray-300 text-xs cursor-pointer hover:text-white transition-colors"
-              >
-                Reset to scramble
-              </button>
-              <button
-                onClick={() => navigate("/cube-input")}
-                className="w-full py-2.5 rounded-lg border border-dark-border bg-dark-bg text-gray-300 text-xs cursor-pointer hover:text-white transition-colors"
-              >
-                New cube
-              </button>
+            <div className="grid gap-2">
+              <Button onClick={resetCube}>Reset to scramble</Button>
+              <Button onClick={() => navigate("/cube-input")}>New cube</Button>
             </div>
           </Panel>
         </div>
