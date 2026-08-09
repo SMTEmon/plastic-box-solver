@@ -119,6 +119,7 @@ export default function GuidedPanel({
   onPlayStage,
   busy,
 }) {
+  const [showHelp, setShowHelp] = useState(false);
   const atEnd = cursor >= solution.moves.length;
   const stageHelp = currentStage ? STAGE_HELP[currentStage.name] : null;
 
@@ -140,111 +141,136 @@ export default function GuidedPanel({
   }
 
   const d = describeMove(solution.moves[cursor], facelets);
-  const upcoming = solution.moves.slice(cursor + 1, cursor + 5);
+  const upcoming = solution.moves.slice(cursor + 1, cursor + 4);
 
   return (
-    <div className="rounded-2xl border border-accent-violet/45 bg-gradient-to-br from-accent-violet/10 to-transparent p-5 pbs-enter">
-      <div className="flex items-start gap-4">
-        {/* Which piece to grab, as a colour you can look for. */}
+    <div className="rounded-2xl border border-accent-violet/45 bg-gradient-to-br from-accent-violet/10 to-transparent p-3.5 pbs-enter">
+      {/* One row: what to grab, what to do, and the controls. */}
+      <div className="flex items-center gap-3.5">
         <div className="shrink-0 text-center">
           <div
-            className="w-16 h-16 rounded-2xl border-2 border-white/20 grid place-items-center text-3xl shadow-lg"
+            className="w-12 h-12 rounded-xl border-2 border-white/20 grid place-items-center text-2xl shadow-lg"
             style={{ background: d.colourHex ?? "#1e1e3a" }}
           >
             <span
-              style={{ color: d.colour === "w" || d.colour === "y" ? "#0a0a16" : "#fff" }}
+              style={{
+                color: d.colour === "w" || d.colour === "y" ? "#0a0a16" : "#fff",
+              }}
             >
               {d.arrow}
             </span>
           </div>
-          <div className="text-[10px] text-gray-500 mt-1.5 font-mono">
-            {d.token}
-          </div>
+          <div className="text-[9px] text-gray-500 mt-1 font-mono">{d.token}</div>
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] uppercase tracking-[0.13em] text-accent-violet mb-1">
+          <div className="text-[10px] uppercase tracking-[0.13em] text-accent-violet">
             Step {cursor + 1} of {solution.moves.length}
+            {currentStage && (
+              <span className="text-gray-500 normal-case tracking-normal">
+                {" "}
+                · {currentStage.name}
+              </span>
+            )}
           </div>
-          <h3 className="text-xl font-bold text-white leading-tight">
+          <h3 className="text-base font-bold text-white leading-tight mt-0.5">
             {d.headline}
           </h3>
-          <p className="text-sm text-gray-300 mt-2 leading-relaxed">
+          <p className="text-xs text-gray-300 mt-1 leading-relaxed">
             {d.instruction}
           </p>
           {d.warning && (
-            <p className="text-xs text-accent-amber mt-2 leading-relaxed">
+            <p className="text-[11px] text-accent-amber mt-1 leading-relaxed">
               {d.warning}
             </p>
           )}
         </div>
+
+        <div className="shrink-0 flex flex-col gap-1.5 w-32">
+          <Button
+            size="md"
+            variant="violet"
+            onClick={onNext}
+            disabled={busy}
+            className="w-full"
+          >
+            Done — next →
+          </Button>
+          <div className="flex gap-1.5">
+            <Button
+              onClick={onBack}
+              disabled={cursor <= 0 || busy}
+              className="flex-1"
+            >
+              ← Back
+            </Button>
+            <Button onClick={onPlayStage} disabled={busy} className="flex-1">
+              Stage ⏩
+            </Button>
+          </div>
+        </div>
       </div>
 
+      {/* The teaching content is what turns copying into learning, but it does
+          not need to be on screen every second -- the cube does. */}
       {stageHelp && (
-        <div className="mt-4 pt-4 border-t border-white/10 grid gap-3 sm:grid-cols-3">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.12em] text-gray-500 mb-1">
-              Building now — {currentStage.name}
-            </div>
-            <p className="text-[11px] text-gray-300 leading-relaxed">
-              {stageHelp.goal}
-            </p>
-            <p className="text-[11px] text-gray-500 leading-relaxed mt-1">
-              {stageHelp.detail}
-            </p>
-          </div>
+        <div className="mt-2.5 pt-2.5 border-t border-white/10">
+          <button
+            onClick={() => setShowHelp((v) => !v)}
+            className="flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-white cursor-pointer"
+          >
+            <span className="text-[9px] text-gray-600">
+              {showHelp ? "▾" : "▸"}
+            </span>
+            What am I building, and how do I check it?
+          </button>
 
-          {/* The "why" is what turns copying into learning. */}
-          {stageHelp.why && (
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.12em] text-gray-500 mb-1">
-                Why it works this way
+          {showHelp && (
+            <div className="grid gap-3 sm:grid-cols-3 mt-2 pbs-enter">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.12em] text-gray-500 mb-1">
+                  Goal — {currentStage.name}
+                </div>
+                <p className="text-[11px] text-gray-300 leading-relaxed">
+                  {stageHelp.goal}
+                </p>
+                <p className="text-[11px] text-gray-500 leading-relaxed mt-1">
+                  {stageHelp.detail}
+                </p>
               </div>
-              <p className="text-[11px] text-gray-400 leading-relaxed">
-                {stageHelp.why}
-              </p>
+              {stageHelp.why && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.12em] text-gray-500 mb-1">
+                    Why it works this way
+                  </div>
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    {stageHelp.why}
+                  </p>
+                </div>
+              )}
+              {stageHelp.check && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.12em] text-gray-500 mb-1">
+                    How to check you got it
+                  </div>
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    {stageHelp.check}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
-          {stageHelp.check && (
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.12em] text-gray-500 mb-1">
-                How to check you got it
-              </div>
-              <p className="text-[11px] text-gray-400 leading-relaxed">
-                {stageHelp.check}
-              </p>
+          {upcoming.length > 0 && (
+            <div className="text-[10px] text-gray-600 mt-1.5">
+              next up:{" "}
+              <span className="text-gray-500">
+                {upcoming.map(shortLabel).join(" · ")}
+              </span>
             </div>
           )}
         </div>
       )}
-
-      <div className="flex flex-wrap items-center gap-2 mt-4">
-        <Button size="md" onClick={onBack} disabled={cursor <= 0 || busy}>
-          ← Back
-        </Button>
-        <Button
-          size="md"
-          variant="violet"
-          onClick={onNext}
-          disabled={busy}
-          className="min-w-[9rem]"
-        >
-          Done — next step →
-        </Button>
-        <Button size="md" onClick={onPlayStage} disabled={busy}>
-          Play this whole stage
-        </Button>
-
-        {upcoming.length > 0 && (
-          <div className="ml-auto text-[11px] text-gray-500 hidden sm:block">
-            next up:{" "}
-            <span className="text-gray-400">
-              {upcoming.map(shortLabel).join(" · ")}
-            </span>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

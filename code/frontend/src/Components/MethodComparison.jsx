@@ -48,6 +48,9 @@ export default function MethodComparison({ facelets }) {
 
   return (
     <Panel
+      compact
+      collapsible
+      defaultOpen={false}
       title="Compare methods"
       action={
         data && (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { COLOUR_HEX } from "../cube/notation.js";
+import { COLOUR_HEX, COLOUR_NAMES } from "../cube/notation.js";
 import { faceletsToFaces, FACE_ORDER } from "../cube/facelets.js";
 
 /**
@@ -58,8 +58,8 @@ function Face({ face, letters, onPaint, highlight }) {
               onClick={() => onPaint(face, i)}
               title={
                 isCentre
-                  ? `${FACE_NAME[face]} centre — locked, it defines the colour scheme`
-                  : `${FACE_NAME[face]} sticker ${i + 1}`
+                  ? `${FACE_NAME[face]} centre (${COLOUR_NAMES[c.toLowerCase()]}) — locked, it defines the colour scheme`
+                  : `${FACE_NAME[face]} sticker ${i + 1} — currently ${COLOUR_NAMES[c.toLowerCase()]}`
               }
               className={`w-7 h-7 rounded-[3px] border transition-transform ${
                 isCentre
@@ -75,9 +75,15 @@ function Face({ face, letters, onPaint, highlight }) {
           );
         })}
       </div>
-      <span className="text-[10px] text-gray-500">
-        {FACE_NAME[face]}{" "}
-        <span className="font-mono text-gray-600">{face}</span>
+      {/* Position tells you where it sits in the net; the CENTRE COLOUR is
+          what you can actually see on the cube in your hand. Both. */}
+      <span className="flex items-center gap-1 text-[10px] text-gray-400">
+        <span
+          className="w-2.5 h-2.5 rounded-sm border border-white/20"
+          style={{ background: COLOUR_HEX[letters[4].toLowerCase()] }}
+        />
+        <span className="capitalize">{COLOUR_NAMES[letters[4].toLowerCase()]}</span>
+        <span className="text-gray-600">({FACE_NAME[face]})</span>
       </span>
     </div>
   );

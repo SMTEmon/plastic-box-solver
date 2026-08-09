@@ -6,6 +6,8 @@
  * unfinished. These are the only building blocks pages should use.
  */
 
+import { useState } from "react";
+
 const TONES = {
   default: "border-dark-border",
   blue: "border-neon-blue/45",
@@ -15,23 +17,59 @@ const TONES = {
   rose: "border-accent-rose/45",
 };
 
-/** A titled surface. `tone` colours the border to signal what it is. */
-export function Panel({ title, action, tone = "default", className = "", children }) {
+/**
+ * A titled surface. `tone` colours the border to signal what it is.
+ *
+ * `collapsible` matters more than it sounds: the solve page had eight panels
+ * competing with the 3D cube for attention, and the cube is the thing people
+ * came for. Secondary panels collapse so the cube gets the space.
+ */
+export function Panel({
+  title,
+  action,
+  tone = "default",
+  className = "",
+  collapsible = false,
+  defaultOpen = true,
+  compact = false,
+  children,
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const pad = compact ? "p-3" : "p-4";
+
   return (
     <section
-      className={`bg-dark-surface/85 backdrop-blur-sm border ${TONES[tone]} rounded-2xl p-4 ${className}`}
+      className={`bg-dark-surface/85 backdrop-blur-sm border ${TONES[tone]} rounded-2xl ${pad} ${className}`}
     >
       {(title || action) && (
-        <header className="flex items-center justify-between gap-2 mb-3">
-          {title && (
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.13em] text-gray-400">
-              {title}
-            </h3>
+        <header className="flex items-center justify-between gap-2">
+          {collapsible ? (
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className="flex items-center gap-1.5 cursor-pointer group"
+            >
+              <span className="text-[10px] text-gray-600 group-hover:text-gray-400">
+                {open ? "▾" : "▸"}
+              </span>
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.13em] text-gray-400 group-hover:text-gray-200">
+                {title}
+              </h3>
+            </button>
+          ) : (
+            title && (
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.13em] text-gray-400">
+                {title}
+              </h3>
+            )
           )}
           {action}
         </header>
       )}
-      {children}
+      {(!collapsible || open) && (
+        <div className={title || action ? (compact ? "mt-2.5" : "mt-3") : ""}>
+          {children}
+        </div>
+      )}
     </section>
   );
 }
@@ -162,8 +200,14 @@ export function EmptyState({ icon = "◇", title, children, action }) {
   );
 }
 
-/** Full-screen modal. Used for the assisted-solve pre-flight dialog. */
-export function Modal({ open, onClose, title, children }) {
+const MODAL_WIDTH = { md: "max-w-md", lg: "max-w-3xl" };
+
+/**
+ * Centred modal. `size="lg"` gives a landscape layout -- the guided pre-flight
+ * has three separate choices to make, and stacked vertically it was taller
+ * than the viewport, so the Start button fell below the fold.
+ */
+export function Modal({ open, onClose, title, subtitle, size = "md", children }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -171,9 +215,14 @@ export function Modal({ open, onClose, title, children }) {
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md bg-dark-surface border border-dark-border-strong rounded-2xl p-5 pbs-enter shadow-2xl">
-        <h3 className="text-base font-bold text-white mb-3">{title}</h3>
-        {children}
+      <div
+        className={`relative w-full ${MODAL_WIDTH[size]} max-h-[92vh] overflow-y-auto bg-dark-surface border border-dark-border-strong rounded-2xl p-5 pbs-enter shadow-2xl`}
+      >
+        <h3 className="text-base font-bold text-white">{title}</h3>
+        {subtitle && (
+          <p className="text-xs text-gray-400 mt-1 leading-relaxed">{subtitle}</p>
+        )}
+        <div className="mt-4">{children}</div>
       </div>
     </div>
   );

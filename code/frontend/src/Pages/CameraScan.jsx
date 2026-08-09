@@ -39,33 +39,6 @@ const FACES = [
   { key: "B", name: "Back", hint: "Turn the cube 180° from Front." },
 ];
 
-/**
- * Names a captured face by the colour the detector read from its CENTRE.
- *
- * "Face 2 of 6" is meaningless when you are holding a cube -- you cannot tell
- * whether you shot the right side. The centre sticker never moves relative to
- * the others, so it is the one reliable identifier: "this is the red side".
- * Shown after a scan so the user can check the six photos really were six
- * different faces, in the right order.
- */
-function CentreBadge({ colour }) {
-  if (!colour) return null;
-  return (
-    <span
-      className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-md bg-black/50 border border-white/10"
-      title={`The camera read this face's centre as ${COLOUR_NAMES[colour]}`}
-    >
-      <span
-        className="w-2.5 h-2.5 rounded-sm border border-black/40"
-        style={{ background: COLOUR_HEX[colour] }}
-      />
-      <span className="text-[10px] text-gray-300 capitalize">
-        {COLOUR_NAMES[colour]}
-      </span>
-    </span>
-  );
-}
-
 export default function CameraScan() {
   const navigate = useNavigate();
   const loadScramble = useCubeStore((s) => s.loadScramble);
@@ -395,15 +368,34 @@ export default function CameraScan() {
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1 mb-2">
-                    <span className="text-xs font-bold text-white">
-                      {i + 1}. {f.name}
-                    </span>
+                    {/* Before a scan we can only name the position. After one,
+                        lead with the CENTRE COLOUR: "the red side" is something
+                        you can check against the cube in your hand, "face 2 of
+                        6" is not. */}
                     {centres[f.key] ? (
-                      <CentreBadge colour={centres[f.key]} />
+                      <>
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span
+                            className="w-3.5 h-3.5 rounded border border-white/25 shrink-0"
+                            style={{ background: COLOUR_HEX[centres[f.key]] }}
+                          />
+                          <span className="text-xs font-bold text-white capitalize truncate">
+                            {COLOUR_NAMES[centres[f.key]]} side
+                          </span>
+                        </span>
+                        <span className="text-[10px] text-gray-500 shrink-0">
+                          {i + 1}. {f.key}
+                        </span>
+                      </>
                     ) : (
-                      <span className="text-[10px] font-mono text-gray-500">
-                        {f.key}
-                      </span>
+                      <>
+                        <span className="text-xs font-bold text-white">
+                          {i + 1}. {f.name}
+                        </span>
+                        <span className="text-[10px] font-mono text-gray-500">
+                          {f.key}
+                        </span>
+                      </>
                     )}
                   </div>
                   <div className="aspect-square rounded-lg overflow-hidden bg-black border border-dark-border flex items-center justify-center">

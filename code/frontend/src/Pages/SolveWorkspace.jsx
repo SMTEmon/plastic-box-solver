@@ -9,14 +9,7 @@ import PlaybackControls from "../Components/PlaybackControls";
 import AssistDialog from "../Components/AssistDialog";
 import GuidedPanel, { StageProgress, CubeBasics } from "../Components/GuidedPanel";
 import MethodComparison from "../Components/MethodComparison";
-import {
-  Panel,
-  PageHeader,
-  Button,
-  Note,
-  Segmented,
-  Stat,
-} from "../Components/ui.jsx";
+import { Panel, Button, Note, Segmented } from "../Components/ui.jsx";
 import { cubeApi, solvesApi } from "../lib/api.js";
 import { invert } from "../cube/moves.js";
 import { centreColour, COLOUR_HEX, COLOUR_NAMES } from "../cube/notation.js";
@@ -32,19 +25,40 @@ const FACE_LABELS = {
   B: "Back",
 };
 
-/** Which colour is on which face right now -- centres move during rotations. */
-function FaceLegend({ facelets }) {
+/**
+ * Which colour is on which face, as a strip floating over the canvas.
+ *
+ * This used to be a whole sidebar panel. It is a six-item lookup -- it does not
+ * deserve a panel, and the cube needs the room.
+ */
+function FaceLegendOverlay({ facelets }) {
   return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+    <div className="absolute bottom-2 left-2 flex flex-wrap gap-x-2.5 gap-y-1 max-w-[15rem] px-2.5 py-1.5 rounded-xl bg-dark-surface/85 backdrop-blur border border-dark-border">
       {Object.keys(FACE_LABELS).map((f) => (
-        <div key={f} className="flex items-center gap-1.5 text-[11px] text-gray-400">
+        <span
+          key={f}
+          className="flex items-center gap-1 text-[10px] text-gray-400"
+          title={`${FACE_LABELS[f]} is ${COLOUR_NAMES[centreColour(facelets, f)]}`}
+        >
           <span
-            className="w-3 h-3 rounded border border-white/15 shrink-0"
+            className="w-2.5 h-2.5 rounded-sm border border-white/15"
             style={{ background: COLOUR_HEX[centreColour(facelets, f)] }}
           />
           {FACE_LABELS[f]}
-        </div>
+        </span>
       ))}
+    </div>
+  );
+}
+
+/** One compact figure in the stats strip. */
+function Metric({ label, value, tone = "text-white" }) {
+  return (
+    <div className="flex items-baseline gap-1.5">
+      <span className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
+        {label}
+      </span>
+      <span className={`text-sm font-bold font-mono ${tone}`}>{value}</span>
     </div>
   );
 }
@@ -73,13 +87,14 @@ export default function SolveWorkspace() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
+  const [showLegend, setShowLegend] = useState(true);
   const [tick, setTick] = useState(0);
   const [speed, setSpeedState] = useState(0.5);
   const [playback, setPlayback] = useState({ pending: 0, paused: false });
   const [playbackTotal, setPlaybackTotal] = useState(0);
   const [dialog, setDialog] = useState(null); // "auto" | "guided" | null
   const [guidedMethod, setGuidedMethod] = useState("beginner");
-  const [saveState, setSaveState] = useState(null); // null | "saving" | "saved" | msg
+  const [saveState, setSaveState] = useState(null);
 
   const solved = useCubeStore((s) => s.isSolved)();
   const stage = useCubeStore((s) => s.currentStage)();
@@ -139,13 +154,7 @@ export default function SolveWorkspace() {
     [tick, history.length, finishedAt, optimalMoveCount],
   );
 
-  /**
-   * FR-13a: save a finished solve.
-   *
-   * Only when it was genuinely the user's own work: solved, unassisted, at
-   * least one move made, and signed in. submittedRef guards against the effect
-   * firing twice for one solve.
-   */
+  /** FR-13a: save a finished solve, if it was genuinely the user's own work. */
   useEffect(() => {
     if (!solved || assisted || !history.length || !token) return;
     if (submittedRef.current) return;
@@ -207,10 +216,6 @@ export default function SolveWorkspace() {
     }
   };
 
-  /**
-   * Speed and method are chosen in the dialog, so nothing moves until the user
-   * says go. Auto-Solve is always Kociemba; Guided is Beginner or CFOP.
-   */
   const beginAssisted = async ({ speed: chosenSpeed, method, firstColour }) => {
     const which = dialog;
     setDialog(null);
@@ -280,6 +285,9 @@ export default function SolveWorkspace() {
   const guided = mode === MODES.GUIDED && solution;
   const canTurn = ready && mode === MODES.INTERACTIVE;
 
+  const canvasButton =
+    "px-2 py-1 rounded-lg border bg-dark-surface/90 backdrop-blur text-[10px] cursor-pointer transition-colors";
+
   return (
     <AppShell>
       <KeyboardControls
@@ -301,216 +309,201 @@ export default function SolveWorkspace() {
         onStart={beginAssisted}
       />
 
-      <PageHeader
-        title="Solve"
-        subtitle={
-          guided
-            ? "Follow one step at a time — the cube shows you what each move does"
-            : mode === MODES.AUTO
-              ? "Watch the computed solution play out"
-              : "Turn the cube yourself. The timer starts on your first move."
-        }
-      >
-        <Segmented
-          value={mode}
-          onChange={onModeChange}
-          disabled={loading}
-          options={[
-            { value: MODES.INTERACTIVE, label: "Interactive" },
-            { value: MODES.GUIDED, label: "Guided" },
-            { value: MODES.AUTO, label: "Auto-Solve" },
-          ]}
-        />
-      </PageHeader>
+      {/* Fixed-height flex column on large screens so the cube can take every
+          pixel the other rows do not need. Stacks normally below lg. */}
+      <div className="flex flex-col gap-2.5 lg:h-[calc(100vh-2rem)] lg:min-h-0">
+        {/* --- one compact bar: title, stats, mode, actions --- */}
+        <div className="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h2 className="text-lg font-bold text-white">Solve</h2>
 
-      {error && <Note tone="error" className="mb-4">{error}</Note>}
+          <div className="flex items-center gap-4">
+            <Metric label="Time" value={`${elapsed.toFixed(1)}s`} />
+            <Metric label="Moves" value={history.length} />
+            <Metric
+              label="Eff"
+              value={efficiency ? `${efficiency.toFixed(0)}%` : "--"}
+              tone={efficiency >= 50 ? "text-neon-green" : "text-white"}
+            />
+            <Metric
+              label="Optimal"
+              value={optimalMoveCount || "?"}
+              tone="text-gray-400"
+            />
+          </div>
 
-      {guided && solution.fellBack && (
-        <Note tone="warn" className="mb-3">
-          CFOP hit a bug in the solver library on this particular cube, so you
-          are being shown the <strong>beginner method</strong> instead. Same
-          destination, more moves.
-        </Note>
-      )}
+          <div className="ml-auto flex items-center gap-2">
+            <Segmented
+              value={mode}
+              onChange={onModeChange}
+              disabled={loading}
+              options={[
+                { value: MODES.INTERACTIVE, label: "Interactive" },
+                { value: MODES.GUIDED, label: "Guided" },
+                { value: MODES.AUTO, label: "Auto" },
+              ]}
+            />
+            <Button onClick={resetCube}>Reset</Button>
+            <Button onClick={() => navigate("/cube-input")}>New cube</Button>
+          </div>
+        </div>
 
-      {guided && (
-        <div className="mb-3">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <span className="text-[11px] text-gray-500">
-              Teaching with{" "}
-              <span className="text-accent-violet font-medium">
-                {solution.methodLabel}
-              </span>
+        {/* --- inline status, only when there is something to say --- */}
+        {error && <Note tone="error" className="shrink-0">{error}</Note>}
+
+        {solved && (
+          <Note tone="success" className="shrink-0">
+            <strong>Solved</strong> in {elapsed.toFixed(1)}s and {history.length}{" "}
+            moves{assisted ? " (assisted — not submitted)" : ""}.
+            {saveState === "saving" && " Saving..."}
+            {saveState === "saved" && " Saved to your history."}
+            {!token && !assisted && " Sign in to save it."}
+          </Note>
+        )}
+
+        {assisted && !solved && (
+          <div className="shrink-0 text-[11px] text-accent-amber">
+            Assisted run — this attempt will not be submitted to the leaderboard.
+          </div>
+        )}
+
+        {guided && solution.fellBack && (
+          <Note tone="warn" className="shrink-0">
+            CFOP hit a bug in the solver library on this cube, so you are being
+            shown the <strong>beginner method</strong> instead.
+          </Note>
+        )}
+
+        {/* --- stage strip --- */}
+        {guided && (
+          <div className="shrink-0">
+            <div className="text-[11px] text-gray-500 mb-1.5">
+              {solution.methodLabel}
               {solution.firstColour && (
                 <>
-                  {" "}&middot; building the{" "}
+                  {" · building the "}
                   <span
                     className="inline-block w-2.5 h-2.5 rounded-sm border border-white/20 align-[-1px]"
                     style={{ background: COLOUR_HEX[solution.firstColour] }}
                   />{" "}
                   <span className="capitalize">
                     {COLOUR_NAMES[solution.firstColour]}
-                  </span>{" "}
-                  face first
+                  </span>
+                  {" face first"}
                 </>
-              )}{" "}
-              &middot; {solution.moveCount} moves &middot; Kociemba would take{" "}
-              {optimalMoveCount}
-            </span>
-          </div>
-          <StageProgress
-            stages={solution.stages}
-            cursor={cursor}
-            currentStage={stage}
-          />
-        </div>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-[1fr_18rem] items-start">
-        {/* --- main column --- */}
-        <div className="min-w-0 space-y-3">
-          <div
-            className={`relative rounded-2xl overflow-hidden border border-dark-border bg-dark-bg/70 ${
-              guided ? "h-[42vh] min-h-[260px]" : "h-[54vh] min-h-[340px]"
-            }`}
-          >
-            <CubeScene
-              onAnimatorReady={onAnimatorReady}
-              onProgress={onProgress}
-              showLabels={showLabels}
-              viewRef={viewRef}
-            />
-            <div className="absolute top-2 right-2 flex gap-1.5">
-              <button
-                onClick={() => viewRef.current?.resetView()}
-                className="px-2.5 py-1.5 rounded-lg border border-dark-border bg-dark-surface/90 backdrop-blur text-gray-300 text-[11px] cursor-pointer hover:text-white hover:border-neon-blue transition-colors"
-                title="Put the camera back to the default view"
-              >
-                Reset view
-              </button>
-              <button
-                onClick={() => setShowLabels((v) => !v)}
-                className={`px-2.5 py-1.5 rounded-lg border bg-dark-surface/90 backdrop-blur text-[11px] cursor-pointer transition-colors ${
-                  showLabels
-                    ? "border-neon-blue text-neon-blue"
-                    : "border-dark-border text-gray-400 hover:text-white"
-                }`}
-              >
-                Face labels
-              </button>
+              )}
+              {" · "}
+              {solution.moveCount} moves (Kociemba: {optimalMoveCount})
             </div>
-          </div>
-
-          {/* In Guided Mode the instruction is the product, not a sidebar note. */}
-          {guided && (
-            <CubeBasics firstColour={solution.firstColour} />
-          )}
-
-          {guided && (
-            <GuidedPanel
-              solution={solution}
+            <StageProgress
+              stages={solution.stages}
               cursor={cursor}
-              facelets={facelets}
               currentStage={stage}
-              onBack={stepBack}
-              onNext={stepForward}
-              onPlayStage={playStage}
-              busy={loading}
             />
-          )}
+          </div>
+        )}
 
-          {mode === MODES.INTERACTIVE && (
-            <Panel title="Turn the cube">
-              <MoveButtons onMove={doMove} disabled={!canTurn} />
-              <p className="text-[11px] text-gray-500 mt-3">
-                Keyboard:{" "}
-                <span className="font-mono text-gray-400">U D L R F B</span> turn
-                clockwise &middot;{" "}
-                <span className="font-mono text-gray-400">Shift</span> reverses
-                &middot; <span className="font-mono text-gray-400">2</span> then
-                a key gives a half turn &middot;{" "}
-                <span className="font-mono text-gray-400">Ctrl+Z</span> undo
-              </p>
-            </Panel>
-          )}
-
-          {mode === MODES.AUTO && solution && (
-            <Panel title="Solution">
-              <p className="text-[11px] font-mono text-gray-400 break-words leading-relaxed">
-                {solution.moves.join("  ")}
-              </p>
-            </Panel>
-          )}
-        </div>
-
-        {/* --- sidebar: status only --- */}
-        <div className="space-y-3 lg:sticky lg:top-0">
-          <Panel title="This attempt" tone={solved ? "green" : "default"}>
-            <div className="grid grid-cols-3 gap-2">
-              <Stat label="Time" value={`${elapsed.toFixed(1)}s`} />
-              <Stat label="Moves" value={history.length} />
-              <Stat
-                label="Efficiency"
-                value={efficiency ? `${efficiency.toFixed(0)}%` : "--"}
-                tone={efficiency >= 50 ? "green" : "default"}
+        {/* --- the cube gets everything that is left --- */}
+        <div className="flex-1 flex flex-col lg:flex-row gap-2.5 lg:min-h-0">
+          <div className="flex-1 flex flex-col gap-2.5 min-w-0 lg:min-h-0">
+            <div className="relative flex-1 min-h-[300px] lg:min-h-0 rounded-2xl overflow-hidden border border-dark-border bg-dark-bg/70">
+              <CubeScene
+                onAnimatorReady={onAnimatorReady}
+                onProgress={onProgress}
+                showLabels={showLabels}
+                viewRef={viewRef}
               />
-            </div>
-            <div className="mt-3 text-[11px] text-gray-500">
-              Optimal for this scramble:{" "}
-              <span className="text-gray-300 font-mono">
-                {optimalMoveCount || "?"}
-              </span>{" "}
-              moves
+
+              <div className="absolute top-2 right-2 flex gap-1.5">
+                <button
+                  onClick={() => viewRef.current?.resetView()}
+                  className={`${canvasButton} border-dark-border text-gray-300 hover:text-white hover:border-neon-blue`}
+                  title="Put the camera back to the default view"
+                >
+                  Reset view
+                </button>
+                <button
+                  onClick={() => setShowLabels((v) => !v)}
+                  className={`${canvasButton} ${
+                    showLabels
+                      ? "border-neon-blue text-neon-blue"
+                      : "border-dark-border text-gray-400 hover:text-white"
+                  }`}
+                >
+                  Labels
+                </button>
+                <button
+                  onClick={() => setShowLegend((v) => !v)}
+                  className={`${canvasButton} ${
+                    showLegend
+                      ? "border-neon-blue text-neon-blue"
+                      : "border-dark-border text-gray-400 hover:text-white"
+                  }`}
+                >
+                  Colours
+                </button>
+              </div>
+
+              {showLegend && <FaceLegendOverlay facelets={facelets} />}
             </div>
 
-            {solved && (
-              <Note tone="success" className="mt-3">
-                <strong>Solved</strong> in {elapsed.toFixed(1)}s and{" "}
-                {history.length} moves{assisted ? " (assisted)" : ""}.
-                {saveState === "saving" && " Saving..."}
-                {saveState === "saved" && " Saved to your history."}
-                {!token && !assisted && " Sign in to save it."}
-              </Note>
+            {/* mode-specific row, directly under the cube */}
+            {guided && (
+              <div className="shrink-0">
+                <GuidedPanel
+                  solution={solution}
+                  cursor={cursor}
+                  facelets={facelets}
+                  currentStage={stage}
+                  onBack={stepBack}
+                  onNext={stepForward}
+                  onPlayStage={playStage}
+                  busy={loading}
+                />
+              </div>
             )}
-            {assisted && !solved && (
-              <Note tone="warn" className="mt-3">
-                Assisted run — this attempt will not be submitted to the
-                leaderboard.
-              </Note>
-            )}
-            {saveState && saveState !== "saving" && saveState !== "saved" && (
-              <Note tone="error" className="mt-3">
-                Could not save: {saveState}
-              </Note>
-            )}
-          </Panel>
 
+            {mode === MODES.INTERACTIVE && (
+              <div className="shrink-0">
+                <MoveButtons onMove={doMove} disabled={!canTurn} />
+                <p className="text-[10px] text-gray-600 mt-1.5">
+                  <span className="font-mono text-gray-500">U D L R F B</span>{" "}
+                  turn · <span className="font-mono text-gray-500">Shift</span>{" "}
+                  reverses · <span className="font-mono text-gray-500">2</span>{" "}
+                  then a key = half turn ·{" "}
+                  <span className="font-mono text-gray-500">Ctrl+Z</span> undo
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* --- narrow rail: only what the current mode needs --- */}
           {mode !== MODES.INTERACTIVE && (
-            <Panel title="Playback">
-              <PlaybackControls
-                speed={speed}
-                onSpeed={changeSpeed}
-                paused={playback.paused}
-                onPause={pausePlayback}
-                onResume={resumePlayback}
-                pending={playback.pending}
-                total={playbackTotal}
-              />
-            </Panel>
+            <aside className="w-full lg:w-56 shrink-0 space-y-2.5 lg:overflow-y-auto lg:min-h-0">
+              <Panel title="Playback" compact>
+                <PlaybackControls
+                  speed={speed}
+                  onSpeed={changeSpeed}
+                  paused={playback.paused}
+                  onPause={pausePlayback}
+                  onResume={resumePlayback}
+                  pending={playback.pending}
+                  total={playbackTotal}
+                />
+              </Panel>
+
+              {guided && <CubeBasics firstColour={solution.firstColour} />}
+
+              {mode === MODES.AUTO && solution && (
+                <Panel title="Solution" compact collapsible defaultOpen={false}>
+                  <p className="text-[10px] font-mono text-gray-400 break-words leading-relaxed">
+                    {solution.moves.join("  ")}
+                  </p>
+                </Panel>
+              )}
+
+              <MethodComparison key={initial} facelets={initial} />
+            </aside>
           )}
-
-          <Panel title="Which side is which">
-            <FaceLegend facelets={facelets} />
-          </Panel>
-
-          <MethodComparison key={initial} facelets={initial} />
-
-          <Panel title="Actions">
-            <div className="grid gap-2">
-              <Button onClick={resetCube}>Reset to scramble</Button>
-              <Button onClick={() => navigate("/cube-input")}>New cube</Button>
-            </div>
-          </Panel>
         </div>
       </div>
     </AppShell>
