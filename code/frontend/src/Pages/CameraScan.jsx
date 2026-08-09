@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 
 import AppShell from "../Layout/AppShell";
 import { Panel, PageHeader, Button, Note } from "../Components/ui.jsx";
+import CubeNetEditor from "../Components/CubeNetEditor";
 import { cubeApi } from "../lib/api.js";
-import { faceletsToFaces } from "../cube/facelets.js";
-import { COLOUR_HEX } from "../cube/notation.js";
+import { FACE_ORDER } from "../cube/facelets.js";
+import { COLOUR_HEX, COLOUR_NAMES } from "../cube/notation.js";
 import { useCubeStore } from "../store/cubeStore.js";
 
 /**
@@ -38,25 +39,30 @@ const FACES = [
   { key: "B", name: "Back", hint: "Turn the cube 180° from Front." },
 ];
 
-/** 3x3 grid preview of a detected face, straight from the facelet string. */
-function FaceGrid({ letters, label, warn }) {
+/**
+ * Names a captured face by the colour the detector read from its CENTRE.
+ *
+ * "Face 2 of 6" is meaningless when you are holding a cube -- you cannot tell
+ * whether you shot the right side. The centre sticker never moves relative to
+ * the others, so it is the one reliable identifier: "this is the red side".
+ * Shown after a scan so the user can check the six photos really were six
+ * different faces, in the right order.
+ */
+function CentreBadge({ colour }) {
+  if (!colour) return null;
   return (
-    <div className="flex flex-col items-center gap-1">
-      <div
-        className={`grid grid-cols-3 gap-0.5 p-1 rounded ${
-          warn ? "ring-1 ring-accent-amber" : ""
-        }`}
-      >
-        {letters.map((c, i) => (
-          <span
-            key={i}
-            className="w-5 h-5 rounded-sm border border-black/40"
-            style={{ background: COLOUR_HEX[c.toLowerCase()] ?? "#333" }}
-          />
-        ))}
-      </div>
-      <span className="text-[10px] text-gray-500">{label}</span>
-    </div>
+    <span
+      className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-md bg-black/50 border border-white/10"
+      title={`The camera read this face's centre as ${COLOUR_NAMES[colour]}`}
+    >
+      <span
+        className="w-2.5 h-2.5 rounded-sm border border-black/40"
+        style={{ background: COLOUR_HEX[colour] }}
+      />
+      <span className="text-[10px] text-gray-300 capitalize">
+        {COLOUR_NAMES[colour]}
+      </span>
+    </span>
   );
 }
 
@@ -69,6 +75,8 @@ export default function CameraScan() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [edited, setEdited] = useState(null);   // facelets after manual fixes
+  const [editValid, setEditValid] = useState(null);
 
   // --- webcam -------------------------------------------------------------
   const videoRef = useRef(null);
@@ -105,6 +113,26 @@ export default function CameraScan() {
     () => () => stream?.getTracks().forEach((t) => t.stop()),
     [stream],
   );
+
+  /**
+   * Re-check with the solver on every edit. Local colour counts are not
+   * enough: only the solver can catch a PARITY violation, a cube with nine of
+   * every colour that still cannot physically exist.
+   */
+  useEffect(() => {
+    if (!edited) return;
+    let cancelled = false;
+    const t = setTimeout(() => {
+      cubeApi
+        .validate(edited)
+        .then((r) => !cancelled && setEditValid(r))
+        .catch(() => {});
+    }, 250);   // debounce: painting is fast, the solver is not
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [edited]);
 
   const setFace = (key, file) => {
     setFiles((f) => ({ ...f, [key]: file }));
@@ -235,7 +263,10 @@ export default function CameraScan() {
     try {
       // Order matters: the backend reads them as URFDLB.
       const ordered = FACES.map((f) => files[f.key]);
-      setResult(await cubeApi.scan(ordered));
+      const r = await cubeApi.scan(ordered);
+      setResult(r);
+      setEdited(r.facelets);
+      setEditValid(r.valid ? { valid: true } : { valid: false, detail: r.detail });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -244,11 +275,12 @@ export default function CameraScan() {
   };
 
   const useThisCube = async () => {
-    if (!result?.facelets) return;
+    const fl = edited ?? result?.facelets;
+    if (!fl) return;
     setBusy(true);
     try {
-      const optimal = await cubeApi.solve(result.facelets, "optimal");
-      loadScramble(result.facelets, optimal.optimalMoveCount);
+      const optimal = await cubeApi.solve(fl, "optimal");
+      loadScramble(fl, optimal.optimalMoveCount);
       navigate("/solve");
     } catch (err) {
       setError(err.message);
@@ -257,7 +289,9 @@ export default function CameraScan() {
     }
   };
 
-  const detectedFaces = result?.facelets ? faceletsToFaces(result.facelets) : null;
+  const centres = edited
+    ? Object.fromEntries(FACE_ORDER.split("").map((f, i) => [f, edited[i * 9 + 4]]))
+    : {};
   const flagged = new Set(
     (result?.faces ?? []).filter((f) => f.blurry || f.dark).map((f) => f.face),
   );
@@ -360,13 +394,17 @@ export default function CameraScan() {
                       : "border-dark-border bg-dark-bg hover:border-neon-blue"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between gap-1 mb-2">
                     <span className="text-xs font-bold text-white">
                       {i + 1}. {f.name}
                     </span>
-                    <span className="text-[10px] font-mono text-gray-500">
-                      {f.key}
-                    </span>
+                    {centres[f.key] ? (
+                      <CentreBadge colour={centres[f.key]} />
+                    ) : (
+                      <span className="text-[10px] font-mono text-gray-500">
+                        {f.key}
+                      </span>
+                    )}
                   </div>
                   <div className="aspect-square rounded-lg overflow-hidden bg-black border border-dark-border flex items-center justify-center">
                     {previews[f.key] ? (
@@ -397,6 +435,19 @@ export default function CameraScan() {
               ))}
             </div>
           </Panel>
+
+          {edited && (
+            <Panel
+              title="Check and fix the scan"
+              tone={editValid?.valid ? "green" : "amber"}
+            >
+              <CubeNetEditor
+                facelets={edited}
+                onChange={setEdited}
+                flaggedFaces={flagged}
+              />
+            </Panel>
+          )}
         </div>
 
         {/* --- sidebar --- */}
@@ -429,50 +480,53 @@ export default function CameraScan() {
 
           {result && (
             <>
-              <Panel title="Result" tone={result.valid ? "green" : "amber"}>
+              <Panel
+                title="Result"
+                tone={editValid?.valid ? "green" : "amber"}
+                action={
+                  edited !== result.facelets && (
+                    <button
+                      onClick={() => setEdited(result.facelets)}
+                      className="text-[11px] text-gray-500 hover:text-white cursor-pointer"
+                    >
+                      undo edits
+                    </button>
+                  )
+                }
+              >
                 <div
                   className={`text-sm font-bold ${
-                    result.valid ? "text-neon-green" : "text-accent-amber"
+                    editValid?.valid ? "text-neon-green" : "text-accent-amber"
                   }`}
                 >
-                  {result.valid ? "Legal, solvable cube" : "Detected, but not legal"}
+                  {editValid === null
+                    ? "Checking..."
+                    : editValid.valid
+                      ? "Legal, solvable cube"
+                      : "Not a legal cube yet"}
                 </div>
-                {result.detail && (
-                  <p className="text-xs text-gray-400 mt-1">{result.detail}</p>
+                {!editValid?.valid && editValid?.detail && (
+                  <p className="text-xs text-gray-400 mt-1">{editValid.detail}</p>
                 )}
-                <div className="mt-3 text-[10px] font-mono text-gray-500 break-all">
-                  {result.facelets}
-                </div>
-                <button
+                {!editValid?.valid && (
+                  <p className="text-[11px] text-gray-500 mt-2 leading-relaxed">
+                    Fix it in the editor below — click any wrong sticker and
+                    repaint it. You do not need to re-shoot the photos.
+                  </p>
+                )}
+
+                <Button
+                  variant="primary"
+                  size="md"
+                  className="w-full mt-3"
                   onClick={useThisCube}
-                  disabled={!result.valid || busy}
-                  className={`w-full mt-3 py-2.5 rounded-lg text-xs font-bold transition-colors ${
-                    result.valid && !busy
-                      ? "bg-neon-blue text-dark-bg hover:opacity-90 cursor-pointer"
-                      : "bg-gray-800 text-gray-500 border border-dark-border cursor-not-allowed"
-                  }`}
+                  disabled={!editValid?.valid || busy}
                 >
                   Solve this cube
-                </button>
+                </Button>
               </Panel>
 
-              <Panel title="What it saw">
-                <div className="grid grid-cols-3 gap-3">
-                  {["U", "R", "F", "D", "L", "B"].map((k) => (
-                    <FaceGrid
-                      key={k}
-                      letters={detectedFaces[k]}
-                      label={k}
-                      warn={flagged.has(k)}
-                    />
-                  ))}
-                </div>
-                <p className="text-[11px] text-gray-500 mt-3 leading-relaxed">
-                  Compare these against your cube. If one or two stickers are
-                  wrong, that is normal &mdash; the scan only has to be close
-                  enough to beat typing 54 letters by hand.
-                </p>
-              </Panel>
+
 
               <Panel title="Capture quality">
                 <div className="space-y-1.5">
