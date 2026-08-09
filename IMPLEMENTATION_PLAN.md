@@ -44,15 +44,26 @@ a generated one needs a test tying them together** — that's the general lesson
 instead of axios. One less dependency, same interceptor behaviour written by hand. `zustand` was
 installed as planned.
 
+### Second round — auth, dashboard, and a UI pass
+
+| | Delivered | Files |
+|---|---|---|
+| ✅ | **Phase 3 complete.** Register / login / logout, JWT persisted, protected routes, session restored on refresh | `src/store/authStore.js`, `src/Pages/AuthPages.jsx`, `src/Router.jsx` |
+| ✅ | **Phase 4.1–4.3 complete.** Solves auto-submit on completion; Dashboard with history, personal best and averages; ranked Leaderboard with `is_me` highlight | `src/Pages/{Dashboard,Leaderboard}.jsx` |
+| ✅ | Design system: three surface levels, six accents, the cube's own colours as tokens, shared UI primitives | `src/styles.css`, `src/Components/ui.jsx` |
+| ✅ | Guided Mode rebuilt as the page's focus rather than a sidebar card, with beginner-level instructions | `src/Components/GuidedPanel.jsx`, `src/cube/notation.js` |
+| ✅ | Speed chosen *before* an assisted solve starts, replacing `window.confirm` | `src/Components/AssistDialog.jsx` |
+| ✅ | Detection accuracy: centre-square crop, adaptive white cutoff, legality-guided retry, capture matched to the guide box | `app/vision/detect.py`, `app/routers/cube.py`, `src/Pages/CameraScan.jsx` |
+
 **What's next, in priority order:**
 
-1. **Phase 3 — auth pages** (§ below). Blocks everything in Phase 4.
-2. **Phase 4.1–4.3 — submit the solve, then the Dashboard and Leaderboard screens.** These
-   endpoints already work; it's screen work, not logic.
-3. **Phase 5.1 — the 2D net picker.** The camera half (5.2) is done; the correction editor is
-   not, so a scan that comes back with two wrong stickers currently can't be fixed in the UI.
-4. **Phase 6 — security items** (untrack `sql_app.db`, fail loudly on a missing `SECRET_KEY`,
+1. **Phase 5.1 — the 2D net picker.** The camera half is done, but a scan that comes back with
+   two wrong stickers still can't be corrected in the UI. This is the biggest remaining gap.
+2. **Phase 6 — security items** (untrack `sql_app.db`, fail loudly on a missing `SECRET_KEY`,
    pin `requirements.txt`). Ten minutes, disproportionate marks.
+3. **A profile edit form.** `PATCH /api/profile` works; there is no screen for it.
+4. **FR-15 password reset, FR-19 export, FR-21 badges** — all still unstarted, all need new
+   backend work as well as screens.
 
 Everything below is kept as the reference: Phases 0–2 for how the delivered code works and why,
 Phases 3–6 as the plan for what's left.

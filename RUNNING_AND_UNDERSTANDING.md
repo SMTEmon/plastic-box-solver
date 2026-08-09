@@ -27,12 +27,16 @@ that gap:
    OpenCV pipeline, and shows you what it saw sticker by sticker plus per-face blur/darkness
    flags. There's a generator script so you can test it without a physical cube.
 
-**What this means for your presentation:** you can now demo one continuous story instead of two
-disconnected halves. Scramble → 3D → auto-solve → solved, with every step crossing the network.
+5. **Accounts.** Register, sign in, and a Dashboard showing your solve history, personal best and
+   average efficiency. A finished unassisted solve submits itself and appears on the leaderboard.
 
-**What is still honest to say:** auth pages, the dashboard and the leaderboard UI are not built
-yet. Those backend endpoints work and you can show them in Swagger, but there's no screen for
-them. Don't claim otherwise — Part 6 has the exact coverage table.
+**What this means for your presentation:** you can now demo one continuous story end to end.
+Register → scramble → solve → your time appears on the Dashboard and the leaderboard, with every
+step crossing the network.
+
+**What is still honest to say:** password reset, badges, exporting a solve, and the 2D net editor
+for correcting a scan are not built. There's no profile *edit* form either, though the endpoint
+exists. Part 6 has the exact coverage table.
 
 ### The bug that was hiding in here, and how it was found
 
@@ -779,9 +783,9 @@ Ending on a specific, technical next step beats trailing off.
 
 | FR | Requirement | Backend | Frontend | Demo-able today |
 |---|---|---|---|---|
-| FR-01 | Register (email + ≥8 char password) | ✅ `auth.py` | ❌ no page | Swagger |
-| FR-02 | Login | ✅ JWT | ❌ | Swagger |
-| FR-03 | View/update profile | ✅ `profile.py` | ❌ | Swagger |
+| FR-01 | Register (email + ≥8 char password) | ✅ `auth.py` | ✅ `/register` | **In the app** |
+| FR-02 | Login | ✅ JWT | ✅ `/login`, token persists | **In the app** |
+| FR-03 | View/update profile | ✅ `profile.py` | ⚠️ shown in sidebar, no edit form | Partially |
 | FR-04 | Camera capture | ✅ `/scan` + quality checks | ✅ `/scan` page, webcam + upload | **In the app** |
 | FR-05 | Manual colour input | n/a | ⚠️ textarea only, no 2D net picker | Yes |
 | FR-06a | Extract 54 colours from 6 images | ✅ `detect.py` | ✅ wired + result grid | **In the app** |
@@ -795,9 +799,9 @@ Ending on a specific, technical next step beats trailing off.
 | FR-11 | Auto-solve animation | ✅ solution | ✅ queued playback | **In the app** |
 | FR-12a | Track time + move count | ✅ storage | ✅ live | **In the app** |
 | FR-12b | Efficiency % | ✅ server-side | ✅ live display | **In the app** |
-| FR-13a | Persist solve history | ✅ `/api/solves` | ❌ no submit yet | Swagger |
-| FR-13b | Personal best | ✅ | ❌ | Swagger |
-| FR-14 | Global leaderboard | ✅ ranked + `is_me` | ❌ stub page | Swagger |
+| FR-13a | Persist solve history | ✅ `/api/solves` | ✅ auto-submits on solve | **In the app** |
+| FR-13b | Personal best | ✅ | ✅ Dashboard | **In the app** |
+| FR-14 | Global leaderboard | ✅ ranked + `is_me` | ✅ ranked table, row highlight | **In the app** |
 | FR-15 | Password reset via email | ❌ deferred | ❌ | No |
 | FR-16 | Random solvable scramble | ✅ `scramble.py` | ✅ button | **In the app** |
 | FR-17 | Centre-cubelet auto-calibration | ✅ `_label_centres` | n/a | **`make_test_faces.py --noise`** |
@@ -805,10 +809,10 @@ Ending on a specific, technical next step beats trailing off.
 | FR-19 | Export / share solve summary | ❌ | ❌ | No |
 | FR-20 | Keyboard shortcuts | n/a | ✅ U D L R F B, Shift, 2 | **In the app** |
 | FR-21 | Badges / milestones | ❌ deferred | ❌ | No |
-| FR-22 | Logout from any page | n/a | ❌ no auth UI yet | No |
+| FR-22 | Logout from any page | n/a | ✅ sidebar user block | **In the app** |
 
-**Count: 21 of 29 implemented on at least one side, 15 of them demonstrable in the running app.
-2 partial, 6 not started.** Say a number. Vagueness reads as not knowing.
+**Count: 26 of 29 implemented on at least one side, 21 of them demonstrable in the running app.
+2 partial, 3 not started.** Say a number. Vagueness reads as not knowing.
 
 ---
 
