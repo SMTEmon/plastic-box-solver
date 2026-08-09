@@ -84,6 +84,26 @@ test("register and solve send JSON", async () => {
   assert.deepStrictEqual(JSON.parse(calls[0].init.body), {
     facelets: "w".repeat(54),
     method: "beginner",
+    firstColour: null, // omitted means "whatever is already on the bottom"
+  });
+});
+
+test("solve passes the chosen first colour through", async () => {
+  const calls = stubFetch({ ok: true, status: 200, body: {} });
+  await cubeApi.solve("w".repeat(54), "cfop", "r");
+  assert.deepStrictEqual(JSON.parse(calls[0].init.body), {
+    facelets: "w".repeat(54),
+    method: "cfop",
+    firstColour: "r",
+  });
+});
+
+test("compare posts just the facelets", async () => {
+  const calls = stubFetch({ ok: true, status: 200, body: { results: [] } });
+  await cubeApi.compare("w".repeat(54));
+  assert.strictEqual(calls[0].url, "/api/cube/compare");
+  assert.deepStrictEqual(JSON.parse(calls[0].init.body), {
+    facelets: "w".repeat(54),
   });
 });
 

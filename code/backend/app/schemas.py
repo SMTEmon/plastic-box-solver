@@ -15,6 +15,12 @@ class SolveRequest(BaseModel):
     # for Guided Mode. Kociemba is deliberately not a guided option: its moves
     # are near-optimal but arbitrary, so there is nothing to learn from them.
     method: Literal["optimal", "beginner", "cfop"] = "optimal"
+    # Which colour the user wants to build FIRST (the bottom layer). Teaching
+    # methods always solve the D face first, so this is achieved by rotating
+    # the whole cube before solving and prepending that rotation to the
+    # solution -- which is exactly what a tutorial means by "hold the cube with
+    # white on the bottom". Ignored for method="optimal".
+    firstColour: Optional[Literal["w", "y", "r", "o", "g", "b"]] = None
 
 
 class Stage(BaseModel):
@@ -35,6 +41,11 @@ class SolveResponse(BaseModel):
     method: str = "optimal"
     methodLabel: str = "Kociemba two-phase"
     fellBack: bool = False
+    # The colour actually built first, and the reorientation that set it up.
+    # prepMoves are the leading entries of `moves`, repeated here so the UI can
+    # explain the first step rather than showing a bare "Y'".
+    firstColour: Optional[str] = None
+    prepMoves: list[str] = []
 
 
 # --- Method comparison (FR-08a vs FR-08b) -----------------------------------

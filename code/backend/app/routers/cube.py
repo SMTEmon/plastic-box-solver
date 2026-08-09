@@ -115,7 +115,12 @@ def solve(body: SolveRequest):
         )
 
     requested = _TEACHING[body.method]
-    moves, used = solver.solve_teaching(body.facelets, method=requested)
+    moves, used, prep = solver.solve_teaching(
+        body.facelets, method=requested, first_colour=body.firstColour
+    )
+    # Segment against the ORIGINAL facelets and the full list, so the stage
+    # indices line up with what the UI steps through. The prep rotation folds
+    # into stage one, which is right: "hold it with white down" IS step one.
     stages = stages_mod.segment(body.facelets, moves, method=used)
 
     return SolveResponse(
@@ -127,6 +132,8 @@ def solve(body: SolveRequest):
         method=used.lower(),
         methodLabel=solver.TEACHING_METHODS[used],
         fellBack=(used != requested),
+        firstColour=body.firstColour or body.facelets[3 * 9 + 4],
+        prepMoves=prep,
     )
 
 

@@ -14,7 +14,7 @@ from app import _compat_imp_shim  # noqa: F401
 
 from app.cube import solver, stages as stages_mod
 from app.cube.constants import SOLVED
-from app.cube.moves import apply_moves
+from app.cube.moves import apply_move, apply_moves
 from app.cube.scramble import random_scramble
 
 TRIALS = 25
@@ -30,7 +30,7 @@ for _ in range(TRIALS):
     # --- the guided path must never fail, whichever method is asked for ---
     for requested in ("Beginner", "CFOP"):
         t0 = time.time()
-        moves, used = solver.solve_teaching(facelets, method=requested)
+        moves, used, _p = solver.solve_teaching(facelets, method=requested)
         elapsed = time.time() - t0
 
         assert apply_moves(facelets, moves) == SOLVED, (
@@ -91,8 +91,50 @@ assert len(stages_mod.STAGE_SETS["Beginner"]) == 7
 print("CFOP uses its own 4-stage vocabulary, Beginner keeps its 7: OK")
 
 # An unknown method name must not explode -- it degrades to Beginner.
-moves, used = solver.solve_teaching(random_scramble(20)[0], method="nonsense")
+moves, used, prep = solver.solve_teaching(random_scramble(20)[0], method="nonsense")
 assert used == "Beginner", used
+assert prep == []
 print("unknown method degrades to Beginner: OK")
+
+# --- the user picks which colour to build first -----------------------------
+# Teaching methods always solve the D face, so the choice is implemented by
+# rotating the cube first and prepending that rotation. Verify the chosen
+# colour really is the one that gets built.
+D_CENTRE = 3 * 9 + 4
+for colour in "wyrogb":
+    facelets, _ = random_scramble(20)
+    for method in ("Beginner", "CFOP"):
+        moves, used, prep = solver.solve_teaching(
+            facelets, method=method, first_colour=colour
+        )
+        assert apply_moves(facelets, moves) == SOLVED, (
+            f"{method}/{colour}: prepending the rotation broke the solution"
+        )
+        segments = stages_mod.segment(facelets, moves, method=used)
+        state = facelets
+        for mv in moves[: segments[0]["end"]]:
+            state = apply_move(state, mv)
+        assert state[D_CENTRE] == colour, (
+            f"{method}/{colour}: built {state[D_CENTRE]} first instead"
+        )
+print("all 6 starting colours x 2 methods build the chosen face first: OK")
+
+# --- and the bug that fix exposed -------------------------------------------
+# A cube scanned with white on the bottom is legal, just differently oriented.
+# to_rubik_solver used to assume our canonical orientation and silently
+# produced a wrong solution for anything else.
+facelets, _ = random_scramble(20)
+for label, rotation in (
+    ("as scanned", []),
+    ("white down", ["X2"]),
+    ("green up", ["Z'"]),
+    ("blue front", ["Y2"]),
+):
+    cube = apply_moves(facelets, rotation)
+    moves, used, _prep = solver.solve_teaching(cube, method="Beginner")
+    assert apply_moves(cube, moves) == SOLVED, (
+        f"guided solve is wrong for a cube oriented '{label}'"
+    )
+print("guided mode works for any cube orientation, not just canonical: OK")
 
 print("ALL METHOD TESTS OK")

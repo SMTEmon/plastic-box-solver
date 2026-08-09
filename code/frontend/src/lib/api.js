@@ -116,8 +116,11 @@ export const cubeApi = {
    *
    * Throws ApiError with status 422 if the cube is not solvable.
    */
-  solve: (facelets, method = "optimal") =>
-    request("/cube/solve", { method: "POST", json: { facelets, method } }),
+  solve: (facelets, method = "optimal", firstColour = null) =>
+    request("/cube/solve", {
+      method: "POST",
+      json: { facelets, method, firstColour },
+    }),
 
   /**
    * Solve the same cube three ways for a side-by-side comparison.

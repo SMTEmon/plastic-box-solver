@@ -102,8 +102,45 @@ TEACHING_METHODS = {
 }
 
 
-def solve_teaching(facelets: str, method: str = "Beginner") -> tuple[list[str], str]:
-    """Guided-mode solve that never fails, returning (moves, method_actually_used).
+#: index of the D-face centre in a facelet string (face 3, row 1, col 1)
+_D_CENTRE = 3 * 9 + 4
+
+
+def rotation_to_put_down(facelets: str, colour: str) -> list[str]:
+    """Shortest whole-cube rotation bringing `colour`'s centre onto the D face.
+
+    rubik_solver's beginner method always builds the DOWN face first -- there
+    is no parameter to tell it otherwise. But "which face is down" is purely a
+    matter of how you are holding the cube, so the choice can be handed back to
+    the user by reorienting the cube before solving and prepending that
+    rotation to the solution.
+
+    That is also what a human does: step one of every beginner tutorial is
+    "hold the cube with white on the bottom". Now the guide literally says so.
+    """
+    if facelets[_D_CENTRE] == colour:
+        return []
+    best = None
+    for seq in _ORIENTATIONS.values():
+        if apply_moves(facelets, seq)[_D_CENTRE] == colour:
+            if best is None or len(seq) < len(best):
+                best = seq
+    return list(best) if best else []
+
+
+def solve_teaching(
+    facelets: str,
+    method: str = "Beginner",
+    first_colour: str | None = None,
+) -> tuple[list[str], str, list[str]]:
+    """Guided-mode solve that never fails.
+
+    Returns (moves, method_actually_used, prep_rotations).
+
+    `first_colour` is the colour the user wants to build first. The returned
+    move list already begins with the reorientation, so replaying it from the
+    original `facelets` still lands on SOLVED -- callers do not need to know
+    the rotation happened, but it is returned so the UI can explain it.
 
     CFOP is worth offering -- measured over 40 random scrambles it averages
     ~106 moves against the beginner method's ~191, because it solves the first
@@ -118,12 +155,20 @@ def solve_teaching(facelets: str, method: str = "Beginner") -> tuple[list[str], 
     """
     if method not in TEACHING_METHODS:
         method = "Beginner"
+
+    prep = rotation_to_put_down(facelets, first_colour) if first_colour else []
+    start = apply_moves(facelets, prep)
+
     try:
-        return solve_guided(facelets, method=method), method
+        moves = solve_guided(start, method=method)
+        used = method
     except Exception:
         if method == "Beginner":
             raise
-        return solve_guided(facelets, method="Beginner"), "Beginner"
+        moves = solve_guided(start, method="Beginner")
+        used = "Beginner"
+
+    return prep + moves, used, prep
 
 
 def _trim_after_solved(facelets: str, moves: list[str]) -> list[str]:
