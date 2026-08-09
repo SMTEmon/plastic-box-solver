@@ -52,8 +52,19 @@ def scan(images: list[UploadFile] = File(...)):
         for letter, data in zip("URFDLB", contents)
     ]
 
+    def _is_legal(fl: str) -> bool:
+        try:
+            validate_mod.validate(fl)
+            return True
+        except ValueError:
+            return False
+
+    # detect_best retries with a few white/colour cutoffs when the first
+    # reading is not a legal cube. One misread sticker invalidates the whole
+    # scan, and the usual culprit is a washed-out white or a colour-cast white
+    # sitting right on the boundary.
     try:
-        facelets = detect.detect_facelets(contents)
+        facelets, _bias, _retried = detect.detect_best(contents, _is_legal)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 

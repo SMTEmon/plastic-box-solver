@@ -76,6 +76,35 @@ uneven = [gradient_face(FACE_BGR[f]) for f in "URFDLB"]
 assert detect_facelets(uneven) == SOLVED, "uneven lighting must classify identically"
 print("FR-17 uneven-lighting robustness (1.6x gradient per face): OK")
 
+# --- Non-square photos: phones shoot 4:3, the 3x3 split needs a square ------
+# Without the centre-square crop the outer columns of the grid land on the
+# background rather than on stickers, which is a large source of wrong reads.
+wide_faces = []
+for f in "URFDLB":
+    img = np.full((150, 200, 3), (20, 20, 20), dtype=np.uint8)   # letterboxed
+    img[:, 25:175] = FACE_BGR[f]                                  # centred square
+    ok, enc = cv2.imencode(".png", img)
+    wide_faces.append(enc.tobytes())
+assert detect_facelets(wide_faces) == SOLVED, "4:3 photo must crop to its centre square"
+print("non-square photo cropped to centre square: OK")
+
+# --- Adaptive white cutoff: warm light tints white without breaking it ------
+# The cutoff used to be a hardcoded saturation of 55. A white sticker under
+# warm light picks up a colour cast and can read above that, at which point it
+# is classified as a colour. The cutoff is now derived from this scan's own
+# centres, so it moves with the lighting.
+WARM = {
+    "U": (200, 210, 230),   # white, noticeably warm -- saturation ~33
+    "R": (60, 60, 180),
+    "F": (80, 150, 90),
+    "D": (70, 190, 215),
+    "L": (60, 120, 205),
+    "B": (175, 90, 70),
+}
+warm_faces = [solid_face(WARM[f]) for f in "URFDLB"]
+assert detect_facelets(warm_faces) == SOLVED, "warm-lit scan must still classify correctly"
+print("adaptive white cutoff under warm light: OK")
+
 # --- White special case: a low-saturation face is 'w', not a random hue -----
 grey_U = [solid_face((150, 150, 150))] + [solid_face(FACE_BGR[f]) for f in "RFDLB"]
 grey_detected = detect_facelets(grey_U)

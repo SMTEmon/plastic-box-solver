@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import AppShell from "../Layout/AppShell";
+import { Panel, PageHeader, Button, Note } from "../Components/ui.jsx";
 import { cubeApi } from "../lib/api.js";
 import { faceletsToFaces } from "../cube/facelets.js";
 import { COLOUR_HEX } from "../cube/notation.js";
@@ -21,6 +22,13 @@ import { useCubeStore } from "../store/cubeStore.js";
  * instead of re-shooting everything.
  */
 
+/**
+ * How far the guide frame sits in from the edge of the square preview.
+ * The capture crops to exactly this box, so the 3x3 grid the detector splits
+ * is the same 3x3 grid the user lined the cube up against.
+ */
+const GUIDE_INSET = 0.1;
+
 const FACES = [
   { key: "U", name: "Up (top)", hint: "Hold the cube so this face points at the camera. Keep the same up-direction for every shot." },
   { key: "R", name: "Right", hint: "Turn the cube left by 90° from Front, so the right side faces you." },
@@ -30,24 +38,13 @@ const FACES = [
   { key: "B", name: "Back", hint: "Turn the cube 180° from Front." },
 ];
 
-function Panel({ title, children, className = "" }) {
-  return (
-    <div className={`bg-dark-surface border border-dark-border rounded-xl p-4 ${className}`}>
-      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-        {title}
-      </div>
-      {children}
-    </div>
-  );
-}
-
 /** 3x3 grid preview of a detected face, straight from the facelet string. */
 function FaceGrid({ letters, label, warn }) {
   return (
     <div className="flex flex-col items-center gap-1">
       <div
         className={`grid grid-cols-3 gap-0.5 p-1 rounded ${
-          warn ? "ring-1 ring-yellow-500" : ""
+          warn ? "ring-1 ring-accent-amber" : ""
         }`}
       >
         {letters.map((c, i) => (
@@ -186,34 +183,47 @@ export default function CameraScan() {
     startCamera(id);
   };
 
-  /** Grab a centre square from the video -- the detector splits a 3x3 grid. */
+  /**
+   * Capture exactly the region inside the on-screen guide box.
+   *
+   * This was a real source of wrong readings: the guide frame is drawn inset
+   * from the edge of the preview, so the user lines the cube up inside it --
+   * but the capture took the whole centre square and the detector then split
+   * THAT into thirds. The grid the detector used and the grid the user aimed
+   * at were different rectangles, so every cell sampled slightly off-centre
+   * and edge cells picked up background.
+   *
+   * GUIDE_INSET must stay equal to the inset used to draw the overlay.
+   */
   const capture = () => {
     const v = videoRef.current;
     if (!v || !v.videoWidth) {
       setError("The camera has not produced a frame yet — give it a second.");
       return;
     }
+
     const side = Math.min(v.videoWidth, v.videoHeight);
+    const sx = (v.videoWidth - side) / 2;
+    const sy = (v.videoHeight - side) / 2;
+
+    const inset = side * GUIDE_INSET;
+    const box = side - inset * 2;
+
     const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = side;
+    canvas.width = canvas.height = Math.round(box);
     canvas
       .getContext("2d")
-      .drawImage(
-        v,
-        (v.videoWidth - side) / 2,
-        (v.videoHeight - side) / 2,
-        side,
-        side,
-        0,
-        0,
-        side,
-        side,
-      );
-    canvas.toBlob((blob) => {
-      const key = FACES[camSlot].key;
-      setFace(key, new File([blob], `${key}.jpg`, { type: "image/jpeg" }));
-      setCamSlot((s) => Math.min(s + 1, FACES.length - 1));
-    }, "image/jpeg", 0.92);
+      .drawImage(v, sx + inset, sy + inset, box, box, 0, 0, box, box);
+
+    canvas.toBlob(
+      (blob) => {
+        const key = FACES[camSlot].key;
+        setFace(key, new File([blob], `${key}.jpg`, { type: "image/jpeg" }));
+        setCamSlot((s) => Math.min(s + 1, FACES.length - 1));
+      },
+      "image/jpeg",
+      0.95,
+    );
   };
 
   const allSix = FACES.every((f) => files[f.key]);
@@ -254,34 +264,22 @@ export default function CameraScan() {
 
   return (
     <AppShell>
-      <div className="flex gap-4 h-[calc(100vh-2rem)]">
-        <div className="flex-1 flex flex-col gap-4 min-w-0 overflow-y-auto">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">Camera Scan</h2>
-            <div className="flex gap-2">
-              {!camOn ? (
-                <button
-                  onClick={() => startCamera()}
-                  className="px-3 py-1.5 rounded-lg border border-neon-green/60 bg-neon-green/10 text-neon-green text-xs font-medium cursor-pointer hover:bg-neon-green/20"
-                >
-                  Use webcam
-                </button>
-              ) : (
-                <button
-                  onClick={stopCamera}
-                  className="px-3 py-1.5 rounded-lg border border-dark-border bg-dark-surface text-gray-300 text-xs cursor-pointer hover:text-white"
-                >
-                  Stop camera
-                </button>
-              )}
-              <button
-                onClick={() => navigate("/cube-input")}
-                className="px-3 py-1.5 rounded-lg border border-dark-border bg-dark-surface text-gray-300 text-xs cursor-pointer hover:text-white"
-              >
-                Manual input
-              </button>
-            </div>
-          </div>
+      <PageHeader
+        title="Camera Scan"
+        subtitle="Six photos, in order, each face filling the guide box"
+      >
+        {!camOn ? (
+          <Button variant="primary" onClick={() => startCamera()}>
+            Use webcam
+          </Button>
+        ) : (
+          <Button onClick={stopCamera}>Stop camera</Button>
+        )}
+        <Button onClick={() => navigate("/cube-input")}>Manual input</Button>
+      </PageHeader>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_20rem] items-start">
+        <div className="min-w-0 space-y-4">
 
           {camOn && (
             <Panel title={`Capturing: ${FACES[camSlot].name}`}>
@@ -293,11 +291,13 @@ export default function CameraScan() {
                   muted
                   className="w-full h-full object-cover"
                 />
-                {/* 3x3 guide frame -- the detector splits the frame into
-                    thirds, so the cube must fill it and be axis-aligned. */}
-                <div className="absolute inset-[12%] grid grid-cols-3 grid-rows-3 pointer-events-none">
+                {/* 3x3 guide frame. The capture crops to exactly this box
+                    (GUIDE_INSET), so what the detector splits into thirds is
+                    what the user aligned the cube against. Fill it, keep the
+                    cube square-on, and put one sticker in each square. */}
+                <div className="absolute inset-[10%] grid grid-cols-3 grid-rows-3 pointer-events-none ring-2 ring-neon-blue/80 rounded-sm">
                   {Array.from({ length: 9 }, (_, i) => (
-                    <div key={i} className="border border-neon-blue/70" />
+                    <div key={i} className="border border-neon-blue/40" />
                   ))}
                 </div>
                 {!camReady && (
@@ -355,7 +355,7 @@ export default function CameraScan() {
                   className={`block rounded-xl border p-3 cursor-pointer transition-colors ${
                     files[f.key]
                       ? flagged.has(f.key)
-                        ? "border-yellow-500/60 bg-yellow-500/5"
+                        ? "border-accent-amber/60 bg-accent-amber/5"
                         : "border-neon-green/50 bg-neon-green/5"
                       : "border-dark-border bg-dark-bg hover:border-neon-blue"
                   }`}
@@ -400,7 +400,7 @@ export default function CameraScan() {
         </div>
 
         {/* --- sidebar --- */}
-        <div className="w-80 flex flex-col gap-4 shrink-0 overflow-y-auto">
+        <div className="space-y-4">
           <Panel title="Scan">
             <div className="text-xs text-gray-400 mb-3">
               {Object.keys(files).length}/6 faces ready
@@ -424,20 +424,15 @@ export default function CameraScan() {
           </Panel>
 
           {error && (
-            <Panel title="Error" className="border-red-500/40">
-              <div className="text-xs text-red-400">{error}</div>
-            </Panel>
+            <Note tone="error">{error}</Note>
           )}
 
           {result && (
             <>
-              <Panel
-                title="Result"
-                className={result.valid ? "border-neon-green/50" : "border-yellow-500/50"}
-              >
+              <Panel title="Result" tone={result.valid ? "green" : "amber"}>
                 <div
                   className={`text-sm font-bold ${
-                    result.valid ? "text-neon-green" : "text-yellow-400"
+                    result.valid ? "text-neon-green" : "text-accent-amber"
                   }`}
                 >
                   {result.valid ? "Legal, solvable cube" : "Detected, but not legal"}
@@ -488,7 +483,7 @@ export default function CameraScan() {
                         key={f.face}
                         className={`flex items-center justify-between text-xs rounded-lg px-2.5 py-2 border ${
                           bad
-                            ? "border-yellow-500/40 bg-yellow-500/5 text-yellow-400"
+                            ? "border-accent-amber/40 bg-accent-amber/5 text-accent-amber"
                             : "border-transparent text-neon-green/70"
                         }`}
                       >
