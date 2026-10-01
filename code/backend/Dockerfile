@@ -7,9 +7,9 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-#system packages needed for opencv and native packages
+#system packages needed for opencv and compiling native extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
+    build-essential \
     libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
