@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import AppShell from "../Layout/AppShell";
 import CubeScene from "../Three/CubeScene";
+import NetEditor from "../Components/NetEditor";
+import CameraScan from "../Components/CameraScan";
 import { parseCubeString } from "../lib/cubeInput.js";
 import { facesToFacelets, faceletsToFaces } from "../cube/facelets.js";
 import { cubeApi, ApiError } from "../lib/api.js";
@@ -42,12 +44,19 @@ export default function CubeInput() {
   const [busy, setBusy] = useState(false);
   const [apiError, setApiError] = useState("");
 
+  // --- input mode: "text" | "manual" | "camera" ---
+  const [inputMode, setInputMode] = useState("text");
+  const [netKey, setNetKey] = useState(0);
+  const [netInitial, setNetInitial] = useState(null);
+  const [scanNotice, setScanNotice] = useState("");
+
   /** Parse locally on every keystroke -- instant feedback, no network. */
   const handleInputChange = (e) => {
     const val = e.target.value;
     setInputStr(val);
     setServer(null);
     setApiError("");
+    setScanNotice("");
 
     if (!val.trim()) {
       setLocalError("");
@@ -64,6 +73,67 @@ export default function CubeInput() {
       setLocalError(err.message);
       setFacelets(null);
     }
+  };
+
+  /** Handle facelets coming from the manual net editor. */
+  const handleNetChange = useCallback(
+    (fl) => {
+      setServer(null);
+      setApiError("");
+      if (fl) {
+        setFacelets(fl);
+        setInputStr(fl.toUpperCase()); // keep text in sync for tab switch
+        setLocalError("");
+        loadScramble(fl);
+      } else {
+        setFacelets(null);
+      }
+    },
+    [loadScramble],
+  );
+
+  /** Switch to manual mode, pre-filling net from current facelets. */
+  const switchToManual = () => {
+    setInputMode("manual");
+    setLocalError("");
+    if (facelets) {
+      setNetInitial(facelets);
+      setNetKey((k) => k + 1);
+    }
+  };
+
+  /** Switch to text mode, syncing the textarea from current facelets. */
+  const switchToText = () => {
+    setInputMode("text");
+    if (facelets) {
+      setInputStr(facelets.toUpperCase());
+    }
+  };
+
+  /** Switch to camera scan mode. */
+  const switchToCamera = () => {
+    setInputMode("camera");
+    setLocalError("");
+  };
+
+  /** Handle successful OpenCV camera scan result */
+  const handleScanComplete = (scannedFacelets, scanMeta) => {
+    setFacelets(scannedFacelets);
+    setInputStr(scannedFacelets.toUpperCase());
+    setNetInitial(scannedFacelets);
+    setNetKey((k) => k + 1);
+    loadScramble(scannedFacelets);
+
+    if (scanMeta?.valid) {
+      setScanNotice("✓ Camera scan successful! Review stickers below and click 'Solve Cube'.");
+    } else {
+      setScanNotice(
+        `⚠️ Scan extracted 54 stickers with validation note: ${scanMeta?.detail || "Please verify colors on the 2D Net below."}`
+      );
+    }
+
+    // Automatically transition to Manual Net editor for user confirmation (FR-06c)
+    setInputMode("manual");
   };
 
   /**
@@ -97,12 +167,16 @@ export default function CubeInput() {
   const handleScramble = async () => {
     setBusy(true);
     setApiError("");
+    setScanNotice("");
     try {
       const { facelets: fl } = await cubeApi.scramble(20);
       setInputStr(fl.toUpperCase());
       setFacelets(fl);
       setLocalError("");
       loadScramble(fl);
+      // Pre-fill the net editor so switching to manual shows the scramble
+      setNetInitial(fl);
+      setNetKey((k) => k + 1);
     } catch (err) {
       setApiError(
         err instanceof ApiError && err.status === 0
@@ -150,12 +224,17 @@ export default function CubeInput() {
   } else if (facelets) {
     statusText = "Format OK";
     statusTone = "text-neon-green";
+  } else if (inputMode === "manual") {
+    statusText = "Paint all stickers to continue";
+  } else if (inputMode === "camera") {
+    statusText = "Capturing cube faces with camera...";
   }
 
   return (
     <AppShell>
       <div className="flex gap-4 h-[calc(100vh-2rem)]">
         <div className="flex-1 flex flex-col gap-4 min-w-0">
+          {/* ── header ──────────────────────────────────────────── */}
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold tracking-tight text-white">
               Cube Input
@@ -168,61 +247,135 @@ export default function CubeInput() {
               >
                 {busy ? "..." : "Random Scramble"}
               </button>
-              <button
-                className="px-3 py-1.5 rounded-lg border border-neon-blue bg-neon-blue/10 text-neon-blue text-xs font-medium cursor-pointer"
-                disabled
-              >
-                Manual
-              </button>
+              <div className="flex rounded-lg border border-dark-border overflow-hidden">
+                <button
+                  onClick={switchToCamera}
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors flex items-center gap-1.5 ${
+                    inputMode === "camera"
+                      ? "bg-neon-blue/15 text-neon-blue"
+                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  <span>📷</span> Camera Scan
+                </button>
+                <button
+                  onClick={switchToManual}
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors border-l border-dark-border ${
+                    inputMode === "manual"
+                      ? "bg-neon-blue/15 text-neon-blue"
+                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  Manual Net
+                </button>
+                <button
+                  onClick={switchToText}
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors border-l border-dark-border ${
+                    inputMode === "text"
+                      ? "bg-neon-blue/15 text-neon-blue"
+                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  Text
+                </button>
+              </div>
             </div>
           </div>
 
+          {/* ── scan notice if available ── */}
+          {scanNotice && (
+            <div className="text-xs p-3 rounded-xl border border-neon-blue/40 bg-neon-blue/10 text-neon-blue flex items-center justify-between">
+              <span>{scanNotice}</span>
+              <button
+                type="button"
+                onClick={() => setScanNotice("")}
+                className="text-gray-400 hover:text-white ml-2 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* ── input workspace ──────────────────────────────────── */}
           <Card
-            title="Input workspace"
+            title={
+              inputMode === "camera"
+                ? "Camera capture (OpenCV)"
+                : inputMode === "manual"
+                ? "Interactive 2D net editor"
+                : "Text input workspace"
+            }
             right={
-              <span className={`text-[11px] font-mono ${
-                inputStr.replace(/\s/g, "").length === 54 ? "text-neon-green" :
-                inputStr.replace(/\s/g, "").length >= 40 ? "text-yellow-400" :
-                "text-gray-500"
-              }`}>
-                {inputStr.replace(/\s/g, "").length}/54
-              </span>
+              inputMode === "text" ? (
+                <span
+                  className={`text-[11px] font-mono ${
+                    inputStr.replace(/\s/g, "").length === 54
+                      ? "text-neon-green"
+                      : inputStr.replace(/\s/g, "").length >= 40
+                        ? "text-yellow-400"
+                        : "text-gray-500"
+                  }`}
+                >
+                  {inputStr.replace(/\s/g, "").length}/54
+                </span>
+              ) : null
             }
           >
-            <textarea
-              className="w-full h-[380px] rounded-xl p-4 bg-dark-bg text-white border border-dark-border font-mono text-sm resize-none focus:outline-none focus:border-neon-blue/50 focus:shadow-[0_0_15px_rgba(0,243,255,0.15)] transition-colors placeholder:text-gray-600"
-              value={inputStr}
-              onChange={handleInputChange}
-              spellCheck={false}
-              placeholder={
-                "Paste 54 characters (URFDLB order), or 6 lines of 9.\n" +
-                "Colours: W Y R O B G\n\n" +
-                "Or hit Random Scramble to pull one from the backend."
-              }
-            />
+            {inputMode === "camera" ? (
+              /* ── camera scan mode (FR-04, FR-06a) ─────────────── */
+              <CameraScan
+                onScanComplete={handleScanComplete}
+                onCancel={switchToManual}
+              />
+            ) : inputMode === "manual" ? (
+              /* ── manual net mode (FR-05, FR-06c) ──────────────── */
+              <NetEditor
+                key={netKey}
+                initialFacelets={netInitial}
+                onChange={handleNetChange}
+              />
+            ) : (
+              /* ── text mode ────────────────────────────────────── */
+              <>
+                <textarea
+                  className="w-full h-[380px] rounded-xl p-4 bg-dark-bg text-white border border-dark-border font-mono text-sm resize-none focus:outline-none focus:border-neon-blue/50 focus:shadow-[0_0_15px_rgba(0,243,255,0.15)] transition-colors placeholder:text-gray-600"
+                  value={inputStr}
+                  onChange={handleInputChange}
+                  spellCheck={false}
+                  placeholder={
+                    "Paste 54 characters (URFDLB order), or 6 lines of 9.\n" +
+                    "Colours: W Y R O B G\n\n" +
+                    "Or hit Random Scramble to pull one from the backend."
+                  }
+                />
 
-            <div className="flex items-center justify-between mt-3 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400">Colours</span>
-                {Object.entries(PALETTE).map(([letter, c]) => (
-                  <span
-                    key={letter}
-                    title={letter}
-                    className="w-5 h-5 rounded border border-white/10 inline-block hover:scale-125 transition-transform cursor-help"
-                    style={{ background: c }}
-                  />
-                ))}
-              </div>
-              <span className="text-gray-500">
-                Face order: U R F D L B
-              </span>
-            </div>
+                <div className="flex items-center justify-between mt-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">Colours</span>
+                    {Object.entries(PALETTE).map(([letter, c]) => (
+                      <span
+                        key={letter}
+                        title={letter}
+                        className="w-5 h-5 rounded border border-white/10 inline-block hover:scale-125 transition-transform cursor-help"
+                        style={{ background: c }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-gray-500">
+                    Face order: U R F D L B
+                  </span>
+                </div>
+              </>
+            )}
           </Card>
         </div>
 
+        {/* ── sidebar ───────────────────────────────────────────── */}
         <div className="w-80 flex flex-col gap-4 shrink-0">
           <Card title="Status">
-            <div className={`text-xs font-medium mb-3 transition-all duration-300 ${statusTone}`}>
+            <div
+              className={`text-xs font-medium mb-3 transition-all duration-300 ${statusTone}`}
+            >
               {statusText}
             </div>
 
