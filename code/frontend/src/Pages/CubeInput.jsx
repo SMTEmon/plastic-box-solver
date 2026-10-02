@@ -10,7 +10,7 @@ import { useCubeStore } from "../store/cubeStore.js";
 
 function Card({ title, right, children }) {
   return (
-    <div className="bg-dark-surface border border-dark-border rounded-xl p-4">
+    <div className="bg-dark-surface border border-dark-border hover:border-white/10 transition-colors rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">
           {title}
@@ -180,13 +180,17 @@ export default function CubeInput() {
           <Card
             title="Input workspace"
             right={
-              <span className="text-[11px] text-gray-500 font-mono">
+              <span className={`text-[11px] font-mono ${
+                inputStr.replace(/\s/g, "").length === 54 ? "text-neon-green" :
+                inputStr.replace(/\s/g, "").length >= 40 ? "text-yellow-400" :
+                "text-gray-500"
+              }`}>
                 {inputStr.replace(/\s/g, "").length}/54
               </span>
             }
           >
             <textarea
-              className="w-full h-[380px] rounded-xl p-4 bg-dark-bg text-white border border-dark-border font-mono text-sm resize-none focus:outline-none focus:border-neon-blue focus:ring-1 focus:ring-neon-blue transition-colors placeholder:text-gray-600"
+              className="w-full h-[380px] rounded-xl p-4 bg-dark-bg text-white border border-dark-border font-mono text-sm resize-none focus:outline-none focus:border-neon-blue/50 focus:shadow-[0_0_15px_rgba(0,243,255,0.15)] transition-colors placeholder:text-gray-600"
               value={inputStr}
               onChange={handleInputChange}
               spellCheck={false}
@@ -204,7 +208,7 @@ export default function CubeInput() {
                   <span
                     key={letter}
                     title={letter}
-                    className="w-4 h-4 rounded border border-white/10 inline-block"
+                    className="w-5 h-5 rounded border border-white/10 inline-block hover:scale-125 transition-transform cursor-help"
                     style={{ background: c }}
                   />
                 ))}
@@ -218,7 +222,7 @@ export default function CubeInput() {
 
         <div className="w-80 flex flex-col gap-4 shrink-0">
           <Card title="Status">
-            <div className={`text-xs font-medium mb-3 ${statusTone}`}>
+            <div className={`text-xs font-medium mb-3 transition-all duration-300 ${statusTone}`}>
               {statusText}
             </div>
 
@@ -229,9 +233,9 @@ export default function CubeInput() {
             )}
 
             <button
-              className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-colors ${
+              className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all ${
                 ready && !busy
-                  ? "bg-neon-blue text-dark-bg hover:opacity-90 cursor-pointer"
+                  ? "bg-neon-blue text-dark-bg hover:opacity-90 cursor-pointer shadow-[0_0_20px_rgba(0,243,255,0.3)] hover:shadow-[0_0_30px_rgba(0,243,255,0.4)]"
                   : "bg-gray-800 text-gray-500 border border-dark-border cursor-not-allowed"
               }`}
               onClick={handleSolveClick}

@@ -13,5 +13,49 @@ body,
 #root {
   height: 100%;
   margin: 0;
-  background: #000000;
+  background: radial-gradient(circle at 50% 50%, var(--color-dark-bg) 0%, #000000 100%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: var(--color-neon-blue);
+  color: #000000;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-dark-surface);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neon-blue);
+}
+
+button, a, input, select, textarea {
+  transition: all 0.2s ease-in-out;
+}
+
+.glass {
+  background: rgba(23, 23, 38, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-dark-border);
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(0, 243, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.6);
+  }
+}
+.animate-pulse-glow {
+  animation: pulse-glow 3s infinite ease-in-out;
 }
