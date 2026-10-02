@@ -7,24 +7,16 @@ export const useAuthStore = create((set, get) => ({
   loading: true,
 
   login: async (email, password) => {
-    try {
-      const response = await authApi.login(email, password);
-      localStorage.setItem('token', response.access_token);
-      set({ token: response.access_token });
-      await get().restoreSession();
-      return true;
-    } catch (error) {
-      throw error;
-    }
+    const response = await authApi.login(email, password);
+    localStorage.setItem('token', response.access_token);
+    set({ token: response.access_token });
+    await get().restoreSession();
+    return true;
   },
 
   register: async (email, password, display_name) => {
-    try {
-      await authApi.register(email, password, display_name);
-      return await get().login(email, password);
-    } catch (error) {
-      throw error;
-    }
+    await authApi.register(email, password, display_name);
+    return await get().login(email, password);
   },
 
   logout: () => {
