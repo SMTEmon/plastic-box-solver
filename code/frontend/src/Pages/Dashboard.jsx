@@ -79,11 +79,11 @@ export default function Dashboard() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* PB Card */}
-          <div className="border border-dark-border bg-dark-surface p-4 rounded-xl">
+          <div className="border border-dark-border bg-dark-surface p-4 rounded-xl hover:border-white/10 hover:-translate-y-0.5 transition-all duration-200">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Personal Best</h3>
             {pb ? (
               <div>
-                <div className="text-neon-green text-3xl font-bold font-mono">{formatTime(pb.solve_time)}</div>
+                <div className="text-neon-green text-3xl font-bold font-mono drop-shadow-[0_0_8px_rgba(57,255,20,0.3)]">{formatTime(pb.solve_time)}</div>
                 <div className="mt-2 text-sm text-gray-300">
                   <span className="text-gray-500 uppercase tracking-wider text-[10px]">Efficiency:</span> {pb.efficiency?.toFixed(1)}%
                 </div>
@@ -99,7 +99,7 @@ export default function Dashboard() {
           </div>
 
           {/* Stats Summary */}
-          <div className="border border-dark-border bg-dark-surface p-4 rounded-xl">
+          <div className="border border-dark-border bg-dark-surface p-4 rounded-xl hover:border-white/10 hover:-translate-y-0.5 transition-all duration-200">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Stats Summary</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -134,7 +134,7 @@ export default function Dashboard() {
               </thead>
               <tbody className="text-sm">
                 {solves.slice(0, 10).map(solve => (
-                  <tr key={solve.id} className="border-b border-dark-border/50 hover:bg-white/5 transition-colors">
+                  <tr key={solve.id} className="border-b border-dark-border/50 even:bg-white/[0.02] hover:bg-white/5 transition-colors">
                     <td className="py-2 px-2 text-gray-400 whitespace-nowrap">
                       {new Date(solve.created_at).toLocaleDateString(undefined, {
                         year: 'numeric',

@@ -32,8 +32,8 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-dark-bg text-white flex flex-col justify-center items-center p-4">
-      <div className="w-full max-w-md bg-dark-surface border border-dark-border rounded-xl shadow-xl overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-dark-bg via-gray-900 to-dark-bg text-white flex flex-col justify-center items-center p-4">
+      <div className="w-full max-w-md bg-dark-surface border border-dark-border rounded-xl shadow-[0_0_40px_rgba(0,243,255,0.08)] overflow-hidden">
         <div className="p-8">
           <h1 className="text-3xl font-bold text-center mb-8 text-neon-blue">Plastic Box Solver</h1>
           
@@ -69,7 +69,7 @@ const Login = () => {
                   required
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neon-blue focus:ring-1 focus:ring-neon-blue"
+                  className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neon-blue focus:ring-1 focus:ring-neon-blue transition-all duration-200"
                   placeholder="Cubing Legend"
                 />
               </div>
@@ -81,7 +81,7 @@ const Login = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neon-blue focus:ring-1 focus:ring-neon-blue"
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neon-blue focus:ring-1 focus:ring-neon-blue transition-all duration-200"
                 placeholder="cuber@example.com"
               />
             </div>
@@ -92,14 +92,14 @@ const Login = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neon-blue focus:ring-1 focus:ring-neon-blue"
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neon-blue focus:ring-1 focus:ring-neon-blue transition-all duration-200"
                 placeholder="••••••••"
               />
             </div>
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-neon-blue hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-neon-blue hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-all hover:shadow-[0_0_12px_rgba(0,243,255,0.2)] mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Processing...' : (isLogin ? 'Login' : 'Create Account')}
             </button>
