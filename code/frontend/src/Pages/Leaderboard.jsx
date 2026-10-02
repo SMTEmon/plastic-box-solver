@@ -44,11 +44,11 @@ export default function Leaderboard() {
   const getRankStyle = (rank) => {
     switch (rank) {
       case 1:
-        return { color: "#FFD700" }; // Gold
+        return { color: "#FFD700", textShadow: "0 0 8px rgba(255, 215, 0, 0.4)" }; // Gold
       case 2:
-        return { color: "#C0C0C0" }; // Silver
+        return { color: "#C0C0C0", textShadow: "0 0 8px rgba(192, 192, 192, 0.4)" }; // Silver
       case 3:
-        return { color: "#CD7F32" }; // Bronze
+        return { color: "#CD7F32", textShadow: "0 0 8px rgba(205, 127, 50, 0.4)" }; // Bronze
       default:
         return { color: "white" };
     }
@@ -75,7 +75,7 @@ export default function Leaderboard() {
         ) : (
           <div className="bg-dark-surface border border-dark-border rounded-xl overflow-hidden overflow-x-auto">
             <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-dark-bg/50 border-b border-dark-border text-gray-400">
+              <thead className="bg-gradient-to-r from-dark-bg/80 to-dark-bg/40 border-b border-dark-border text-gray-400">
                 <tr>
                   <th className="px-6 py-4 font-semibold text-center w-24">Rank</th>
                   <th className="px-6 py-4 font-semibold">Player</th>
@@ -87,8 +87,8 @@ export default function Leaderboard() {
                 {entries.map((entry) => (
                   <tr
                     key={entry.user_id || entry.rank}
-                    className={`transition-colors hover:bg-white/5 ${
-                      entry.is_me ? "bg-neon-blue/10" : ""
+                    className={`transition-all duration-150 hover:-translate-y-px hover:bg-white/5 ${
+                      entry.is_me ? "bg-neon-blue/10 shadow-[inset_3px_0_8px_rgba(0,243,255,0.2)]" : ""
                     }`}
                   >
                     <td
@@ -101,7 +101,10 @@ export default function Leaderboard() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-white">{entry.display_name}</span>
+                        <span className="font-medium text-white">
+                          {entry.rank === 1 && <span className="text-xs mr-1" title="Champion">👑</span>}
+                          {entry.display_name}
+                        </span>
                         {entry.is_me && (
                           <span className="text-xs bg-neon-blue text-dark-bg px-2 py-0.5 rounded-full font-bold">
                             YOU
