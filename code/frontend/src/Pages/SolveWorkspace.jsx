@@ -29,7 +29,7 @@ function ModeButton({ active, disabled, onClick, label }) {
       disabled={disabled}
       className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors border disabled:opacity-40 ${
         active
-          ? "border-neon-blue bg-neon-blue/10 text-neon-blue"
+          ? "border-neon-blue bg-neon-blue/10 text-neon-blue shadow-[0_0_10px_rgba(0,243,255,0.2)]"
           : "border-dark-border bg-dark-surface text-gray-300 hover:text-white"
       }`}
     >
@@ -44,7 +44,15 @@ function Stat({ label, value, tone = "text-white" }) {
       <div className="text-[10px] uppercase tracking-wider text-gray-500">
         {label}
       </div>
-      <div className={`text-lg font-bold font-mono ${tone}`}>{value}</div>
+      <div
+        className={`text-lg font-bold font-mono ${tone} ${
+          tone === "text-neon-green"
+            ? "drop-shadow-[0_0_4px_rgba(255,255,255,0.2)]"
+            : ""
+        }`}
+      >
+        {value}
+      </div>
     </div>
   );
 }
@@ -251,7 +259,7 @@ export default function SolveWorkspace() {
             </div>
           </div>
 
-          <div className="flex-1 rounded-xl overflow-hidden border border-dark-border bg-dark-bg min-h-[320px]">
+          <div className="flex-1 rounded-xl overflow-hidden border border-dark-border bg-dark-bg shadow-[inset_0_0_30px_rgba(0,243,255,0.05)] min-h-[320px]">
             <CubeScene onAnimatorReady={onAnimatorReady} />
           </div>
 
@@ -295,9 +303,12 @@ export default function SolveWorkspace() {
           </Panel>
 
           {solved && (
-            <Panel title="Result" className="border-neon-green/50">
+            <Panel
+              title="Result"
+              className="border-neon-green/50 shadow-[0_0_20px_rgba(57,255,20,0.15)]"
+            >
               <div className="text-neon-green font-bold text-sm mb-1">
-                Cube solved
+                🎉 Cube solved
               </div>
               <div className="text-xs text-gray-400">
                 {elapsed.toFixed(1)}s &middot; {history.length} moves
@@ -386,13 +397,13 @@ export default function SolveWorkspace() {
             <div className="flex flex-col gap-2">
               <button
                 onClick={resetCube}
-                className="w-full py-2.5 rounded-lg border border-dark-border bg-dark-bg text-gray-300 text-xs cursor-pointer hover:text-white transition-colors"
+                className="w-full py-2.5 rounded-lg border border-dark-border bg-dark-bg text-gray-300 text-xs cursor-pointer hover:text-white hover:bg-gray-800/50 hover:shadow-sm transition-all"
               >
                 Reset to scramble
               </button>
               <button
                 onClick={() => navigate("/cube-input")}
-                className="w-full py-2.5 rounded-lg border border-dark-border bg-dark-bg text-gray-300 text-xs cursor-pointer hover:text-white transition-colors"
+                className="w-full py-2.5 rounded-lg border border-dark-border bg-dark-bg text-gray-300 text-xs cursor-pointer hover:text-white hover:bg-gray-800/50 hover:shadow-sm transition-all"
               >
                 New cube
               </button>

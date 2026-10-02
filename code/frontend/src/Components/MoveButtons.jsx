@@ -12,14 +12,14 @@ export default function MoveButtons({ onMove, disabled = false }) {
           <button
             disabled={disabled}
             onClick={() => onMove(f)}
-            className="py-2 rounded-lg border border-dark-border bg-dark-surface text-white text-sm font-mono cursor-pointer transition-colors hover:border-neon-blue disabled:opacity-40 disabled:cursor-not-allowed"
+            className="py-2 rounded-lg border border-dark-border bg-dark-surface text-white text-sm font-mono cursor-pointer transition-all hover:bg-dark-surface hover:shadow-[0_0_8px_rgba(0,243,255,0.15)] active:scale-95 hover:border-neon-blue disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {f}
           </button>
           <button
             disabled={disabled}
             onClick={() => onMove(`${f}'`)}
-            className="py-2 rounded-lg border border-dark-border bg-dark-bg text-gray-300 text-sm font-mono cursor-pointer transition-colors hover:border-neon-blue disabled:opacity-40 disabled:cursor-not-allowed"
+            className="py-2 rounded-lg border border-dark-border bg-dark-bg text-gray-300 text-sm font-mono cursor-pointer transition-all hover:bg-dark-surface hover:shadow-[0_0_8px_rgba(0,243,255,0.15)] active:scale-95 hover:border-neon-blue disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {f}&apos;
           </button>
