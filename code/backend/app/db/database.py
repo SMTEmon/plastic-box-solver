@@ -9,6 +9,10 @@ load_dotenv()
 # We use SQLite by default if DATABASE_URL is not set for easier local testing
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./sql_app.db")
 
+#sqlalchemy 2.0 defaults to psycopg3 for postgresql://, normalize to psycopg2
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+
 # For SQLite, we need to pass check_same_thread=False
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
