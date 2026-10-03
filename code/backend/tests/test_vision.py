@@ -3,6 +3,7 @@ import os
 
 # Ensure we can import app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from app import _compat_imp_shim  # noqa: F401
 
 import cv2
 import numpy as np
@@ -91,5 +92,15 @@ try:
 except ValueError:
     pass
 print("wrong image count rejected: OK")
+
+# --- Real face images test (tools/test_faces) -------------------------------
+faces_dir = os.path.join(os.path.dirname(__file__), "..", "tools", "test_faces")
+real_order = [(1, "U"), (2, "R"), (3, "F"), (4, "D"), (5, "L"), (6, "B")]
+real_face_files = [os.path.join(faces_dir, f"{i}_{f}.png") for i, f in real_order]
+if all(os.path.exists(p) for p in real_face_files):
+    real_bytes = [open(p, "rb").read() for p in real_face_files]
+    real_facelets = detect_facelets(real_bytes)
+    assert len(real_facelets) == 54, f"expected 54 facelets, got {len(real_facelets)}"
+    print(f"real test_faces detection (54 chars): OK")
 
 print("ALL VISION TESTS OK")
