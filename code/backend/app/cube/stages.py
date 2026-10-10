@@ -85,6 +85,16 @@ def is_solved(fl):
     return fl == SOLVED
 
 
+def oll_done(fl):
+    """Orient last layer: all U-face stickers match the U centre.
+    Only meaningful after F2L (i.e. middle_layer_done), which CFOP achieves
+    in one combined stage rather than the beginner's two separate ones."""
+    if not middle_layer_done(fl):
+        return False
+    uc = _centre(fl, 0)
+    return all(fl[k] == uc for k in range(9))
+
+
 STAGES = [
     ("Bottom cross", down_cross_done),
     ("Bottom layer", first_layer_done),
@@ -95,19 +105,30 @@ STAGES = [
     ("Solved", is_solved),
 ]
 
+CFOP_STAGES = [
+    ("Cross", down_cross_done),
+    ("F2L", middle_layer_done),
+    ("OLL", oll_done),
+    ("PLL", is_solved),
+]
 
-def segment(facelets: str, moves: list[str]) -> list[dict]:
+
+def segment(facelets: str, moves: list[str], stage_defs=None) -> list[dict]:
     """Replay `moves` from `facelets`, returning labelled stage segments:
     [{"name", "start", "end"}], where moves[start:end] complete that stage.
+
+    `stage_defs` defaults to STAGES (beginner). Pass CFOP_STAGES for CFOP.
 
     A stage whose predicate never flips before the next one's does is simply
     skipped (its moves fold into the following segment), so the result stays
     contiguous no matter how the solver ordered things.
     """
+    if stage_defs is None:
+        stage_defs = STAGES
     state, out, cursor, si = facelets, [], 0, 0
     for i, mv in enumerate(moves):
         state = apply_move(state, mv)
-        while si < len(STAGES) and STAGES[si][1](state):
-            out.append({"name": STAGES[si][0], "start": cursor, "end": i + 1})
+        while si < len(stage_defs) and stage_defs[si][1](state):
+            out.append({"name": stage_defs[si][0], "start": cursor, "end": i + 1})
             cursor, si = i + 1, si + 1
     return out
