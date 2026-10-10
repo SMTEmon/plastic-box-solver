@@ -166,7 +166,8 @@ export const useCubeStore = create((set, get) => ({
 
   isSolved: () => isSolved(get().facelets),
 
-  /** Which of the 7 beginner stages the guided cursor is currently inside. */
+  /** Which stage the guided cursor is currently inside (works for both
+   *  beginner's 7 stages and CFOP's 4 stages — driven by solution.stages). */
   currentStage: () => {
     const { solution, cursor } = get();
     if (!solution?.stages?.length) return null;
