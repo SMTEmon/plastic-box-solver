@@ -75,6 +75,8 @@ export default function SolveWorkspace() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0); // forces the timer to repaint
+  const [showGuidedPicker, setShowGuidedPicker] = useState(false);
+  const [guidedMethod, setGuidedMethod] = useState(null); // "beginner" | "cfop"
 
   const solved = useCubeStore((s) => s.isSolved)();
   const stage = useCubeStore((s) => s.currentStage)();
@@ -186,12 +188,14 @@ export default function SolveWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facelets, assisted]);
 
-  /** FR-10 -- beginner's method, stepped one move at a time. */
-  const startGuided = useCallback(async () => {
+  /** FR-10 -- guided solve, stepped one move at a time. */
+  const startGuided = useCallback(async (method) => {
     if (!confirmAssist()) return;
+    setShowGuidedPicker(false);
+    setGuidedMethod(method);
     useCubeStore.getState().markAssisted();
     useCubeStore.getState().setMode(MODES.GUIDED);
-    await fetchSolution("beginner");
+    await fetchSolution(method);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facelets, assisted]);
 
@@ -212,11 +216,15 @@ export default function SolveWorkspace() {
   const backToInteractive = useCallback(() => {
     animatorRef.current?.clear();
     animatorRef.current?.setSpeed(1);
+    setShowGuidedPicker(false);
+    setGuidedMethod(null);
     useCubeStore.getState().setMode(MODES.INTERACTIVE);
   }, []);
 
   const resetCube = useCallback(() => {
     animatorRef.current?.clear();
+    setShowGuidedPicker(false);
+    setGuidedMethod(null);
     useCubeStore.getState().reset();
   }, []);
 
@@ -245,9 +253,12 @@ export default function SolveWorkspace() {
                 label="Interactive"
               />
               <ModeButton
-                active={mode === MODES.GUIDED}
+                active={mode === MODES.GUIDED || showGuidedPicker}
                 disabled={loading}
-                onClick={startGuided}
+                onClick={() => {
+                  if (mode === MODES.GUIDED) return;
+                  setShowGuidedPicker((v) => !v);
+                }}
                 label="Guided"
               />
               <ModeButton
@@ -258,6 +269,25 @@ export default function SolveWorkspace() {
               />
             </div>
           </div>
+
+          {showGuidedPicker && mode !== MODES.GUIDED && (
+            <div className="flex gap-2 -mt-1">
+              <button
+                onClick={() => startGuided("beginner")}
+                disabled={loading}
+                className="flex-1 py-2 rounded-lg border border-dark-border bg-dark-surface text-gray-300 text-xs cursor-pointer hover:text-white hover:border-neon-blue/50 hover:bg-neon-blue/5 transition-all disabled:opacity-40"
+              >
+                📖 Beginner
+              </button>
+              <button
+                onClick={() => startGuided("cfop")}
+                disabled={loading}
+                className="flex-1 py-2 rounded-lg border border-dark-border bg-dark-surface text-gray-300 text-xs cursor-pointer hover:text-white hover:border-amber-400/50 hover:bg-amber-400/5 transition-all disabled:opacity-40"
+              >
+                ⚡ CFOP
+              </button>
+            </div>
+          )}
 
           <div className="flex-1 rounded-xl overflow-hidden border border-dark-border bg-dark-bg shadow-[inset_0_0_30px_rgba(0,243,255,0.05)] min-h-[320px]">
             <CubeScene onAnimatorReady={onAnimatorReady} />
@@ -324,7 +354,20 @@ export default function SolveWorkspace() {
           )}
 
           {guided && (
-            <Panel title="Guided stages">
+            <Panel title={
+              <span>
+                Guided stages
+                {solution.method_used && (
+                  <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    solution.method_used === "cfop"
+                      ? "bg-amber-400/15 text-amber-400 border border-amber-400/30"
+                      : "bg-neon-blue/15 text-neon-blue border border-neon-blue/30"
+                  }`}>
+                    {solution.method_used === "cfop" ? "CFOP" : "Beginner"}
+                  </span>
+                )}
+              </span>
+            }>
               <div className="space-y-1.5">
                 {solution.stages.map((s) => {
                   const active = stage?.name === s.name;
@@ -379,6 +422,12 @@ export default function SolveWorkspace() {
                   Next &rarr;
                 </button>
               </div>
+
+              {guidedMethod === "cfop" && solution.method_used === "beginner" && (
+                <div className="mt-3 text-[11px] text-amber-400 border border-amber-500/30 bg-amber-500/5 rounded-lg p-2">
+                  CFOP couldn&apos;t solve this cube — fell back to Beginner method.
+                </div>
+              )}
             </Panel>
           )}
 

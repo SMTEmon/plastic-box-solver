@@ -111,7 +111,7 @@ def _trim_after_solved(facelets: str, moves: list[str]) -> list[str]:
 # --- What we verified while building this, keep for whoever reads this file ---
 # - "Beginner" works reliably and fast (<0.1s even on a full 20-move scramble).
 # - "CFOP" throws a KeyError on ordinary inputs in this package version —
-#   don't expose it in the API yet.
+#   we now expose it in the API with an automatic fallback to Beginner.
 # - Feeding rubik_solver our own (western) colour scheme instead of its
 #   fixed internal one causes it to hang indefinitely on lookups instead of
 #   erroring, which is much harder to debug than a clean exception. If you

@@ -11,7 +11,7 @@ class ScrambleResponse(BaseModel):
 
 class SolveRequest(BaseModel):
     facelets: str = Field(..., min_length=54, max_length=54)
-    method: Literal["optimal", "beginner"] = "optimal"
+    method: Literal["optimal", "beginner", "cfop"] = "optimal"
 
 
 class Stage(BaseModel):
@@ -26,6 +26,7 @@ class SolveResponse(BaseModel):
     stages: list[Stage]
     optimalMoves: list[str]
     optimalMoveCount: int
+    method_used: Optional[str] = None
 
 
 class ValidateRequest(BaseModel):

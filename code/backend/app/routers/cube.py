@@ -75,13 +75,34 @@ def solve(body: SolveRequest):
 
     if body.method == "optimal":
         moves = optimal
-        # Auto-Solve has no teaching stages; expose one segment for the UI.
         stages = (
             [{"name": "Solution", "start": 0, "end": len(moves)}] if moves else []
         )
+        return SolveResponse(
+            moves=moves,
+            moveCount=len(moves),
+            stages=stages,
+            optimalMoves=optimal,
+            optimalMoveCount=len(optimal),
+            method_used="optimal",
+        )
+
+    # Teaching methods: beginner or cfop
+    method_used = body.method
+    if body.method == "cfop":
+        try:
+            moves = solver.solve_guided(body.facelets, method="CFOP")
+            stage_defs = stages_mod.CFOP_STAGES
+        except Exception:
+            # CFOP KeyErrors on ~15% of cubes — fall back to Beginner silently
+            moves = solver.solve_guided(body.facelets, method="Beginner")
+            stage_defs = stages_mod.STAGES
+            method_used = "beginner"
     else:
         moves = solver.solve_guided(body.facelets, method="Beginner")
-        stages = stages_mod.segment(body.facelets, moves)
+        stage_defs = stages_mod.STAGES
+
+    stages = stages_mod.segment(body.facelets, moves, stage_defs)
 
     return SolveResponse(
         moves=moves,
@@ -89,4 +110,5 @@ def solve(body: SolveRequest):
         stages=stages,
         optimalMoves=optimal,
         optimalMoveCount=len(optimal),
+        method_used=method_used,
     )
