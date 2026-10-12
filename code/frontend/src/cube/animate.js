@@ -44,6 +44,9 @@ export const MOVE_SPEC = {
   X: { axis: "x", limit: null, sign: 1 },
   Y: { axis: "y", limit: null, sign: 1 },
   Z: { axis: "z", limit: null, sign: 1 },
+  M: { axis: "x", limit: 0, sign: 1 },
+  E: { axis: "y", limit: 0, sign: 1 },
+  S: { axis: "z", limit: 0, sign: -1 },
 };
 
 export const BASE_DURATION_MS = 220;
@@ -75,9 +78,11 @@ function attachLayer(cubeGroup, rotationGroup, axis, limit) {
     .filter((c) =>
       limit === null
         ? true
-        : limit < 0
-          ? c.position[axis] < limit
-          : c.position[axis] > limit,
+        : limit === 0
+          ? Math.abs(c.position[axis]) < 0.5
+          : limit < 0
+            ? c.position[axis] < limit
+            : c.position[axis] > limit,
     )
     .forEach((c) => rotationGroup.attach(c));
 }

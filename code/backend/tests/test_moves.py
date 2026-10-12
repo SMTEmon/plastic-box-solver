@@ -41,3 +41,13 @@ for r in "XYZ":
     assert apply_move(apply_move(SOLVED, r), r + "'") == SOLVED, f"{r} + {r}' failed"
     assert apply_move(SOLVED, r + "2") == apply_move(apply_move(SOLVED, r), r), f"{r}2 != {r}{r}"
 print("rotations X/Y/Z invariants: OK")
+
+# Slice moves (M/E/S) used by CFOP.
+for sl in "MES":
+    s = SOLVED
+    for _ in range(4):
+        s = apply_move(s, sl)
+    assert s == SOLVED, f"4x {sl} failed"
+    assert apply_move(apply_move(SOLVED, sl), sl + "'") == SOLVED, f"{sl} + {sl}' failed"
+    assert apply_move(SOLVED, sl + "2") == apply_move(apply_move(SOLVED, sl), sl), f"{sl}2 != {sl}{sl}"
+print("slice turns M/E/S invariants: OK")

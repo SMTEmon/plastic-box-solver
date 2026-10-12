@@ -20,7 +20,7 @@ import test from "node:test";
 import assert from "node:assert";
 
 import { GEOM, INDEX_OF, key, rot90 } from "../src/cube/geometry.js";
-import { PERMS, ROT_PERMS, applyMove } from "../src/cube/moves.js";
+import { PERMS, ROT_PERMS, SLICE_PERMS, applyMove } from "../src/cube/moves.js";
 import { SOLVED } from "../src/cube/facelets.js";
 import { MOVE_SPEC } from "../src/cube/animate.js";
 
@@ -40,9 +40,11 @@ function permutationFromMoveSpec(token) {
     const inLayer =
       spec.limit === null
         ? true
-        : spec.limit < 0
-          ? g.pos[axis] < spec.limit
-          : g.pos[axis] > spec.limit;
+        : spec.limit === 0
+          ? Math.abs(g.pos[axis]) < 0.5
+          : spec.limit < 0
+            ? g.pos[axis] < spec.limit
+            : g.pos[axis] > spec.limit;
     if (!inLayer) return;
     const j = INDEX_OF.get(
       key(rot90(g.pos, axis, spec.sign), rot90(g.normal, axis, spec.sign)),
@@ -72,12 +74,22 @@ test("animation direction matches the model for whole-cube rotations", () => {
   }
 });
 
+test("animation direction matches the model for slice turns", () => {
+  for (const s of "MES") {
+    assert.deepStrictEqual(
+      permutationFromMoveSpec(s),
+      SLICE_PERMS[s],
+      `MOVE_SPEC.${s} spins the opposite way to the model`,
+    );
+  }
+});
+
 test("a long mixed sequence lands in the same place visually and logically", () => {
   // Composition of equal permutations is equal, so this follows from the two
   // tests above -- but it is the exact scenario that broke: a guided solution
   // hundreds of moves long, containing whole-cube rotations, finishing
   // "solved" in the model while the screen showed a scrambled cube.
-  const tokens = "URFDLBXYZ".split("");
+  const tokens = "URFDLBXYZMES".split("");
   const suffixes = ["", "'", "2"];
   const seq = Array.from({ length: 200 }, (_, i) => {
     const t = tokens[(i * 7 + 3) % tokens.length];
@@ -100,9 +112,9 @@ test("a long mixed sequence lands in the same place visually and logically", () 
 });
 
 test("every move token the solver can emit is animatable", () => {
-  // A guided solution can contain any face turn plus X/Y/Z, each bare,
+  // A guided solution can contain any face turn plus X/Y/Z and M/E/S, each bare,
   // primed or doubled.
-  for (const t of "URFDLBXYZ") {
+  for (const t of "URFDLBXYZMES") {
     for (const suffix of ["", "'", "2"]) {
       assert.ok(MOVE_SPEC[t], `no animation spec for ${t}${suffix}`);
       assert.strictEqual(applyMove(SOLVED, t + suffix).length, 54);

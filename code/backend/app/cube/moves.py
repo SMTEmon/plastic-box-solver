@@ -87,10 +87,39 @@ def _build_rotation(letter):
 ROT_PERMS = {l: _build_rotation(l) for l in "XYZ"}
 
 
+# --- Slice turns (M, E, S) -------------------------------------------------
+# CFOP (and speedcubing algorithms) emit slice moves:
+#   M (Middle)   - layer between L and R (x=0). Follows L direction (+1).
+#   E (Equator)  - layer between U and D (y=0). Follows D direction (+1).
+#   S (Standing) - layer between F and B (z=0). Follows F direction (-1).
+_SLICE_AXIS = {"M": 0, "E": 1, "S": 2}
+_SLICE_DIR = {"M": 1, "E": 1, "S": -1}
+
+
+def _build_slice(letter):
+    """perm[new_index] = old_index, for the middle slice layer."""
+    axis, direction = _SLICE_AXIS[letter], _SLICE_DIR[letter]
+    perm = list(range(54))
+    for i, g in enumerate(GEOM):
+        if g["pos"][axis] != 0:
+            continue
+        j = INDEX_OF[_key(_rot90(g["pos"], axis, direction), _rot90(g["normal"], axis, direction))]
+        perm[j] = i
+    return perm
+
+
+SLICE_PERMS = {l: _build_slice(l) for l in "MES"}
+
+
 def apply_move(facelets: str, move: str) -> str:
-    """move like 'R', "R'", 'R2', or a whole-cube rotation 'X'/'Y'/'Z' (+ '/2)."""
+    """move like 'R', "R'", 'R2', whole-cube rotation 'X'/'Y'/'Z', or slice 'M'/'E'/'S'."""
     token = move[0]
-    perm_table = ROT_PERMS[token] if token in ROT_PERMS else PERMS[token]
+    if token in ROT_PERMS:
+        perm_table = ROT_PERMS[token]
+    elif token in SLICE_PERMS:
+        perm_table = SLICE_PERMS[token]
+    else:
+        perm_table = PERMS[token]
     times = 2 if move.endswith("2") else 3 if move.endswith("'") else 1
     out = facelets
     for _ in range(times):
