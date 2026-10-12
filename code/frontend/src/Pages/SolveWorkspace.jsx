@@ -71,6 +71,7 @@ export default function SolveWorkspace() {
   const optimalMoveCount = useCubeStore((s) => s.optimalMoveCount);
 
   const animatorRef = useRef(null);
+  const controlsRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -289,8 +290,17 @@ export default function SolveWorkspace() {
             </div>
           )}
 
-          <div className="flex-1 rounded-xl overflow-hidden border border-dark-border bg-dark-bg shadow-[inset_0_0_30px_rgba(0,243,255,0.05)] min-h-[320px]">
-            <CubeScene onAnimatorReady={onAnimatorReady} />
+          <div className="flex-1 rounded-xl overflow-hidden border border-dark-border bg-dark-bg shadow-[inset_0_0_30px_rgba(0,243,255,0.05)] min-h-[320px] relative">
+            <CubeScene onAnimatorReady={onAnimatorReady} controlsRef={controlsRef} />
+            <button
+              type="button"
+              onClick={() => controlsRef.current?.reset()}
+              title="Reset camera view"
+              className="absolute top-3 right-3 px-2.5 py-1.5 rounded-lg border border-dark-border bg-dark-surface/80 backdrop-blur-sm text-gray-300 text-xs hover:text-white hover:border-neon-blue/50 hover:bg-dark-surface cursor-pointer transition-all flex items-center gap-1.5 shadow-md"
+            >
+              <span className="text-neon-blue font-bold">↺</span>
+              <span>Reset View</span>
+            </button>
           </div>
 
           <MoveButtons onMove={doMove} disabled={!canTurn} />
