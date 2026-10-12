@@ -432,12 +432,6 @@ export default function SolveWorkspace() {
                   Next &rarr;
                 </button>
               </div>
-
-              {guidedMethod === "cfop" && solution.method_used === "beginner" && (
-                <div className="mt-3 text-[11px] text-amber-400 border border-amber-500/30 bg-amber-500/5 rounded-lg p-2">
-                  CFOP couldn&apos;t solve this cube — fell back to Beginner method.
-                </div>
-              )}
             </Panel>
           )}
 

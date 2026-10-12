@@ -88,16 +88,9 @@ def solve(body: SolveRequest):
         )
 
     # Teaching methods: beginner or cfop
-    method_used = body.method
     if body.method == "cfop":
-        try:
-            moves = solver.solve_guided(body.facelets, method="CFOP")
-            stage_defs = stages_mod.CFOP_STAGES
-        except Exception:
-            # CFOP KeyErrors on ~15% of cubes — fall back to Beginner silently
-            moves = solver.solve_guided(body.facelets, method="Beginner")
-            stage_defs = stages_mod.STAGES
-            method_used = "beginner"
+        moves = solver.solve_guided(body.facelets, method="CFOP")
+        stage_defs = stages_mod.CFOP_STAGES
     else:
         moves = solver.solve_guided(body.facelets, method="Beginner")
         stage_defs = stages_mod.STAGES
@@ -110,5 +103,5 @@ def solve(body: SolveRequest):
         stages=stages,
         optimalMoves=optimal,
         optimalMoveCount=len(optimal),
-        method_used=method_used,
+        method_used=body.method,
     )

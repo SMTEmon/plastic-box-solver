@@ -27,6 +27,9 @@ for t in range(N):
     guided = solve_guided(facelets, "Beginner")
     assert reduce(apply_move, guided, facelets) == SOLVED, f"guided didn't solve @ {t}"
 
+    cfop = solve_guided(facelets, "CFOP")
+    assert reduce(apply_move, cfop, facelets) == SOLVED, f"cfop didn't solve @ {t}"
+
     optimal = solve_optimal(facelets)
     assert reduce(apply_move, optimal, facelets) == SOLVED, f"optimal didn't solve @ {t}"
 
@@ -37,9 +40,17 @@ for t in range(N):
     for a, b in zip(segs, segs[1:]):
         assert a["end"] == b["start"], f"non-contiguous stages @ {t}"
 
-print(f"{N} scrambles: guided + optimal solve exactly, segmentation contiguous: OK")
+    cfop_segs = stages.segment(facelets, cfop, stages.CFOP_STAGES)
+    assert cfop_segs, f"no CFOP stages @ {t}"
+    assert cfop_segs[0]["start"] == 0, f"first CFOP stage doesn't start at 0 @ {t}"
+    assert cfop_segs[-1]["end"] == len(cfop), f"last CFOP stage doesn't cover end @ {t}"
+    for a, b in zip(cfop_segs, cfop_segs[1:]):
+        assert a["end"] == b["start"], f"non-contiguous CFOP stages @ {t}"
+
+print(f"{N} scrambles: beginner + cfop + optimal solve exactly, segmentation contiguous: OK")
 
 # solved-cube guards
-assert solve_guided(SOLVED) == []
+assert solve_guided(SOLVED, "Beginner") == []
+assert solve_guided(SOLVED, "CFOP") == []
 assert solve_optimal(SOLVED) == []
 print("solved cube -> empty solution: OK")
