@@ -55,10 +55,36 @@ export const ROT_PERMS = Object.fromEntries(
   ["X", "Y", "Z"].map((l) => [l, buildRotation(l)]),
 );
 
-/** move is like "R", "R'", "R2", or a whole-cube rotation "X" / "Y'" / "Z2" */
+// --- Slice turns (M, E, S) -------------------------------------------------
+// CFOP emits slice moves:
+//   M (Middle)   - layer between L and R (x=0). Follows L direction (+1).
+//   E (Equator)  - layer between U and D (y=0). Follows D direction (+1).
+//   S (Standing) - layer between F and B (z=0). Follows F direction (-1).
+const SLICE_AXIS = { M: 0, E: 1, S: 2 };
+const SLICE_DIR = { M: 1, E: 1, S: -1 };
+
+function buildSlice(letter) {
+  const axis = SLICE_AXIS[letter];
+  const direction = SLICE_DIR[letter];
+  const perm = [...Array(54).keys()];
+  GEOM.forEach((g, i) => {
+    if (g.pos[axis] !== 0) return;
+    const j = INDEX_OF.get(
+      key(rot90(g.pos, axis, direction), rot90(g.normal, axis, direction)),
+    );
+    perm[j] = i;
+  });
+  return perm;
+}
+
+export const SLICE_PERMS = Object.fromEntries(
+  ["M", "E", "S"].map((l) => [l, buildSlice(l)]),
+);
+
+/** move is like "R", "R'", "R2", whole-cube rotation "X" / "Y'" / "Z2", or slice "M" / "E'" / "S2" */
 export function applyMove(facelets, move) {
   const token = move[0];
-  const table = ROT_PERMS[token] ?? PERMS[token];
+  const table = ROT_PERMS[token] ?? SLICE_PERMS[token] ?? PERMS[token];
   if (!table) throw new Error(`unknown move token: ${move}`);
   const times = move.endsWith("2") ? 2 : move.endsWith("'") ? 3 : 1;
   let out = facelets;

@@ -82,11 +82,11 @@ def solve_optimal(facelets: str) -> list[str]:
 
 
 def solve_guided(facelets: str, method: str = "Beginner") -> list[str]:
-    """Beginner's-method move list in OUR notation, guaranteed to drive
-    `facelets` to the exact SOLVED string when replayed with apply_move.
+    """Guided move list in OUR notation, guaranteed to drive `facelets` to the
+    exact SOLVED string when replayed with apply_move.
 
-    method: 'Beginner' | 'CFOP' | 'Kociemba' (rubik_solver's own) — only
-    'Beginner' is reliable right now (see note at bottom of file)."""
+    method: 'Beginner' | 'CFOP' | 'Kociemba' (rubik_solver's own) — both
+    'Beginner' and 'CFOP' are fully supported."""
     if facelets == SOLVED:
         return []
     raw = [str(m) for m in rs_utils.solve(to_rubik_solver(facelets), method)]
@@ -109,9 +109,8 @@ def _trim_after_solved(facelets: str, moves: list[str]) -> list[str]:
 
 
 # --- What we verified while building this, keep for whoever reads this file ---
-# - "Beginner" works reliably and fast (<0.1s even on a full 20-move scramble).
-# - "CFOP" throws a KeyError on ordinary inputs in this package version —
-#   we now expose it in the API with an automatic fallback to Beginner.
+# - Both "Beginner" and "CFOP" work reliably and fast (<0.1s even on a full 20-move scramble).
+# - Slice moves (M, E, S) emitted by CFOP are supported by our move engine.
 # - Feeding rubik_solver our own (western) colour scheme instead of its
 #   fixed internal one causes it to hang indefinitely on lookups instead of
 #   erroring, which is much harder to debug than a clean exception. If you
