@@ -7,6 +7,7 @@ import KeyboardControls from "../Components/KeyboardControls";
 import MoveButtons from "../Components/MoveButtons";
 import { cubeApi } from "../lib/api.js";
 import { invert } from "../cube/moves.js";
+import { getStageGuide } from "../cube/stageGuides.js";
 import { useCubeStore, MODES } from "../store/cubeStore.js";
 
 function Panel({ title, children, className = "" }) {
@@ -81,6 +82,7 @@ export default function SolveWorkspace() {
 
   const solved = useCubeStore((s) => s.isSolved)();
   const stage = useCubeStore((s) => s.currentStage)();
+  const activeGuide = getStageGuide(stage?.name);
 
   const onAnimatorReady = useCallback((a) => {
     animatorRef.current = a;
@@ -378,7 +380,7 @@ export default function SolveWorkspace() {
                 )}
               </span>
             }>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                 {solution.stages.map((s) => {
                   const active = stage?.name === s.name;
                   const done = cursor >= s.end;
@@ -399,6 +401,19 @@ export default function SolveWorkspace() {
                   );
                 })}
               </div>
+
+              {activeGuide && (
+                <div className="mt-2.5 p-2.5 rounded-lg border border-dark-border bg-dark-bg/60 text-xs">
+                  {activeGuide.formula && (
+                    <div className="font-mono font-bold text-neon-blue">
+                      {activeGuide.formula}
+                    </div>
+                  )}
+                  <p className="text-gray-400 mt-1 leading-snug">
+                    {activeGuide.tip}
+                  </p>
+                </div>
+              )}
 
               <div className="mt-3 text-xs text-gray-400">
                 Move{" "}
