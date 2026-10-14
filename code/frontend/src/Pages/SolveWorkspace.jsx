@@ -404,11 +404,57 @@ export default function SolveWorkspace() {
 
               {activeGuide && (
                 <div className="mt-2.5 p-2.5 rounded-lg border border-dark-border bg-dark-bg/60 text-xs">
-                  {activeGuide.formula && (
-                    <div className="font-mono font-bold text-neon-blue">
-                      {activeGuide.formula}
-                    </div>
-                  )}
+                  <div className="flex items-start justify-between gap-1.5">
+                    {activeGuide.formula && (
+                      <div className="font-mono font-bold text-neon-blue break-words">
+                        {activeGuide.formula}
+                      </div>
+                    )}
+
+                    {activeGuide.learn && (
+                      <div className="relative group shrink-0">
+                        <button
+                          type="button"
+                          className="w-4 h-4 rounded-full border border-gray-600 text-gray-400 hover:text-neon-blue hover:border-neon-blue text-[10px] font-serif italic flex items-center justify-center cursor-help transition-colors"
+                          aria-label="Stage info"
+                        >
+                          i
+                        </button>
+
+                        <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block group-focus-within:block w-64 p-3 rounded-lg bg-dark-surface border border-dark-border shadow-2xl backdrop-blur-md text-[11px] text-gray-300 z-50">
+                          <div className="font-semibold text-white mb-1">
+                            {activeGuide.title}
+                          </div>
+                          <p className="text-gray-300 leading-relaxed mb-2">
+                            {activeGuide.learn.summary}
+                          </p>
+                          {activeGuide.learn.engineNote && (
+                            <p className="text-gray-400 text-[10px] mb-1">
+                              <span className="text-neon-blue font-semibold">Engine:</span>{" "}
+                              {activeGuide.learn.engineNote}
+                            </p>
+                          )}
+                          {activeGuide.learn.humanNote && (
+                            <p className="text-gray-400 text-[10px] mb-2">
+                              <span className="text-amber-400 font-semibold">Human Tip:</span>{" "}
+                              {activeGuide.learn.humanNote}
+                            </p>
+                          )}
+                          {activeGuide.learn.jpermUrl && (
+                            <a
+                              href={activeGuide.learn.jpermUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-neon-blue hover:underline text-[10px] font-medium"
+                            >
+                              Learn on JPerm.net &rarr;
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <p className="text-gray-400 mt-1 leading-snug">
                     {activeGuide.tip}
                   </p>
