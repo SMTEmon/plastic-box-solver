@@ -164,3 +164,101 @@ test("onStep callback is invoked and setSpeed updates speed", async () => {
   ]);
   h.stop();
 });
+
+test("animation speeds up dynamically when moves accumulate in the queue", async () => {
+  const h = harness();
+  useCubeStore.getState().loadScramble(SOLVED, 0);
+
+  const start = Date.now();
+  h.animator.enqueue(["R", "U", "R'", "U'"], true);
+  await h.drain();
+  const elapsed = Date.now() - start;
+
+  // Unboosted time: 4 * 220ms = 880ms + 60ms drain = ~940ms.
+  // With queue multiplier (2.5x, 2.0x, 1.5x), it drains significantly faster (< 750ms).
+  assert.ok(elapsed < 750, `expected queue-boosted moves to finish under 750ms, took ${elapsed}ms`);
+  assert.strictEqual(h.done.length, 4);
+  assert.deepStrictEqual(h.done, ["R", "U", "R'", "U'"]);
+  assert.strictEqual(useCubeStore.getState().history.length, 4);
+  assert.strictEqual(h.cube.children.length, 27, "all 27 cubelets in cubeGroup");
+  assert.strictEqual(h.rot.children.length, 0, "rotationGroup cleanly emptied");
+
+  for (const c of h.cube.children) {
+    assert.strictEqual(c.position.x, Math.round(c.position.x));
+    assert.strictEqual(c.position.y, Math.round(c.position.y));
+    assert.strictEqual(c.position.z, Math.round(c.position.z));
+  }
+  h.stop();
+});
+
+test("fastForward immediately completes in-flight move and updates logical state", async () => {
+  const h = harness();
+  useCubeStore.getState().loadScramble(SOLVED, 0);
+
+  h.animator.enqueue("R", true);
+  assert.ok(h.animator.isBusy, "animator should be busy immediately");
+  assert.strictEqual(h.done.length, 0, "move has not completed yet");
+
+  h.animator.fastForward();
+  assert.strictEqual(h.animator.isBusy, false, "animator should no longer be busy");
+  assert.strictEqual(h.done.length, 1, "move should be completed by fastForward");
+  assert.strictEqual(h.done[0], "R");
+  assert.strictEqual(useCubeStore.getState().history.length, 1);
+  assert.strictEqual(h.cube.children.length, 27, "all cubelets reparented back");
+  assert.strictEqual(h.rot.children.length, 0, "rotation group emptied");
+  h.stop();
+});
+
+test("rapid move inputs with fastForward process in exact order with zero lag and zero desync", async () => {
+  const h = harness();
+  useCubeStore.getState().loadScramble(SOLVED, 0);
+
+  const moves = ["R", "U", "R'", "U'"];
+  for (const m of moves) {
+    h.animator.fastForward();
+    h.animator.enqueue(m, true);
+  }
+  await h.drain();
+
+  assert.strictEqual(h.done.length, 4);
+  assert.deepStrictEqual(h.done, ["R", "U", "R'", "U'"]);
+  assert.strictEqual(useCubeStore.getState().history.length, 4);
+  assert.strictEqual(h.cube.children.length, 27);
+  assert.strictEqual(h.rot.children.length, 0);
+  h.stop();
+});
+
+test("cancel drops queued moves and in-flight move without firing callbacks", async () => {
+  const h = harness();
+  useCubeStore.getState().loadScramble(SOLVED, 0);
+
+  h.animator.enqueue(["R", "U", "F"], true);
+  assert.ok(h.animator.isBusy);
+
+  h.animator.cancel();
+  assert.strictEqual(h.animator.isBusy, false);
+  assert.strictEqual(h.animator.pending, 0);
+  assert.strictEqual(h.done.length, 0, "cancelled in-flight move should not fire onMoveDone");
+  assert.strictEqual(useCubeStore.getState().history.length, 0, "store history untouched");
+  assert.strictEqual(h.cube.children.length, 27, "all cubelets returned to cubeGroup");
+  assert.strictEqual(h.rot.children.length, 0, "rot group clean");
+  h.stop();
+});
+
+test("fastForwardAll drains entire queue synchronously to completion", async () => {
+  const h = harness();
+  useCubeStore.getState().loadScramble(SOLVED, 0);
+
+  h.animator.enqueue(["R", "U", "R'", "U'"], true);
+  assert.ok(h.animator.isBusy);
+
+  h.animator.fastForwardAll();
+  assert.strictEqual(h.animator.isBusy, false);
+  assert.strictEqual(h.animator.pending, 0);
+  assert.strictEqual(h.done.length, 4);
+  assert.deepStrictEqual(h.done, ["R", "U", "R'", "U'"]);
+  assert.strictEqual(useCubeStore.getState().history.length, 4);
+  h.stop();
+});
+
+

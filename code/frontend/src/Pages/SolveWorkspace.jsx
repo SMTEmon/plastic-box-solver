@@ -322,6 +322,7 @@ export default function SolveWorkspace() {
   // --- user moves ---------------------------------------------------------
 
   const doMove = useCallback((move) => {
+    animatorRef.current?.fastForward();
     animatorRef.current?.enqueue(move, true);
   }, []);
 
@@ -331,11 +332,13 @@ export default function SolveWorkspace() {
    * once and the inverse never lands back in history.
    */
   const doUndo = useCallback(() => {
+    animatorRef.current?.fastForward();
     const move = useCubeStore.getState().undo();
     if (move) animatorRef.current?.enqueue(move, false);
   }, []);
 
   const doRedo = useCallback(() => {
+    animatorRef.current?.fastForward();
     const move = useCubeStore.getState().redo();
     if (move) animatorRef.current?.enqueue(move, false);
   }, []);
@@ -364,10 +367,11 @@ export default function SolveWorkspace() {
   const pauseStage = useCallback(() => {
     stagePlaybackRef.current.isPlaying = false;
     setIsPlayingStage(false);
-    animatorRef.current?.clear();
+    animatorRef.current?.fastForward();
   }, []);
 
   const playStage = useCallback(() => {
+    animatorRef.current?.fastForward();
     const s = useCubeStore.getState();
     if (!s.solution) return;
     const currentStage = s.currentStage();
@@ -396,7 +400,7 @@ export default function SolveWorkspace() {
   const pauseAutoSolve = useCallback(() => {
     autoPlayRef.current.isPlaying = false;
     setIsAutoPlaying(false);
-    animatorRef.current?.clear();
+    animatorRef.current?.fastForward();
   }, []);
 
   const resumeAutoSolve = useCallback(() => {
@@ -404,6 +408,7 @@ export default function SolveWorkspace() {
     const idx = autoPlayRef.current.index;
     if (!moves.length || idx >= moves.length) return;
 
+    animatorRef.current?.fastForward();
     autoPlayRef.current.isPlaying = true;
     setIsAutoPlaying(true);
     animatorRef.current?.setSpeed(speed);
@@ -472,24 +477,28 @@ export default function SolveWorkspace() {
 
   const stepForward = useCallback(() => {
     if (isPlayingStage) pauseStage();
+    animatorRef.current?.fastForward();
     const s = useCubeStore.getState();
     if (!s.solution || s.cursor >= s.solution.moves.length) return;
-    animatorRef.current?.enqueue(s.solution.moves[s.cursor], false);
+    const move = s.solution.moves[s.cursor];
+    animatorRef.current?.enqueue(move, false);
     s.setCursor(s.cursor + 1);
   }, [isPlayingStage, pauseStage]);
 
   const stepBack = useCallback(() => {
     if (isPlayingStage) pauseStage();
+    animatorRef.current?.fastForward();
     const s = useCubeStore.getState();
     if (!s.solution || s.cursor <= 0) return;
-    animatorRef.current?.enqueue(invert(s.solution.moves[s.cursor - 1]), false);
+    const move = invert(s.solution.moves[s.cursor - 1]);
+    animatorRef.current?.enqueue(move, false);
     s.setCursor(s.cursor - 1);
   }, [isPlayingStage, pauseStage]);
 
   const backToInteractive = useCallback(() => {
     pauseStage();
     pauseAutoSolve();
-    animatorRef.current?.clear();
+    animatorRef.current?.fastForwardAll();
     animatorRef.current?.setSpeed(1);
     setShowGuidedPicker(false);
     setAssistWarning(null);
@@ -499,7 +508,7 @@ export default function SolveWorkspace() {
   const resetCube = useCallback(() => {
     pauseStage();
     pauseAutoSolve();
-    animatorRef.current?.clear();
+    animatorRef.current?.cancel();
     setShowGuidedPicker(false);
     setAssistWarning(null);
     useCubeStore.getState().reset();
