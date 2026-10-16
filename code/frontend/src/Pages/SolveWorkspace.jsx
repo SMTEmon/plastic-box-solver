@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import JEASINGS from "jeasings";
 
 import AppShell from "../Layout/AppShell";
 import CubeScene from "../Three/CubeScene";
@@ -9,6 +10,25 @@ import { cubeApi } from "../lib/api.js";
 import { invert } from "../cube/moves.js";
 import { getStageGuide, getCenterInfo } from "../cube/stageGuides.js";
 import { useCubeStore, MODES } from "../store/cubeStore.js";
+
+const CAMERA_POSITIONS = {
+  top: { x: 3.4, y: 3.4, z: 3.4 },
+  bottom: { x: 3.4, y: -3.4, z: 3.4 },
+};
+
+function animateCameraTo(controls, viewType = "top") {
+  if (!controls?.object) return;
+  const target = CAMERA_POSITIONS[viewType] ?? CAMERA_POSITIONS.top;
+
+  new JEASINGS.JEasing(controls.object.position)
+    .to(target, 600)
+    .easing(JEASINGS.Cubic.Out)
+    .onUpdate(() => {
+      controls.target.set(0, 0, 0);
+      controls.update();
+    })
+    .start();
+}
 
 function Panel({ title, children, className = "" }) {
   return (
@@ -240,6 +260,41 @@ export default function SolveWorkspace() {
   const guided = mode === MODES.GUIDED && solution;
   const canTurn = ready && mode === MODES.INTERACTIVE;
 
+  const [autoTrackCamera, setAutoTrackCamera] = useState(true);
+  const lastTrackedFaceRef = useRef(null);
+
+  // Automatically track camera to active target face when enabled
+  useEffect(() => {
+    if (!guided || !autoTrackCamera || !controlsRef.current) return;
+    const target = activeGuide?.targetFace;
+    if (target === "D" || target === "U") {
+      if (lastTrackedFaceRef.current !== target) {
+        lastTrackedFaceRef.current = target;
+        animateCameraTo(controlsRef.current, target === "D" ? "bottom" : "top");
+      }
+    }
+  }, [guided, autoTrackCamera, activeGuide?.targetFace]);
+
+  useEffect(() => {
+    if (!guided) {
+      lastTrackedFaceRef.current = null;
+    }
+  }, [guided]);
+
+  const toggleAutoTrack = useCallback(() => {
+    setAutoTrackCamera((prev) => {
+      const next = !prev;
+      if (next && controlsRef.current) {
+        const target = activeGuide?.targetFace;
+        if (target === "D" || target === "U") {
+          lastTrackedFaceRef.current = target;
+          animateCameraTo(controlsRef.current, target === "D" ? "bottom" : "top");
+        }
+      }
+      return next;
+    });
+  }, [activeGuide?.targetFace]);
+
   return (
     <AppShell>
       <KeyboardControls
@@ -300,15 +355,34 @@ export default function SolveWorkspace() {
 
           <div className="flex-1 rounded-xl overflow-hidden border border-dark-border bg-dark-bg shadow-[inset_0_0_30px_rgba(0,243,255,0.05)] min-h-[320px] relative">
             <CubeScene onAnimatorReady={onAnimatorReady} controlsRef={controlsRef} />
-            <button
-              type="button"
-              onClick={() => controlsRef.current?.reset()}
-              title="Reset camera view"
-              className="absolute top-3 right-3 px-2.5 py-1.5 rounded-lg border border-dark-border bg-dark-surface/80 backdrop-blur-sm text-gray-300 text-xs hover:text-white hover:border-neon-blue/50 hover:bg-dark-surface cursor-pointer transition-all flex items-center gap-1.5 shadow-md"
-            >
-              <span className="text-neon-blue font-bold">↺</span>
-              <span>Reset View</span>
-            </button>
+            <div className="absolute top-3 right-3 flex items-center gap-1 bg-dark-surface/85 backdrop-blur-md border border-dark-border rounded-lg p-1 shadow-lg text-xs">
+              <button
+                type="button"
+                onClick={() => animateCameraTo(controlsRef.current, "top")}
+                title="View Top face (U)"
+                className="px-2 py-1 rounded text-gray-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Top (U)
+              </button>
+              <button
+                type="button"
+                onClick={() => animateCameraTo(controlsRef.current, "bottom")}
+                title="View Bottom face (D)"
+                className="px-2 py-1 rounded text-gray-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Bottom (D)
+              </button>
+              <div className="w-px h-3.5 bg-dark-border" />
+              <button
+                type="button"
+                onClick={() => controlsRef.current?.reset()}
+                title="Reset view to default angle"
+                className="px-2 py-1 rounded text-gray-400 hover:text-neon-blue hover:bg-white/10 transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <span className="text-neon-blue font-bold">↺</span>
+                <span>Reset</span>
+              </button>
+            </div>
           </div>
 
           <MoveButtons onMove={doMove} disabled={!canTurn} />
@@ -411,25 +485,47 @@ export default function SolveWorkspace() {
               {activeGuide && (
                 <div className="mt-2.5 p-2.5 rounded-lg border border-dark-border bg-dark-bg/60 text-xs">
                   {/* Target & Orientation Banner */}
-                  <div className="mb-2 pb-2 border-b border-dark-border/60 flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-gray-400">Target:</span>
-                      <span className="font-semibold text-white">
-                        {activeGuide.targetLabel ?? activeGuide.title}
-                      </span>
-                      {targetCenterInfo && (
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 ${targetCenterInfo.bg} ${targetCenterInfo.text} ${targetCenterInfo.border}`}
-                        >
-                          <span>{targetCenterInfo.dot}</span>
-                          <span>{targetCenterInfo.name}</span>
+                  <div className="mb-2 pb-2 border-b border-dark-border/60 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-gray-400 shrink-0">Target:</span>
+                        <span className="font-semibold text-white truncate">
+                          {activeGuide.targetLabel ?? activeGuide.title}
                         </span>
-                      )}
+                        {targetCenterInfo && (
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 shrink-0 ${targetCenterInfo.bg} ${targetCenterInfo.text} ${targetCenterInfo.border}`}
+                          >
+                            <span>{targetCenterInfo.dot}</span>
+                            <span>{targetCenterInfo.name}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={toggleAutoTrack}
+                        title={
+                          autoTrackCamera
+                            ? "Camera auto-tracking target face: ON (click to disable)"
+                            : "Camera auto-tracking: OFF (click to enable)"
+                        }
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-semibold cursor-pointer transition-colors flex items-center gap-1 shrink-0 border ${
+                          autoTrackCamera
+                            ? "bg-neon-blue/15 border-neon-blue/40 text-neon-blue hover:bg-neon-blue/25"
+                            : "bg-dark-bg/60 border-dark-border text-gray-400 hover:text-white"
+                        }`}
+                      >
+                        <span className={autoTrackCamera ? "text-neon-blue" : "text-gray-500"}>
+                          {autoTrackCamera ? "◉" : "○"}
+                        </span>
+                        <span>Track {autoTrackCamera ? "ON" : "OFF"}</span>
+                      </button>
                     </div>
 
                     {frontCenterInfo && (
-                      <div className="flex items-center gap-1 text-gray-400 text-[10px] shrink-0">
-                        <span>Front (F):</span>
+                      <div className="flex items-center gap-1 text-gray-400 text-[10px]">
+                        <span>Reference Front (F):</span>
                         <span className="font-medium text-gray-200 flex items-center gap-0.5">
                           <span>{frontCenterInfo.dot}</span>
                           <span>{frontCenterInfo.name}</span>
