@@ -7,7 +7,7 @@ import KeyboardControls from "../Components/KeyboardControls";
 import MoveButtons from "../Components/MoveButtons";
 import { cubeApi } from "../lib/api.js";
 import { invert } from "../cube/moves.js";
-import { getStageGuide } from "../cube/stageGuides.js";
+import { getStageGuide, getCenterInfo } from "../cube/stageGuides.js";
 import { useCubeStore, MODES } from "../store/cubeStore.js";
 
 function Panel({ title, children, className = "" }) {
@@ -83,6 +83,12 @@ export default function SolveWorkspace() {
   const solved = useCubeStore((s) => s.isSolved)();
   const stage = useCubeStore((s) => s.currentStage)();
   const activeGuide = getStageGuide(stage?.name);
+
+  const targetCenterInfo =
+    activeGuide?.targetFace && activeGuide.targetFace !== "Middle" && activeGuide.targetFace !== "All"
+      ? getCenterInfo(facelets, activeGuide.targetFace)
+      : null;
+  const frontCenterInfo = getCenterInfo(facelets, "F");
 
   const onAnimatorReady = useCallback((a) => {
     animatorRef.current = a;
@@ -404,6 +410,34 @@ export default function SolveWorkspace() {
 
               {activeGuide && (
                 <div className="mt-2.5 p-2.5 rounded-lg border border-dark-border bg-dark-bg/60 text-xs">
+                  {/* Target & Orientation Banner */}
+                  <div className="mb-2 pb-2 border-b border-dark-border/60 flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-gray-400">Target:</span>
+                      <span className="font-semibold text-white">
+                        {activeGuide.targetLabel ?? activeGuide.title}
+                      </span>
+                      {targetCenterInfo && (
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 ${targetCenterInfo.bg} ${targetCenterInfo.text} ${targetCenterInfo.border}`}
+                        >
+                          <span>{targetCenterInfo.dot}</span>
+                          <span>{targetCenterInfo.name}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {frontCenterInfo && (
+                      <div className="flex items-center gap-1 text-gray-400 text-[10px] shrink-0">
+                        <span>Front (F):</span>
+                        <span className="font-medium text-gray-200 flex items-center gap-0.5">
+                          <span>{frontCenterInfo.dot}</span>
+                          <span>{frontCenterInfo.name}</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex items-start justify-between gap-1.5">
                     {activeGuide.formula && (
                       <div className="font-mono font-bold text-neon-blue break-words">

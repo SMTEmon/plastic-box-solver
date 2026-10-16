@@ -8,58 +8,101 @@
  * - CFOP:     "Cross", "F2L", "OLL", "PLL"
  */
 
+export const COLOR_MAP = {
+  w: { name: "White", dot: "⚪", bg: "bg-white/10", text: "text-white", border: "border-white/30" },
+  y: { name: "Yellow", dot: "🟡", bg: "bg-yellow-400/10", text: "text-yellow-400", border: "border-yellow-400/30" },
+  g: { name: "Green", dot: "🟢", bg: "bg-emerald-400/10", text: "text-emerald-400", border: "border-emerald-400/30" },
+  b: { name: "Blue", dot: "🔵", bg: "bg-blue-400/10", text: "text-blue-400", border: "border-blue-400/30" },
+  r: { name: "Red", dot: "🔴", bg: "bg-red-400/10", text: "text-red-400", border: "border-red-400/30" },
+  o: { name: "Orange", dot: "🟠", bg: "bg-orange-400/10", text: "text-orange-400", border: "border-orange-400/30" },
+};
+
+export const CENTER_INDICES = {
+  U: 4,
+  R: 13,
+  F: 22,
+  D: 31,
+  L: 40,
+  B: 49,
+};
+
+/**
+ * Returns color metadata for a given face's center on the current cube state.
+ * @param {string} facelets
+ * @param {"U"|"R"|"F"|"D"|"L"|"B"|string} face
+ */
+export function getCenterInfo(facelets, face) {
+  if (!facelets || facelets.length < 54) return null;
+  const idx = CENTER_INDICES[face];
+  if (idx === undefined) return null;
+  const code = facelets[idx]?.toLowerCase();
+  return COLOR_MAP[code] ?? null;
+}
+
 export const STAGE_GUIDES = {
   // --- Beginner Method Stages ---
   "Bottom cross": {
-    title: "White Cross (Bottom)",
+    title: "Bottom Cross",
+    targetFace: "D",
+    targetLabel: "Bottom Cross",
     formula: "Intuitive",
-    tip: "Align each white edge sticker with its matching side center first, then rotate it onto the D face.",
+    tip: "Align each cross edge with its matching side center first, then rotate it onto the D face.",
     learn: {
-      summary: "Form a cross on the bottom face where each white edge's side color matches its adjacent center.",
+      summary: "Form a cross on the bottom face where each edge's side sticker matches its adjacent center.",
       jpermUrl: "https://jperm.net/3x3",
     },
   },
   "Bottom layer": {
     title: "First Layer Corners",
+    targetFace: "D",
+    targetLabel: "Bottom Corners",
     formula: "R U R' U' (Right) / L' U' L (Left)",
     tip: "Position the corner directly above where it belongs, then repeat the 4-move trigger until it is oriented correctly.",
     learn: {
-      summary: "Slot each white corner piece into place between its matching color centers.",
+      summary: "Slot each bottom corner piece into place between its matching color centers.",
       humanNote: "The 4-move sequence (R U R' U') is known as the 'sexy move' or right trigger in speedcubing.",
       jpermUrl: "https://jperm.net/3x3",
     },
   },
   "Middle layer": {
     title: "Middle Layer Edges",
+    targetFace: "Middle",
+    targetLabel: "Middle Ring",
     formula: "Right: U R U' R' U' F' U F | Left: U' L' U L U F U' F'",
     tip: "Align the top edge with its matching side center, then insert it into the target slot with the corresponding trigger.",
     learn: {
-      summary: "Insert the 4 middle-layer edge pieces without breaking the solved bottom white layer.",
+      summary: "Insert the 4 middle-layer edge pieces without breaking the solved bottom layer.",
       jpermUrl: "https://jperm.net/3x3",
     },
   },
   "Top cross": {
-    title: "Yellow Cross (Top)",
+    title: "Top Cross",
+    targetFace: "U",
+    targetLabel: "Top Face",
     formula: "F R U R' U' F'",
-    tip: "Progress from dot -> L-shape (hold at 9 and 12 o'clock) -> horizontal line -> cross.",
+    tip: "Progress from dot -> L-shape (hold at 9 and 12 o'clock) -> horizontal line -> cross on the top U face.",
     learn: {
-      summary: "Orient the 4 top yellow edges to form a yellow cross.",
+      summary: "Orient the 4 top edges to form a cross on the top face.",
       humanNote: "Also serves as the first step of '2-Look OLL' in CFOP.",
       jpermUrl: "https://jperm.net/algs/2look/oll",
     },
   },
   "Top face": {
-    title: "Yellow Face (Corners)",
+    title: "Top Face (Corners)",
+    targetFace: "U",
+    targetLabel: "Top Corners",
     formula: "Sune: R U R' U R U2 R'",
-    tip: "Orient top yellow corners while preserving the cross until the entire yellow face is solid.",
+    tip: "Orient top corners while preserving the cross until the entire top U face is solid.",
     learn: {
-      summary: "Orient the 4 top corners until the entire U face is solid yellow.",
+      summary: "Orient the 4 top corners until the entire U face is solid.",
       humanNote: "'Sune' is one of the oldest and most famous algorithms in cubing, cycling 3 corners while leaving edges untouched.",
       jpermUrl: "https://jperm.net/algs/2look/oll",
     },
   },
   "Position corners": {
     title: "Last Layer Corners",
+    targetFace: "U",
+    targetLabel: "Last Layer",
     formula: "Niklas: U R U' L' U R' U' L | Orient: R' D' R D",
     tip: "Permute corners to their matching positions, then orient them with R' D' R D without rotating the cube body.",
     learn: {
@@ -69,6 +112,8 @@ export const STAGE_GUIDES = {
   },
   "Solved": {
     title: "Cube Solved",
+    targetFace: "All",
+    targetLabel: "All 6 Faces",
     formula: "Complete",
     tip: "Congratulations! All 6 faces and layers are solved.",
     learn: {
@@ -80,6 +125,8 @@ export const STAGE_GUIDES = {
   // --- CFOP Stages ---
   "Cross": {
     title: "CFOP Cross",
+    targetFace: "D",
+    targetLabel: "Bottom Cross",
     formula: "Intuitive (~8 moves max)",
     tip: "Plan all 4 bottom edges during inspection and solve directly into the D layer.",
     learn: {
@@ -90,8 +137,10 @@ export const STAGE_GUIDES = {
   },
   "F2L": {
     title: "First Two Layers (F2L)",
+    targetFace: "Middle",
+    targetLabel: "First 2 Layers",
     formula: "Pair & Insert (41 cases)",
-    tip: "Pair each white corner with its matching middle edge in the top layer, then insert them together into their slot.",
+    tip: "Pair each corner with its matching middle edge in the top layer, then insert them together into their slot.",
     learn: {
       summary: "First Two Layers: simultaneously pair a corner and its matching edge, then insert them together into one of 4 slots.",
       engineNote: "Matches 1 of 41 canonical pairing cases.",
@@ -101,10 +150,12 @@ export const STAGE_GUIDES = {
   },
   "OLL": {
     title: "Orient Last Layer (OLL)",
+    targetFace: "U",
+    targetLabel: "Orient Top Face",
     formula: "57 Algorithms (or 2-look: F R U R' U' F' + Sune)",
-    tip: "Orient all top-layer stickers to face yellow upward in a single step.",
+    tip: "Orient all top-layer stickers to face upward in a single step.",
     learn: {
-      summary: "Orientation of the Last Layer: makes the entire top yellow face solid in a single algorithm.",
+      summary: "Orientation of the Last Layer: makes the entire top face solid in a single algorithm.",
       engineNote: "The solver executes 1 of 57 canonical algorithms in a single step.",
       humanNote: "Speedcubers often learn '2-Look OLL' (only 9 algorithms: Cross + Corners) before learning all 57.",
       jpermUrl: "https://jperm.net/algs/oll",
@@ -112,8 +163,10 @@ export const STAGE_GUIDES = {
   },
   "PLL": {
     title: "Permute Last Layer (PLL)",
+    targetFace: "U",
+    targetLabel: "Permute Top Layer",
     formula: "21 Algorithms (T-Perm, Y-Perm, U-Perm, etc.)",
-    tip: "Permute the edges and corners of the top layer around the yellow center to complete the solve.",
+    tip: "Permute the edges and corners of the top layer around the center to complete the solve.",
     learn: {
       summary: "Permutation of the Last Layer: rearranges the top-layer pieces into their solved positions.",
       engineNote: "The solver executes 1 of 21 canonical permutation algorithms (named after the letter shapes their swaps trace).",
@@ -132,6 +185,8 @@ export const STAGE_GUIDES = {
  *
  * @typedef {Object} StageGuide
  * @property {string} title
+ * @property {"D"|"U"|"Middle"|"All"} [targetFace]
+ * @property {string} [targetLabel]
  * @property {string} formula
  * @property {string} tip
  * @property {StageLearn} [learn]
