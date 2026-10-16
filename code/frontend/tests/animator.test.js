@@ -141,3 +141,26 @@ test("undo restores the previous state exactly (no double-apply)", async () => {
   assert.strictEqual(useCubeStore.getState().history.length, 0);
   h.stop();
 });
+
+test("onStep callback is invoked and setSpeed updates speed", async () => {
+  const h = harness();
+  useCubeStore.getState().loadScramble(SOLVED, 0);
+
+  const steps = [];
+  h.animator.onStep = (move, count) => {
+    steps.push({ move, count });
+  };
+
+  h.animator.setSpeed(2.5);
+  assert.strictEqual(h.animator.speed, 2.5);
+
+  h.animator.enqueue(["R", "U"], false);
+  await h.drain();
+
+  assert.strictEqual(steps.length, 2);
+  assert.deepStrictEqual(steps, [
+    { move: "R", count: false },
+    { move: "U", count: false },
+  ]);
+  h.stop();
+});

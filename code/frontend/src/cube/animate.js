@@ -128,12 +128,13 @@ export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
         reparentBack(cubeGroup.current, rotationGroup.current);
         busy = false;
         onMoveDone?.(move, count); // <-- logical state advances HERE
+        instance.onStep?.(move, count);
         runNext(); // <-- drain the rest of the queue
       })
       .start();
   }
 
-  return {
+  const instance = {
     /**
      * Queue one move or an array. Nothing is ever dropped.
      * count=false marks the moves as assisted playback, so they do not
@@ -151,11 +152,17 @@ export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
     setSpeed(multiplier) {
       speed = Math.max(0.25, multiplier);
     },
+    get speed() {
+      return speed;
+    },
     get pending() {
       return queue.length + (busy ? 1 : 0);
     },
     get isBusy() {
       return busy;
     },
+    onStep: null,
   };
+
+  return instance;
 }

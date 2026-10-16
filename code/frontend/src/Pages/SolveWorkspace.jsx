@@ -78,6 +78,28 @@ function Stat({ label, value, tone = "text-white" }) {
   );
 }
 
+function SpeedControl({ speed, onSetSpeed }) {
+  return (
+    <div className="flex items-center gap-1.5 text-xs">
+      <span className="text-gray-400 text-[11px] font-medium mr-0.5">Speed:</span>
+      {[0.5, 1, 1.5, 2].map((s) => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => onSetSpeed(s)}
+          className={`px-2 py-0.5 rounded text-xs font-mono font-medium transition-all cursor-pointer border ${
+            speed === s
+              ? "border-neon-blue bg-neon-blue/20 text-neon-blue font-bold shadow-[0_0_8px_rgba(0,243,255,0.25)]"
+              : "border-dark-border bg-dark-surface/80 text-gray-400 hover:text-white hover:border-gray-600"
+          }`}
+        >
+          {s}x
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function SolveWorkspace() {
   const navigate = useNavigate();
 
@@ -100,6 +122,15 @@ export default function SolveWorkspace() {
   const [showGuidedPicker, setShowGuidedPicker] = useState(false);
   const [guidedMethod, setGuidedMethod] = useState(null); // "beginner" | "cfop"
 
+  // Playback & Speed controls
+  const [speed, setSpeed] = useState(1);
+  const [isPlayingStage, setIsPlayingStage] = useState(false);
+  const stagePlaybackRef = useRef({ isPlaying: false, targetEnd: 0 });
+
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const [autoPlayIndex, setAutoPlayIndex] = useState(0);
+  const autoPlayRef = useRef({ isPlaying: false, index: 0, moves: [] });
+
   const solved = useCubeStore((s) => s.isSolved)();
   const stage = useCubeStore((s) => s.currentStage)();
   const activeGuide = getStageGuide(stage?.name);
@@ -110,10 +141,58 @@ export default function SolveWorkspace() {
       : null;
   const frontCenterInfo = getCenterInfo(facelets, "F");
 
-  const onAnimatorReady = useCallback((a) => {
-    animatorRef.current = a;
-    setReady(true);
+  const handleSetSpeed = useCallback((s) => {
+    setSpeed(s);
+    animatorRef.current?.setSpeed(s);
   }, []);
+
+  const handleStepDone = useCallback(() => {
+    // 1. Guided mode stage playback
+    if (stagePlaybackRef.current.isPlaying) {
+      const s = useCubeStore.getState();
+      const targetEnd = stagePlaybackRef.current.targetEnd;
+
+      if (s.cursor >= targetEnd || s.cursor >= s.solution.moves.length) {
+        stagePlaybackRef.current.isPlaying = false;
+        setIsPlayingStage(false);
+      } else {
+        const nextMove = s.solution.moves[s.cursor];
+        animatorRef.current?.enqueue(nextMove, false);
+        s.setCursor(s.cursor + 1);
+      }
+    }
+
+    // 2. Auto-solve mode playback
+    if (autoPlayRef.current.isPlaying) {
+      const nextIdx = autoPlayRef.current.index + 1;
+      autoPlayRef.current.index = nextIdx;
+      setAutoPlayIndex(nextIdx);
+
+      if (nextIdx >= autoPlayRef.current.moves.length) {
+        autoPlayRef.current.isPlaying = false;
+        setIsAutoPlaying(false);
+      } else {
+        const nextMove = autoPlayRef.current.moves[nextIdx];
+        animatorRef.current?.enqueue(nextMove, false);
+      }
+    }
+  }, []);
+
+  const onAnimatorReady = useCallback(
+    (a) => {
+      animatorRef.current = a;
+      a.setSpeed(speed);
+      a.onStep = handleStepDone;
+      setReady(true);
+    },
+    [speed, handleStepDone],
+  );
+
+  useEffect(() => {
+    if (animatorRef.current) {
+      animatorRef.current.onStep = handleStepDone;
+    }
+  }, [ready, handleStepDone]);
 
   /**
    * Landing here with a solved cube (deep link, refresh) means there is
@@ -205,30 +284,86 @@ export default function SolveWorkspace() {
     }
   };
 
-  /** FR-11 -- queue the whole optimal solution and let it play. */
+  const pauseStage = useCallback(() => {
+    stagePlaybackRef.current.isPlaying = false;
+    setIsPlayingStage(false);
+    animatorRef.current?.clear();
+  }, []);
+
+  const playStage = useCallback(() => {
+    const s = useCubeStore.getState();
+    if (!s.solution) return;
+    const currentStage = s.currentStage();
+    if (!currentStage) return;
+
+    const targetEnd = currentStage.end;
+    if (s.cursor >= targetEnd || s.cursor >= s.solution.moves.length) return;
+
+    stagePlaybackRef.current = { isPlaying: true, targetEnd };
+    setIsPlayingStage(true);
+
+    animatorRef.current?.setSpeed(speed);
+    const move = s.solution.moves[s.cursor];
+    animatorRef.current?.enqueue(move, false);
+    s.setCursor(s.cursor + 1);
+  }, [speed]);
+
+  const togglePlayStage = useCallback(() => {
+    if (isPlayingStage) {
+      pauseStage();
+    } else {
+      playStage();
+    }
+  }, [isPlayingStage, pauseStage, playStage]);
+
+  const pauseAutoSolve = useCallback(() => {
+    autoPlayRef.current.isPlaying = false;
+    setIsAutoPlaying(false);
+    animatorRef.current?.clear();
+  }, []);
+
+  const resumeAutoSolve = useCallback(() => {
+    const moves = autoPlayRef.current.moves;
+    const idx = autoPlayRef.current.index;
+    if (!moves.length || idx >= moves.length) return;
+
+    autoPlayRef.current.isPlaying = true;
+    setIsAutoPlaying(true);
+    animatorRef.current?.setSpeed(speed);
+    animatorRef.current?.enqueue(moves[idx], false);
+  }, [speed]);
+
+  /** FR-11 -- queue the whole optimal solution and let it play with controlled playback. */
   const runAutoSolve = useCallback(async () => {
     if (!confirmAssist()) return;
     useCubeStore.getState().markAssisted();
     useCubeStore.getState().setMode(MODES.AUTO);
     const data = await fetchSolution("optimal");
-    if (!data) return;
-    animatorRef.current?.setSpeed(1.6);
-    animatorRef.current?.enqueue(data.moves, false);
+    if (!data || !data.moves?.length) return;
+
+    autoPlayRef.current = { isPlaying: true, index: 0, moves: data.moves };
+    setAutoPlayIndex(0);
+    setIsAutoPlaying(true);
+    animatorRef.current?.setSpeed(speed);
+    animatorRef.current?.enqueue(data.moves[0], false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facelets, assisted]);
+  }, [facelets, assisted, speed]);
 
   /** FR-10 -- guided solve, stepped one move at a time. */
   const startGuided = useCallback(async (method) => {
     if (!confirmAssist()) return;
+    pauseAutoSolve();
+    pauseStage();
     setShowGuidedPicker(false);
     setGuidedMethod(method);
     useCubeStore.getState().markAssisted();
     useCubeStore.getState().setMode(MODES.GUIDED);
     await fetchSolution(method);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facelets, assisted]);
+  }, [facelets, assisted, pauseAutoSolve, pauseStage]);
 
   const stepForward = () => {
+    if (isPlayingStage) pauseStage();
     const s = useCubeStore.getState();
     if (!s.solution || s.cursor >= s.solution.moves.length) return;
     animatorRef.current?.enqueue(s.solution.moves[s.cursor], false);
@@ -236,6 +371,7 @@ export default function SolveWorkspace() {
   };
 
   const stepBack = () => {
+    if (isPlayingStage) pauseStage();
     const s = useCubeStore.getState();
     if (!s.solution || s.cursor <= 0) return;
     animatorRef.current?.enqueue(invert(s.solution.moves[s.cursor - 1]), false);
@@ -243,19 +379,23 @@ export default function SolveWorkspace() {
   };
 
   const backToInteractive = useCallback(() => {
+    pauseStage();
+    pauseAutoSolve();
     animatorRef.current?.clear();
     animatorRef.current?.setSpeed(1);
     setShowGuidedPicker(false);
     setGuidedMethod(null);
     useCubeStore.getState().setMode(MODES.INTERACTIVE);
-  }, []);
+  }, [pauseStage, pauseAutoSolve]);
 
   const resetCube = useCallback(() => {
+    pauseStage();
+    pauseAutoSolve();
     animatorRef.current?.clear();
     setShowGuidedPicker(false);
     setGuidedMethod(null);
     useCubeStore.getState().reset();
-  }, []);
+  }, [pauseStage, pauseAutoSolve]);
 
   const guided = mode === MODES.GUIDED && solution;
   const canTurn = ready && mode === MODES.INTERACTIVE;
@@ -305,6 +445,10 @@ export default function SolveWorkspace() {
 
       if (e.code === "Space" || e.key === " " || e.key === "ArrowRight") {
         e.preventDefault();
+        if (isPlayingStage) {
+          pauseStage();
+          return;
+        }
         if (e.shiftKey) {
           stepBack();
         } else {
@@ -319,13 +463,17 @@ export default function SolveWorkspace() {
         ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z")
       ) {
         e.preventDefault();
+        if (isPlayingStage) {
+          pauseStage();
+          return;
+        }
         stepBack();
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [guided]);
+  }, [guided, isPlayingStage, pauseStage]);
 
   return (
     <AppShell>
@@ -418,26 +566,39 @@ export default function SolveWorkspace() {
           </div>
 
           {guided ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-3">
+            <div className="flex flex-col gap-2.5">
+              <div className="flex gap-2.5">
                 <button
                   type="button"
                   onClick={stepBack}
-                  disabled={cursor <= 0}
-                  className="flex-1 py-2.5 px-4 rounded-xl border border-dark-border bg-dark-surface/90 text-gray-200 text-xs font-medium cursor-pointer hover:text-white hover:border-gray-500 hover:bg-dark-surface transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
+                  disabled={cursor <= 0 || isPlayingStage}
+                  className="flex-1 py-2.5 px-3 rounded-xl border border-dark-border bg-dark-surface/90 text-gray-200 text-xs font-medium cursor-pointer hover:text-white hover:border-gray-500 hover:bg-dark-surface transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
                 >
                   <span className="text-sm">&larr;</span>
                   <span>Back</span>
-                  <span className="text-[10px] text-gray-400 font-mono px-1.5 py-0.5 rounded bg-dark-bg/80 border border-dark-border">
+                  <span className="text-[10px] text-gray-400 font-mono px-1 py-0.5 rounded bg-dark-bg/80 border border-dark-border">
                     Backspace
                   </span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={stepForward}
+                  onClick={togglePlayStage}
                   disabled={cursor >= solution.moves.length}
-                  className="flex-2 py-2.5 px-4 rounded-xl bg-neon-blue text-dark-bg text-xs font-bold cursor-pointer hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(0,243,255,0.2)]"
+                  className={`flex-1.5 py-2.5 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-md ${
+                    isPlayingStage
+                      ? "border-amber-400/50 bg-amber-400/15 text-amber-300 hover:bg-amber-400/25 shadow-[0_0_12px_rgba(251,191,36,0.2)]"
+                      : "border-neon-blue/40 bg-neon-blue/10 text-neon-blue hover:bg-neon-blue/20 shadow-[0_0_12px_rgba(0,243,255,0.15)]"
+                  }`}
+                >
+                  <span>{isPlayingStage ? "⏸ Pause Stage" : "▶ Play Stage"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={stepForward}
+                  disabled={cursor >= solution.moves.length || isPlayingStage}
+                  className="flex-2 py-2.5 px-3 rounded-xl bg-neon-blue text-dark-bg text-xs font-bold cursor-pointer hover:opacity-90 transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(0,243,255,0.2)]"
                 >
                   <span>Next Move</span>
                   <span className="text-sm">&rarr;</span>
@@ -447,13 +608,37 @@ export default function SolveWorkspace() {
                 </button>
               </div>
 
-              <p className="text-xs text-gray-500 text-center">
-                Shortcuts: <span className="font-mono text-gray-300">Space</span> or{" "}
-                <span className="font-mono text-gray-300">&rarr;</span> next &middot;{" "}
-                <span className="font-mono text-gray-300">Backspace</span>,{" "}
-                <span className="font-mono text-gray-300">&larr;</span> or{" "}
-                <span className="font-mono text-gray-300">Shift+Space</span> back
-              </p>
+              <div className="flex items-center justify-between gap-2 px-1">
+                <SpeedControl speed={speed} onSetSpeed={handleSetSpeed} />
+                <p className="text-[11px] text-gray-500 text-right">
+                  <span className="font-mono text-gray-400">Space</span> next &middot;{" "}
+                  <span className="font-mono text-gray-400">Backspace</span> back
+                </p>
+              </div>
+            </div>
+          ) : mode === MODES.AUTO && solution ? (
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={isAutoPlaying ? pauseAutoSolve : resumeAutoSolve}
+                  disabled={autoPlayIndex >= solution.moves.length}
+                  className={`flex-1 py-2.5 px-4 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-md ${
+                    isAutoPlaying
+                      ? "border-amber-400/50 bg-amber-400/15 text-amber-300 hover:bg-amber-400/25 shadow-[0_0_12px_rgba(251,191,36,0.2)]"
+                      : "border-neon-blue/40 bg-neon-blue/10 text-neon-blue hover:bg-neon-blue/20 shadow-[0_0_12px_rgba(0,243,255,0.15)]"
+                  }`}
+                >
+                  <span>{isAutoPlaying ? "⏸ Pause Auto-Solve" : "▶ Resume Auto-Solve"}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 px-1">
+                <SpeedControl speed={speed} onSetSpeed={handleSetSpeed} />
+                <span className="text-xs text-gray-400 font-mono">
+                  Move {autoPlayIndex} / {solution.moves.length}
+                </span>
+              </div>
             </div>
           ) : (
             <>
@@ -685,11 +870,27 @@ export default function SolveWorkspace() {
 
           {mode === MODES.AUTO && solution && (
             <Panel title="Auto-solve">
-              <div className="text-xs text-gray-400 mb-2">
-                {solution.moveCount} moves, playing back
+              <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+                <span>{solution.moveCount} moves total</span>
+                <span className="font-mono text-neon-blue font-bold">
+                  {autoPlayIndex}/{solution.moves.length}
+                </span>
               </div>
-              <div className="text-[11px] font-mono text-gray-300 break-words leading-relaxed">
-                {solution.moves.join(" ")}
+              <div className="text-[11px] font-mono text-gray-300 break-words leading-relaxed max-h-36 overflow-y-auto p-2 rounded-lg bg-dark-bg/60 border border-dark-border">
+                {solution.moves.map((m, i) => (
+                  <span
+                    key={i}
+                    className={`inline-block mr-1 px-1 py-0.5 rounded transition-all ${
+                      i === autoPlayIndex
+                        ? "bg-neon-blue text-dark-bg font-bold shadow-[0_0_8px_rgba(0,243,255,0.4)]"
+                        : i < autoPlayIndex
+                          ? "text-gray-500 line-through"
+                          : "text-gray-300"
+                    }`}
+                  >
+                    {m}
+                  </span>
+                ))}
               </div>
             </Panel>
           )}
