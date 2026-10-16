@@ -56,66 +56,68 @@ export default function Leaderboard() {
 
   return (
     <AppShell>
-      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl font-bold text-white mb-2">Global Leaderboard</h2>
-        <p className="text-gray-400 mb-8">Top solvers ranked by best time</p>
+      <div className="max-w-4xl mx-auto py-6 px-3 sm:px-6">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-white tracking-tight">Global Leaderboard</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Top unassisted speedsolves ranked by verification time.</p>
+        </div>
 
         {loading ? (
-          <div className="text-center py-12">
-            <p className="text-neon-blue animate-pulse">Loading leaderboard...</p>
+          <div className="text-center py-16">
+            <p className="text-neon-blue text-xs font-semibold animate-pulse">Loading leaderboard standings...</p>
           </div>
         ) : error ? (
-          <div className="text-center py-12">
-            <p className="text-red-400">{error}</p>
+          <div className="text-center py-16">
+            <p className="text-rose-400 text-xs">{error}</p>
           </div>
         ) : entries.length === 0 ? (
-          <div className="bg-dark-surface border border-dark-border rounded-xl p-8 text-center">
-            <p className="text-gray-400">No entries yet. Be the first to solve!</p>
+          <div className="bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl p-8 text-center shadow-sm">
+            <p className="text-gray-400 text-xs">No entries yet. Be the first to solve and claim #1!</p>
           </div>
         ) : (
-          <div className="bg-dark-surface border border-dark-border rounded-xl overflow-hidden overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-gradient-to-r from-dark-bg/80 to-dark-bg/40 border-b border-dark-border text-gray-400">
+          <div className="bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl overflow-hidden overflow-x-auto shadow-sm">
+            <table className="w-full text-left text-xs whitespace-nowrap">
+              <thead className="bg-dark-bg/60 border-b border-dark-border text-gray-400">
                 <tr>
-                  <th className="px-6 py-4 font-semibold text-center w-24">Rank</th>
-                  <th className="px-6 py-4 font-semibold">Player</th>
-                  <th className="px-6 py-4 font-semibold text-right">Best Time</th>
-                  <th className="px-6 py-4 font-semibold text-right">Efficiency</th>
+                  <th className="px-5 py-3.5 font-semibold text-center w-20">Rank</th>
+                  <th className="px-5 py-3.5 font-semibold">Player</th>
+                  <th className="px-5 py-3.5 font-semibold text-right">Best Time</th>
+                  <th className="px-5 py-3.5 font-semibold text-right">Efficiency</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-dark-border">
+              <tbody className="divide-y divide-dark-border/40">
                 {entries.map((entry) => (
                   <tr
                     key={entry.user_id || entry.rank}
-                    className={`transition-all duration-150 hover:-translate-y-px hover:bg-white/5 ${
-                      entry.is_me ? "bg-neon-blue/10 shadow-[inset_3px_0_8px_rgba(0,243,255,0.2)]" : ""
+                    className={`transition-colors hover:bg-white/[0.04] ${
+                      entry.is_me ? "bg-neon-blue/10" : ""
                     }`}
                   >
                     <td
-                      className={`px-6 py-4 text-center font-bold text-lg ${
-                        entry.is_me ? "border-l-4 border-l-neon-blue" : "border-l-4 border-l-transparent"
+                      className={`px-5 py-3 text-center font-bold text-sm ${
+                        entry.is_me ? "border-l-2 border-l-neon-blue" : "border-l-2 border-l-transparent"
                       }`}
                       style={getRankStyle(entry.rank)}
                     >
                       #{entry.rank}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-white">
+                        <span className="font-semibold text-white">
                           {entry.rank === 1 && <span className="text-xs mr-1" title="Champion">👑</span>}
                           {entry.display_name}
                         </span>
                         {entry.is_me && (
-                          <span className="text-xs bg-neon-blue text-dark-bg px-2 py-0.5 rounded-full font-bold">
+                          <span className="text-[10px] bg-neon-blue text-black px-2 py-0.5 rounded-full font-bold">
                             YOU
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right font-mono text-neon-green">
+                    <td className="px-5 py-3 text-right font-mono font-bold text-neon-green">
                       {formatTime(entry.best_time)}
                     </td>
-                    <td className="px-6 py-4 text-right font-mono text-gray-300">
+                    <td className="px-5 py-3 text-right font-mono text-gray-300">
                       {entry.efficiency != null ? `${Number(entry.efficiency).toFixed(1)}%` : "-"}
                     </td>
                   </tr>

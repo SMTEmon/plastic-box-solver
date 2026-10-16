@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-  --color-neon-blue: #00f3ff;
-  --color-neon-green: #39ff14;
-  --color-dark-bg: #0a0a12;
-  --color-dark-surface: #171726;
+  --color-neon-blue: #00d4e5;
+  --color-neon-green: #10b981;
+  --color-dark-bg: #0d0f15;
+  --color-dark-surface: #141722;
   --color-dark-border: rgba(255, 255, 255, 0.08);
 }
 
@@ -13,13 +13,19 @@ body,
 #root {
   height: 100%;
   margin: 0;
-  background: radial-gradient(circle at 50% 50%, var(--color-dark-bg) 0%, #000000 100%);
+  background-color: #0d0f15;
+  background: radial-gradient(circle at 50% 30%, #151824 0%, #0d0f15 100%);
   background-attachment: fixed;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+code, kbd, samp, pre, .font-mono {
+  font-family: 'JetBrains Mono', monospace;
 }
 
 ::selection {
-  background: var(--color-neon-blue);
-  color: #000000;
+  background: rgba(0, 212, 229, 0.3);
+  color: #ffffff;
 }
 
 ::-webkit-scrollbar {
@@ -58,4 +64,18 @@ button, a, input, select, textarea {
 }
 .animate-pulse-glow {
   animation: pulse-glow 3s infinite ease-in-out;
+}
+
+@keyframes morphIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(1px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.animate-morph-in {
+  animation: morphIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
