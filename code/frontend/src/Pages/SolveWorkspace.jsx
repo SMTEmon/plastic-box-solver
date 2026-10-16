@@ -295,6 +295,38 @@ export default function SolveWorkspace() {
     });
   }, [activeGuide?.targetFace]);
 
+  // Guided mode keyboard shortcuts (Space / Right Arrow to advance, Shift+Space / Backspace / Left Arrow to go back)
+  useEffect(() => {
+    if (!guided) return;
+
+    const onKeyDown = (e) => {
+      const tag = e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      if (e.code === "Space" || e.key === " " || e.key === "ArrowRight") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          stepBack();
+        } else {
+          stepForward();
+        }
+        return;
+      }
+
+      if (
+        e.key === "Backspace" ||
+        e.key === "ArrowLeft" ||
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z")
+      ) {
+        e.preventDefault();
+        stepBack();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [guided]);
+
   return (
     <AppShell>
       <KeyboardControls
@@ -385,16 +417,58 @@ export default function SolveWorkspace() {
             </div>
           </div>
 
-          <MoveButtons onMove={doMove} disabled={!canTurn} />
+          {guided ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={stepBack}
+                  disabled={cursor <= 0}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-dark-border bg-dark-surface/90 text-gray-200 text-xs font-medium cursor-pointer hover:text-white hover:border-gray-500 hover:bg-dark-surface transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
+                >
+                  <span className="text-sm">&larr;</span>
+                  <span>Back</span>
+                  <span className="text-[10px] text-gray-400 font-mono px-1.5 py-0.5 rounded bg-dark-bg/80 border border-dark-border">
+                    Backspace
+                  </span>
+                </button>
 
-          <p className="text-xs text-gray-500">
-            Keyboard: <span className="font-mono text-gray-400">U D L R F B</span>{" "}
-            turn clockwise &middot;{" "}
-            <span className="font-mono text-gray-400">Shift</span> reverses
-            &middot; <span className="font-mono text-gray-400">2</span> then a
-            key gives a double turn &middot;{" "}
-            <span className="font-mono text-gray-400">Ctrl+Z</span> undo
-          </p>
+                <button
+                  type="button"
+                  onClick={stepForward}
+                  disabled={cursor >= solution.moves.length}
+                  className="flex-2 py-2.5 px-4 rounded-xl bg-neon-blue text-dark-bg text-xs font-bold cursor-pointer hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(0,243,255,0.2)]"
+                >
+                  <span>Next Move</span>
+                  <span className="text-sm">&rarr;</span>
+                  <span className="text-[10px] text-dark-bg/80 font-mono font-bold px-1.5 py-0.5 rounded bg-black/15 border border-black/20">
+                    Space
+                  </span>
+                </button>
+              </div>
+
+              <p className="text-xs text-gray-500 text-center">
+                Shortcuts: <span className="font-mono text-gray-300">Space</span> or{" "}
+                <span className="font-mono text-gray-300">&rarr;</span> next &middot;{" "}
+                <span className="font-mono text-gray-300">Backspace</span>,{" "}
+                <span className="font-mono text-gray-300">&larr;</span> or{" "}
+                <span className="font-mono text-gray-300">Shift+Space</span> back
+              </p>
+            </div>
+          ) : (
+            <>
+              <MoveButtons onMove={doMove} disabled={!canTurn} />
+
+              <p className="text-xs text-gray-500">
+                Keyboard: <span className="font-mono text-gray-400">U D L R F B</span>{" "}
+                turn clockwise &middot;{" "}
+                <span className="font-mono text-gray-400">Shift</span> reverses
+                &middot; <span className="font-mono text-gray-400">2</span> then a
+                key gives a double turn &middot;{" "}
+                <span className="font-mono text-gray-400">Ctrl+Z</span> undo
+              </p>
+            </>
+          )}
         </div>
 
         {/* --- sidebar --- */}
@@ -605,23 +679,6 @@ export default function SolveWorkspace() {
                     </span>
                   </>
                 )}
-              </div>
-
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={stepBack}
-                  disabled={cursor <= 0}
-                  className="flex-1 py-2 rounded-lg border border-dark-border bg-dark-bg text-gray-300 text-xs cursor-pointer hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  &larr; Back
-                </button>
-                <button
-                  onClick={stepForward}
-                  disabled={cursor >= solution.moves.length}
-                  className="flex-1 py-2 rounded-lg bg-neon-blue text-dark-bg text-xs font-bold cursor-pointer hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Next &rarr;
-                </button>
               </div>
             </Panel>
           )}
