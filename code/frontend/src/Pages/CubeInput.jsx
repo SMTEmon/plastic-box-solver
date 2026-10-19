@@ -10,11 +10,11 @@ import { facesToFacelets, faceletsToFaces } from "../cube/facelets.js";
 import { cubeApi, ApiError } from "../lib/api.js";
 import { useCubeStore } from "../store/cubeStore.js";
 
-function Card({ title, right, children }) {
+function Card({ title, right, children, className = "" }) {
   return (
-    <div className="bg-dark-surface border border-dark-border hover:border-white/10 transition-colors rounded-xl p-4">
+    <div className={`bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl p-4 shadow-sm ${className}`}>
       <div className="flex items-center justify-between mb-3">
-        <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
           {title}
         </div>
         {right}
@@ -233,50 +233,56 @@ export default function CubeInput() {
   return (
     <AppShell>
       <div className="flex gap-4 h-[calc(100vh-2rem)]">
-        <div className="flex-1 flex flex-col gap-4 min-w-0">
+        <div className="flex-1 flex flex-col gap-3 min-w-0">
           {/* ── header ──────────────────────────────────────────── */}
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold tracking-tight text-white">
-              Cube Input
-            </h2>
-            <div className="flex gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl px-4 py-3 shadow-sm shrink-0">
+            <div>
+              <h2 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
+                <span>Cube Input</span>
+              </h2>
+              <p className="text-[11px] text-gray-400">Input cube state via Camera Scan, Interactive 2D Net, or Scramble text.</p>
+            </div>
+
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleScramble}
                 disabled={busy}
-                className="px-3 py-1.5 rounded-lg border border-neon-green/60 bg-neon-green/10 text-neon-green text-xs font-medium cursor-pointer transition-colors hover:bg-neon-green/20 disabled:opacity-40"
+                className="px-3 py-1.5 rounded-xl border border-neon-green/40 bg-neon-green/10 text-neon-green text-xs font-semibold cursor-pointer transition-all hover:bg-neon-green/20 disabled:opacity-40 flex items-center gap-1.5 shadow-sm"
               >
-                {busy ? "..." : "Random Scramble"}
+                <span>🎲</span>
+                <span>{busy ? "Scrambling..." : "Random Scramble"}</span>
               </button>
-              <div className="flex rounded-lg border border-dark-border overflow-hidden">
+
+              <div className="flex rounded-xl bg-dark-bg/80 p-1 border border-dark-border text-xs">
                 <button
                   onClick={switchToCamera}
-                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg font-medium cursor-pointer transition-all flex items-center gap-1.5 ${
                     inputMode === "camera"
-                      ? "bg-neon-blue/15 text-neon-blue"
-                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                      ? "bg-neon-blue/20 text-neon-blue font-semibold border border-neon-blue/40 shadow-sm"
+                      : "text-gray-400 hover:text-white"
                   }`}
                 >
                   <span>📷</span> Camera Scan
                 </button>
                 <button
                   onClick={switchToManual}
-                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors border-l border-dark-border ${
+                  className={`px-3 py-1.5 rounded-lg font-medium cursor-pointer transition-all flex items-center gap-1.5 ${
                     inputMode === "manual"
-                      ? "bg-neon-blue/15 text-neon-blue"
-                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                      ? "bg-neon-blue/20 text-neon-blue font-semibold border border-neon-blue/40 shadow-sm"
+                      : "text-gray-400 hover:text-white"
                   }`}
                 >
-                  Manual Net
+                  <span>🎨</span> Manual Net
                 </button>
                 <button
                   onClick={switchToText}
-                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors border-l border-dark-border ${
+                  className={`px-3 py-1.5 rounded-lg font-medium cursor-pointer transition-all flex items-center gap-1.5 ${
                     inputMode === "text"
-                      ? "bg-neon-blue/15 text-neon-blue"
-                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                      ? "bg-neon-blue/20 text-neon-blue font-semibold border border-neon-blue/40 shadow-sm"
+                      : "text-gray-400 hover:text-white"
                   }`}
                 >
-                  Text
+                  <span>⌨️</span> Text
                 </button>
               </div>
             </div>
@@ -284,12 +290,15 @@ export default function CubeInput() {
 
           {/* ── scan notice if available ── */}
           {scanNotice && (
-            <div className="text-xs p-3 rounded-xl border border-neon-blue/40 bg-neon-blue/10 text-neon-blue flex items-center justify-between">
-              <span>{scanNotice}</span>
+            <div className="text-xs p-3 rounded-2xl border border-neon-blue/40 bg-neon-blue/10 text-neon-blue flex items-center justify-between shadow-sm">
+              <span className="flex items-center gap-2">
+                <span>ℹ️</span>
+                <span>{scanNotice}</span>
+              </span>
               <button
                 type="button"
                 onClick={() => setScanNotice("")}
-                className="text-gray-400 hover:text-white ml-2 text-sm"
+                className="text-gray-400 hover:text-white ml-2 text-sm cursor-pointer"
               >
                 ✕
               </button>
@@ -298,6 +307,7 @@ export default function CubeInput() {
 
           {/* ── input workspace ──────────────────────────────────── */}
           <Card
+            className="flex-1 overflow-y-auto"
             title={
               inputMode === "camera"
                 ? "Camera capture (OpenCV)"
@@ -308,7 +318,7 @@ export default function CubeInput() {
             right={
               inputMode === "text" ? (
                 <span
-                  className={`text-[11px] font-mono ${
+                  className={`text-xs font-mono font-bold ${
                     inputStr.replace(/\s/g, "").length === 54
                       ? "text-neon-green"
                       : inputStr.replace(/\s/g, "").length >= 40
@@ -336,9 +346,9 @@ export default function CubeInput() {
               />
             ) : (
               /* ── text mode ────────────────────────────────────── */
-              <>
+              <div className="flex flex-col gap-3 h-full">
                 <textarea
-                  className="w-full h-[380px] rounded-xl p-4 bg-dark-bg text-white border border-dark-border font-mono text-sm resize-none focus:outline-none focus:border-neon-blue/50 focus:shadow-[0_0_15px_rgba(0,243,255,0.15)] transition-colors placeholder:text-gray-600"
+                  className="w-full flex-1 min-h-[320px] rounded-2xl p-4 bg-dark-bg/80 text-white border border-dark-border font-mono text-xs resize-none focus:outline-none focus:border-neon-blue/50 focus:shadow-sm transition-colors placeholder:text-gray-600 leading-relaxed"
                   value={inputStr}
                   onChange={handleInputChange}
                   spellCheck={false}
@@ -349,79 +359,84 @@ export default function CubeInput() {
                   }
                 />
 
-                <div className="flex items-center justify-between mt-3 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-dark-bg/40 border border-dark-border text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-400">Colours</span>
+                    <span className="text-gray-400 text-[11px] font-medium">Valid Colors:</span>
                     {Object.entries(PALETTE).map(([letter, c]) => (
                       <span
                         key={letter}
                         title={letter}
-                        className="w-5 h-5 rounded border border-white/10 inline-block hover:scale-125 transition-transform cursor-help"
+                        className="w-4 h-4 rounded border border-white/20 inline-block hover:scale-125 transition-transform cursor-help"
                         style={{ background: c }}
                       />
                     ))}
                   </div>
-                  <span className="text-gray-500">
-                    Face order: U R F D L B
+                  <span className="text-[11px] font-mono text-gray-500">
+                    Canonical order: U R F D L B
                   </span>
                 </div>
-              </>
+              </div>
             )}
           </Card>
         </div>
 
         {/* ── sidebar ───────────────────────────────────────────── */}
-        <div className="w-80 flex flex-col gap-4 shrink-0">
-          <Card title="Status">
+        <div className="w-80 flex flex-col gap-3 shrink-0 h-full overflow-y-auto pr-0.5">
+          <Card title="Status & Launch">
             <div
-              className={`text-xs font-medium mb-3 transition-all duration-300 ${statusTone}`}
+              className={`text-xs font-semibold mb-3 flex items-center gap-2 transition-all duration-300 ${statusTone}`}
             >
-              {statusText}
+              <span className={`w-2 h-2 rounded-full shrink-0 ${ready ? "bg-emerald-400" : localError || server?.valid === false ? "bg-rose-400" : "bg-gray-400"}`} />
+              <span>{statusText}</span>
             </div>
 
             {apiError && (
-              <div className="text-xs text-red-400 mb-3 border border-red-500/30 bg-red-500/5 rounded-lg p-2">
+              <div className="text-xs text-rose-400 mb-3 border border-rose-500/30 bg-rose-500/10 rounded-xl p-2.5">
                 {apiError}
               </div>
             )}
 
             <button
-              className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all ${
+              className={`w-full py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
                 ready && !busy
-                  ? "bg-neon-blue text-dark-bg hover:opacity-90 cursor-pointer shadow-[0_0_20px_rgba(0,243,255,0.3)] hover:shadow-[0_0_30px_rgba(0,243,255,0.4)]"
-                  : "bg-gray-800 text-gray-500 border border-dark-border cursor-not-allowed"
+                  ? "bg-gradient-to-r from-neon-blue to-blue-500 hover:from-neon-blue/90 hover:to-blue-400 text-black shadow-lg shadow-neon-blue/20 active:scale-95"
+                  : "bg-white/5 text-gray-500 border border-dark-border cursor-not-allowed opacity-50"
               }`}
               onClick={handleSolveClick}
               disabled={!ready || busy}
             >
-              {busy ? "Contacting solver..." : "Solve Cube"}
+              {busy ? "Contacting solver..." : "Solve Cube →"}
             </button>
           </Card>
 
-          <Card title="Algorithm">
-            <div className="text-xs text-gray-300 font-medium">
-              Kociemba 2-phase (optimal)
+          <Card title="Algorithm Engine">
+            <div className="text-xs text-gray-200 font-semibold">
+              Kociemba 2-Phase Solver
             </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Beginner&apos;s method for guided mode
+            <div className="text-[11px] text-gray-400 mt-1 leading-snug">
+              Generates optimal ≤20 move solutions. Supports Beginner and CFOP stage coaching in workspace.
             </div>
           </Card>
 
-          <Card title="Preview">
-            <div className="h-56 rounded-xl overflow-hidden bg-black border border-dark-border flex items-center justify-center">
+          <Card title="3D State Preview">
+            <div className="h-52 rounded-xl overflow-hidden bg-dark-bg/80 border border-dark-border flex items-center justify-center relative">
               {facelets ? (
                 <CubeScene />
               ) : (
-                <span className="text-xs text-gray-600">
-                  Invalid / empty state
-                </span>
+                <div className="text-xs text-gray-500 flex flex-col items-center gap-1.5">
+                  <span className="text-base opacity-40">⬡</span>
+                  <span>Paint 54 stickers to preview</span>
+                </div>
               )}
             </div>
             {facelets && (
-              <div className="mt-2 text-[10px] text-gray-500 font-mono break-all">
+              <div className="mt-2.5 text-[10px] text-gray-400 font-mono flex items-center justify-between border-t border-dark-border/60 pt-2">
                 {Object.entries(faceletsToFaces(facelets))
-                  .map(([f, arr]) => `${f}:${arr[4]}`)
-                  .join("  ")}
+                  .map(([f, arr]) => (
+                    <span key={f} className="px-1.5 py-0.5 rounded bg-white/[0.03] border border-white/5">
+                      {f}:<strong className="text-white">{arr[4]}</strong>
+                    </span>
+                  ))}
               </div>
             )}
           </Card>

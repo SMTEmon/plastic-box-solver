@@ -69,6 +69,8 @@ function reparentBack(cubeGroup, rotationGroup) {
     });
   rotationGroup.quaternion.set(0, 0, 0, 1);
   rotationGroup.rotation.set(0, 0, 0);
+  rotationGroup.updateMatrixWorld?.(true);
+  cubeGroup.updateMatrixWorld?.(true);
 }
 
 function attachLayer(cubeGroup, rotationGroup, axis, limit) {
@@ -98,6 +100,8 @@ export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
   const queue = [];
   let busy = false;
   let speed = 1;
+  let currentTween = null;
+  let currentMoveInfo = null;
 
   function runNext() {
     if (busy || queue.length === 0) return;
@@ -121,19 +125,90 @@ export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
       rotationGroup.current.rotation[spec.axis] +
       (Math.PI / 2) * quarters * dir;
 
-    new JEasing(rotationGroup.current.rotation)
-      .to({ [spec.axis]: target }, (BASE_DURATION_MS * quarters) / speed)
+    const queueMultiplier =
+      queue.length >= 3
+        ? 2.5
+        : queue.length === 2
+          ? 2.0
+          : queue.length === 1
+            ? 1.5
+            : 1.0;
+    const effectiveSpeed = speed * queueMultiplier;
+
+    currentMoveInfo = { move, count, spec, target, quarters };
+
+    currentTween = new JEasing(rotationGroup.current.rotation)
+      .to(
+        { [spec.axis]: target },
+        (BASE_DURATION_MS * quarters) / effectiveSpeed,
+      )
       .easing(JEASINGS.Cubic.InOut)
       .onComplete(() => {
+        if (rotationGroup.current && spec) {
+          rotationGroup.current.rotation[spec.axis] = target;
+          rotationGroup.current.updateMatrixWorld?.(true);
+        }
         reparentBack(cubeGroup.current, rotationGroup.current);
         busy = false;
+        currentTween = null;
+        currentMoveInfo = null;
         onMoveDone?.(move, count); // <-- logical state advances HERE
+        instance.onStep?.(move, count);
         runNext(); // <-- drain the rest of the queue
       })
       .start();
   }
 
-  return {
+  function fastForward() {
+    if (!busy || !currentTween || !currentMoveInfo) return;
+    const { move, count, spec, target } = currentMoveInfo;
+    const tween = currentTween;
+
+    JEASINGS.removeJEasing(tween);
+    currentTween = null;
+    currentMoveInfo = null;
+
+    if (rotationGroup.current && spec) {
+      rotationGroup.current.rotation[spec.axis] = target;
+      rotationGroup.current.updateMatrixWorld?.(true);
+    }
+    if (cubeGroup.current && rotationGroup.current) {
+      reparentBack(cubeGroup.current, rotationGroup.current);
+    }
+    busy = false;
+
+    onMoveDone?.(move, count);
+    instance.onStep?.(move, count);
+
+    // If there are moves left in the queue, immediately start the next one
+    if (queue.length > 0) {
+      runNext();
+    }
+  }
+
+  function fastForwardAll() {
+    while (busy || queue.length > 0) {
+      fastForward();
+    }
+  }
+
+  function cancel() {
+    queue.length = 0;
+    if (busy && currentTween) {
+      JEASINGS.removeJEasing(currentTween);
+      currentTween = null;
+    }
+    currentMoveInfo = null;
+    if (cubeGroup.current && rotationGroup.current) {
+      rotationGroup.current.rotation.set(0, 0, 0);
+      rotationGroup.current.quaternion.set(0, 0, 0, 1);
+      rotationGroup.current.updateMatrixWorld?.(true);
+      reparentBack(cubeGroup.current, rotationGroup.current);
+    }
+    busy = false;
+  }
+
+  const instance = {
     /**
      * Queue one move or an array. Nothing is ever dropped.
      * count=false marks the moves as assisted playback, so they do not
@@ -146,10 +221,16 @@ export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
       runNext();
     },
     clear() {
-      queue.length = 0;
+      cancel();
     },
+    cancel,
+    fastForward,
+    fastForwardAll,
     setSpeed(multiplier) {
       speed = Math.max(0.25, multiplier);
+    },
+    get speed() {
+      return speed;
     },
     get pending() {
       return queue.length + (busy ? 1 : 0);
@@ -157,5 +238,8 @@ export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
     get isBusy() {
       return busy;
     },
+    onStep: null,
   };
+
+  return instance;
 }
