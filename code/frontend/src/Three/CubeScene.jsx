@@ -1,20 +1,30 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, GizmoHelper, GizmoViewport } from "@react-three/drei";
-import { Suspense } from "react";
+import { Suspense, useRef } from "react";
 import Cube from "../Components/Cube";
+import SwipeControls from "../Components/SwipeControls";
 
 /**
  * onAnimatorReady receives the animator created inside Cube, so pages can
  * queue moves into it (keyboard turns, auto-solve playback, guided stepping).
+ *
+ * onMove + swipeEnabled power the touch swipe-to-turn layer controls.
  */
-export default function CubeScene({ onAnimatorReady, controlsRef }) {
+export default function CubeScene({ onAnimatorReady, controlsRef, onMove, swipeEnabled }) {
+  const cubeGroupRef = useRef();
   return (
     <Canvas camera={{ position: [3.4, 3.4, 3.4] }}>
       <Suspense fallback={null}>
         <Environment preset="forest" />
       </Suspense>
-      <Cube onAnimatorReady={onAnimatorReady} />
+      <Cube onAnimatorReady={onAnimatorReady} cubeGroupRef={cubeGroupRef} />
       <OrbitControls ref={controlsRef} target={[0, 0, 0]} enablePan={false} makeDefault />
+      <SwipeControls
+        cubeGroupRef={cubeGroupRef}
+        controlsRef={controlsRef}
+        onMove={onMove}
+        enabled={swipeEnabled}
+      />
       <GizmoHelper alignment="bottom-right" margin={[70, 70]}>
         <GizmoViewport
           axisColors={["#ef4444", "#22c55e", "#3b82f6"]}
