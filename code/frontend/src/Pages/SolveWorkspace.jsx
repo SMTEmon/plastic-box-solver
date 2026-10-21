@@ -795,7 +795,12 @@ export default function SolveWorkspace() {
           <div className="lg:col-span-3 flex flex-col gap-3 min-w-0 h-full overflow-hidden">
             {/* 3D Viewport Canvas */}
             <div className="flex-1 rounded-2xl overflow-hidden border border-dark-border bg-gradient-to-b from-dark-surface/50 to-dark-bg shadow-inner min-h-[300px] relative">
-              <CubeScene onAnimatorReady={onAnimatorReady} controlsRef={controlsRef} />
+              <CubeScene
+                onAnimatorReady={onAnimatorReady}
+                controlsRef={controlsRef}
+                onMove={doMove}
+                swipeEnabled={canTurn && !assistWarning}
+              />
               
               {/* Floating Camera Pills Top-Right */}
               <div className="absolute top-3 right-3 flex items-center gap-1 bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-xl p-1 shadow-lg text-xs z-10">
