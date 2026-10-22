@@ -17,8 +17,9 @@ import { useCubeStore } from "../store/cubeStore.js";
  * turning a layer physically moves those meshes and their colours travel with
  * them. Re-deriving colours on every move would apply each turn twice.
  */
-export default function Cube({ onAnimatorReady }) {
-  const cubeGroup = useRef();
+export default function Cube({ onAnimatorReady, cubeGroupRef }) {
+  const internalRef = useRef();
+  const cubeGroup = cubeGroupRef ?? internalRef;
   const rotationGroup = useRef();
 
   const sceneEpoch = useCubeStore((s) => s.sceneEpoch);
