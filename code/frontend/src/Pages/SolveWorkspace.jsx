@@ -150,8 +150,8 @@ export default function SolveWorkspace() {
   const [autoPlayIndex, setAutoPlayIndex] = useState(0);
   const autoPlayRef = useRef({ isPlaying: false, index: 0, moves: [] });
 
-  const solved = useCubeStore((s) => s.isSolved)();
-  const stage = useCubeStore((s) => s.currentStage)();
+  const solved = useCubeStore((s) => s.isSolved());
+  const stage = useCubeStore((s) => s.currentStage());
   const activeGuide = getStageGuide(stage?.name);
 
   const targetCenterInfo =
@@ -312,10 +312,10 @@ export default function SolveWorkspace() {
 
   // Live timer -- 10 Hz while a solve is in progress.
   useEffect(() => {
-    if (!startedAt || finishedAt) return;
+    if (!startedAt || finishedAt || solved) return;
     const id = setInterval(() => setTick((t) => t + 1), 100);
     return () => clearInterval(id);
-  }, [startedAt, finishedAt]);
+  }, [startedAt, finishedAt, solved]);
 
   // Recomputed whenever `tick` advances, so the clock repaints while running.
   const { elapsed, efficiency } = useMemo(
@@ -324,7 +324,7 @@ export default function SolveWorkspace() {
       efficiency: useCubeStore.getState().efficiency(),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tick, history.length, finishedAt, optimalMoveCount],
+    [tick, history.length, finishedAt, solved, optimalMoveCount],
   );
 
   // --- user moves ---------------------------------------------------------
