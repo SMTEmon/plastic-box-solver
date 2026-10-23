@@ -56,5 +56,13 @@ export function faceletsToFaces(facelets) {
 }
 
 export function isSolved(facelets) {
-  return facelets === SOLVED;
+  if (!facelets || facelets.length !== 54) return false;
+  for (let i = 0; i < 6; i++) {
+    const face = facelets.slice(i * 9, (i + 1) * 9);
+    const color = face[0];
+    for (let j = 1; j < 9; j++) {
+      if (face[j] !== color) return false;
+    }
+  }
+  return true;
 }

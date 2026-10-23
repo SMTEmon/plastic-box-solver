@@ -82,7 +82,9 @@ def corners_done(fl):
 
 
 def is_solved(fl):
-    return fl == SOLVED
+    if len(fl) != 54:
+        return False
+    return all(len(set(fl[i * 9 : (i + 1) * 9])) == 1 for i in range(6))
 
 
 def oll_done(fl):
