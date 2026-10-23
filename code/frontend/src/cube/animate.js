@@ -49,7 +49,16 @@ export const MOVE_SPEC = {
   S: { axis: "z", limit: 0, sign: -1 },
 };
 
-export const BASE_DURATION_MS = 220;
+export const BASE_DURATION_MS = 200;
+
+function getQueueMultiplier(qLen) {
+  if (qLen >= 4) return 3.5;
+  if (qLen >= 3) return 2.8;
+  if (qLen >= 2) return 2.2;
+  if (qLen >= 1) return 1.6;
+  return 1.0;
+}
+
 
 function reparentBack(cubeGroup, rotationGroup) {
   rotationGroup.children
@@ -125,15 +134,11 @@ export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
       rotationGroup.current.rotation[spec.axis] +
       (Math.PI / 2) * quarters * dir;
 
-    const queueMultiplier =
-      queue.length >= 3
-        ? 2.5
-        : queue.length === 2
-          ? 2.0
-          : queue.length === 1
-            ? 1.5
-            : 1.0;
+    // Only apply queueMultiplier to interactive user moves (count === true).
+    // Assisted modes (Auto-solve / Guided) strictly follow the user's selected speed.
+    const queueMultiplier = count ? getQueueMultiplier(queue.length) : 1.0;
     const effectiveSpeed = speed * queueMultiplier;
+
 
     currentMoveInfo = { move, count, spec, target, quarters };
 
@@ -218,6 +223,7 @@ export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
       (Array.isArray(moves) ? moves : [moves]).forEach((move) =>
         queue.push({ move, count }),
       );
+
       runNext();
     },
     clear() {

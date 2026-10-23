@@ -84,16 +84,13 @@ function Panel({ title, children, className = "" }) {
   );
 }
 
-
 function Stat({ label, value, tone = "text-white" }) {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">
         {label}
       </div>
-      <div
-        className={`text-lg font-bold font-mono tracking-tight ${tone}`}
-      >
+      <div className={`text-lg font-bold font-mono tracking-tight ${tone}`}>
         {value}
       </div>
     </div>
@@ -158,7 +155,9 @@ export default function SolveWorkspace() {
   const activeGuide = getStageGuide(stage?.name);
 
   const targetCenterInfo =
-    activeGuide?.targetFace && activeGuide.targetFace !== "Middle" && activeGuide.targetFace !== "All"
+    activeGuide?.targetFace &&
+    activeGuide.targetFace !== "Middle" &&
+    activeGuide.targetFace !== "All"
       ? getCenterInfo(facelets, activeGuide.targetFace)
       : null;
   const frontCenterInfo = getCenterInfo(facelets, "F");
@@ -182,7 +181,10 @@ export default function SolveWorkspace() {
 
     if (isAbove || isBelow) {
       container.scrollTo({
-        top: container.scrollTop + (elRect.top - containerRect.top) - (container.clientHeight / 2 - elRect.height / 2),
+        top:
+          container.scrollTop +
+          (elRect.top - containerRect.top) -
+          (container.clientHeight / 2 - elRect.height / 2),
         behavior: "smooth",
       });
     }
@@ -203,7 +205,10 @@ export default function SolveWorkspace() {
 
     if (isAbove || isBelow) {
       container.scrollTo({
-        top: container.scrollTop + (elRect.top - containerRect.top) - (container.clientHeight / 2 - elRect.height / 2),
+        top:
+          container.scrollTop +
+          (elRect.top - containerRect.top) -
+          (container.clientHeight / 2 - elRect.height / 2),
         behavior: "smooth",
       });
     }
@@ -220,7 +225,10 @@ export default function SolveWorkspace() {
     const containerRect = container.getBoundingClientRect();
 
     container.scrollTo({
-      left: container.scrollLeft + (elRect.left - containerRect.left) - (container.clientWidth / 2 - elRect.width / 2),
+      left:
+        container.scrollLeft +
+        (elRect.left - containerRect.left) -
+        (container.clientWidth / 2 - elRect.width / 2),
       behavior: "smooth",
     });
   }, [autoPlayIndex]);
@@ -322,7 +330,7 @@ export default function SolveWorkspace() {
   // --- user moves ---------------------------------------------------------
 
   const doMove = useCallback((move) => {
-    animatorRef.current?.fastForward();
+    //animatorRef.current?.fastForward();
     animatorRef.current?.enqueue(move, true);
   }, []);
 
@@ -398,9 +406,21 @@ export default function SolveWorkspace() {
   }, [isPlayingStage, pauseStage, playStage]);
 
   const pauseAutoSolve = useCallback(() => {
-    autoPlayRef.current.isPlaying = false;
-    setIsAutoPlaying(false);
-    animatorRef.current?.fastForward();
+    if (autoPlayRef.current.isPlaying) {
+      autoPlayRef.current.isPlaying = false;
+      setIsAutoPlaying(false);
+      if (animatorRef.current?.isBusy) {
+        animatorRef.current?.fastForward();
+        const nextIdx = Math.min(
+          autoPlayRef.current.moves.length,
+          autoPlayRef.current.index + 1,
+        );
+        autoPlayRef.current.index = nextIdx;
+        setAutoPlayIndex(nextIdx);
+      }
+    } else {
+      animatorRef.current?.fastForward();
+    }
   }, []);
 
   const resumeAutoSolve = useCallback(() => {
@@ -415,9 +435,50 @@ export default function SolveWorkspace() {
     animatorRef.current?.enqueue(moves[idx], false);
   }, [speed]);
 
+  const togglePlayAuto = useCallback(() => {
+    if (isAutoPlaying) {
+      pauseAutoSolve();
+    } else {
+      resumeAutoSolve();
+    }
+  }, [isAutoPlaying, pauseAutoSolve, resumeAutoSolve]);
+
+  const stepForwardAuto = useCallback(() => {
+    if (isAutoPlaying) pauseAutoSolve();
+    animatorRef.current?.fastForward();
+    const moves = autoPlayRef.current.moves;
+    const idx = autoPlayRef.current.index;
+    if (!moves.length || idx >= moves.length) return;
+
+    const move = moves[idx];
+    animatorRef.current?.setSpeed(speed);
+    animatorRef.current?.enqueue(move, false);
+
+    const nextIdx = idx + 1;
+    autoPlayRef.current.index = nextIdx;
+    setAutoPlayIndex(nextIdx);
+  }, [isAutoPlaying, pauseAutoSolve, speed]);
+
+  const stepBackAuto = useCallback(() => {
+    if (isAutoPlaying) pauseAutoSolve();
+    animatorRef.current?.fastForward();
+    const moves = autoPlayRef.current.moves;
+    const idx = autoPlayRef.current.index;
+    if (!moves.length || idx <= 0) return;
+
+    const move = invert(moves[idx - 1]);
+    animatorRef.current?.setSpeed(speed);
+    animatorRef.current?.enqueue(move, false);
+
+    const prevIdx = idx - 1;
+    autoPlayRef.current.index = prevIdx;
+    setAutoPlayIndex(prevIdx);
+  }, [isAutoPlaying, pauseAutoSolve, speed]);
+
   /** FR-11 -- queue the whole optimal solution and let it play with controlled playback. */
   const runAutoSolve = useCallback(async () => {
     useCubeStore.getState().markAssisted();
+    if (useCubeStore.getState().mode === MODES.AUTO) return;
     useCubeStore.getState().setMode(MODES.AUTO);
     const data = await fetchSolution("optimal");
     if (!data || !data.moves?.length) return;
@@ -431,15 +492,18 @@ export default function SolveWorkspace() {
   }, [facelets, speed]);
 
   /** FR-10 -- guided solve, stepped one move at a time. */
-  const startGuided = useCallback(async (method) => {
-    pauseAutoSolve();
-    pauseStage();
-    setShowGuidedPicker(false);
-    useCubeStore.getState().markAssisted();
-    useCubeStore.getState().setMode(MODES.GUIDED);
-    await fetchSolution(method);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facelets, pauseAutoSolve, pauseStage]);
+  const startGuided = useCallback(
+    async (method) => {
+      pauseAutoSolve();
+      pauseStage();
+      setShowGuidedPicker(false);
+      useCubeStore.getState().markAssisted();
+      useCubeStore.getState().setMode(MODES.GUIDED);
+      await fetchSolution(method);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [facelets, pauseAutoSolve, pauseStage],
+  );
 
   const handleSelectGuided = useCallback(
     (method) => {
@@ -545,16 +609,19 @@ export default function SolveWorkspace() {
         const target = activeGuide?.targetFace;
         if (target === "D" || target === "U") {
           lastTrackedFaceRef.current = target;
-          animateCameraTo(controlsRef.current, target === "D" ? "bottom" : "top");
+          animateCameraTo(
+            controlsRef.current,
+            target === "D" ? "bottom" : "top",
+          );
         }
       }
       return next;
     });
   }, [activeGuide?.targetFace]);
 
-  // Guided mode keyboard shortcuts (Space / Right Arrow to advance, Shift+Space / Backspace / Left Arrow to go back)
+  // Guided and Auto-solve keyboard shortcuts (Space to toggle play/pause, Right Arrow to advance, Shift+Space / Backspace / Left Arrow to go back)
   useEffect(() => {
-    if (!guided) return;
+    if (!guided && mode !== MODES.AUTO) return;
 
     const onKeyDown = (e) => {
       const tag = e.target.tagName;
@@ -562,6 +629,19 @@ export default function SolveWorkspace() {
 
       if (e.code === "Space" || e.key === " " || e.key === "ArrowRight") {
         e.preventDefault();
+        if (mode === MODES.AUTO) {
+          if (isAutoPlaying) {
+            pauseAutoSolve();
+          } else if (e.shiftKey) {
+            stepBackAuto();
+          } else if (e.code === "Space" || e.key === " ") {
+            togglePlayAuto();
+          } else {
+            stepForwardAuto();
+          }
+          return;
+        }
+
         if (isPlayingStage) {
           pauseStage();
           return;
@@ -580,6 +660,15 @@ export default function SolveWorkspace() {
         ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z")
       ) {
         e.preventDefault();
+        if (mode === MODES.AUTO) {
+          if (isAutoPlaying) {
+            pauseAutoSolve();
+            return;
+          }
+          stepBackAuto();
+          return;
+        }
+
         if (isPlayingStage) {
           pauseStage();
           return;
@@ -590,7 +679,19 @@ export default function SolveWorkspace() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [guided, isPlayingStage, pauseStage, stepBack, stepForward]);
+  }, [
+    guided,
+    mode,
+    isPlayingStage,
+    pauseStage,
+    stepBack,
+    stepForward,
+    isAutoPlaying,
+    pauseAutoSolve,
+    stepBackAuto,
+    stepForwardAuto,
+    togglePlayAuto,
+  ]);
 
   // Handle ESC / Enter shortcuts for the in-app assisted warning modal
   useEffect(() => {
@@ -634,7 +735,10 @@ export default function SolveWorkspace() {
                 ⚠️
               </div>
               <div className="space-y-1">
-                <h3 id="assist-modal-title" className="text-sm font-bold text-white tracking-tight">
+                <h3
+                  id="assist-modal-title"
+                  className="text-sm font-bold text-white tracking-tight"
+                >
                   Assisted Solve Notice
                 </h3>
                 <p className="text-xs text-gray-300 leading-relaxed">
@@ -644,7 +748,8 @@ export default function SolveWorkspace() {
                       ? `${assistWarning.method.toUpperCase()} Guided Mode`
                       : "Auto-Solve Mode"}
                   </span>{" "}
-                  will flag this session as assisted. This attempt will not count toward your efficiency score or the leaderboard.
+                  will flag this session as assisted. This attempt will not
+                  count toward your efficiency score or the leaderboard.
                 </p>
               </div>
             </div>
@@ -675,22 +780,34 @@ export default function SolveWorkspace() {
           {/* Left stats: Timer, Moves, Efficiency, Scramble info */}
           <div className="flex items-center gap-5">
             <div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block">Timer</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block">
+                Timer
+              </span>
               <span className="font-mono text-xl font-bold text-white tracking-tight">
-                {elapsed.toFixed(1)}<span className="text-xs text-gray-400 font-normal">s</span>
+                {elapsed.toFixed(1)}
+                <span className="text-xs text-gray-400 font-normal">s</span>
               </span>
             </div>
             <div className="h-6 w-px bg-white/10" />
             <div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block">Moves</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block">
+                Moves
+              </span>
               <span className="font-mono text-lg font-bold text-white">
-                {history.length} <span className="text-xs text-gray-400 font-normal">/ opt {optimalMoveCount || "?"}</span>
+                {history.length}{" "}
+                <span className="text-xs text-gray-400 font-normal">
+                  / opt {optimalMoveCount || "?"}
+                </span>
               </span>
             </div>
             <div className="h-6 w-px bg-white/10" />
             <div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block">Efficiency</span>
-              <span className={`font-mono text-lg font-bold ${efficiency && efficiency >= 50 ? "text-neon-green" : "text-white"}`}>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block">
+                Efficiency
+              </span>
+              <span
+                className={`font-mono text-lg font-bold ${efficiency && efficiency >= 50 ? "text-neon-green" : "text-white"}`}
+              >
                 {efficiency ? `${efficiency.toFixed(0)}%` : "--"}
               </span>
             </div>
@@ -700,7 +817,10 @@ export default function SolveWorkspace() {
           <div className="flex items-center gap-2">
             <div className="flex items-center rounded-xl bg-dark-bg/80 p-1 border border-dark-border text-xs transition-all duration-200">
               {showGuidedPicker ? (
-                <div key="picker" className="flex items-center gap-1 animate-morph-in">
+                <div
+                  key="picker"
+                  className="flex items-center gap-1 animate-morph-in"
+                >
                   <button
                     type="button"
                     onClick={() => setShowGuidedPicker(false)}
@@ -734,7 +854,10 @@ export default function SolveWorkspace() {
                   </button>
                 </div>
               ) : (
-                <div key="modes" className="flex items-center gap-0.5 animate-morph-in">
+                <div
+                  key="modes"
+                  className="flex items-center gap-0.5 animate-morph-in"
+                >
                   <button
                     disabled={loading}
                     onClick={backToInteractive}
@@ -755,7 +878,10 @@ export default function SolveWorkspace() {
                         : "text-gray-400 hover:text-white"
                     }`}
                   >
-                    Guided {solution?.method_used ? `(${solution.method_used.toUpperCase()})` : ""}
+                    Guided{" "}
+                    {solution?.method_used
+                      ? `(${solution.method_used.toUpperCase()})`
+                      : ""}
                   </button>
                   <button
                     disabled={loading}
@@ -801,7 +927,7 @@ export default function SolveWorkspace() {
                 onMove={doMove}
                 swipeEnabled={canTurn && !assistWarning}
               />
-              
+
               {/* Floating Camera Pills Top-Right */}
               <div className="absolute top-3 right-3 flex items-center gap-1 bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-xl p-1 shadow-lg text-xs z-10">
                 <button
@@ -877,15 +1003,21 @@ export default function SolveWorkspace() {
                           )}
                         </div>
                         <div className="text-xs font-bold text-white mt-0.5 truncate">
-                          {MOVE_DESCRIPTIONS[solution.moves[cursor]] || `${solution.moves[cursor]} turn`}
+                          {MOVE_DESCRIPTIONS[solution.moves[cursor]] ||
+                            `${solution.moves[cursor]} turn`}
                         </div>
                         <div className="text-[11px] text-gray-400 font-mono">
                           {cursor + 1 < solution.moves.length ? (
                             <span>
-                              Next: <strong className="text-neon-blue font-bold">{solution.moves[cursor + 1]}</strong>
+                              Next:{" "}
+                              <strong className="text-neon-blue font-bold">
+                                {solution.moves[cursor + 1]}
+                              </strong>
                             </span>
                           ) : (
-                            <span className="text-emerald-400 font-semibold">Final move!</span>
+                            <span className="text-emerald-400 font-semibold">
+                              Final move!
+                            </span>
                           )}
                         </div>
                       </div>
@@ -922,7 +1054,9 @@ export default function SolveWorkspace() {
                       <button
                         type="button"
                         onClick={stepForward}
-                        disabled={cursor >= solution.moves.length || isPlayingStage}
+                        disabled={
+                          cursor >= solution.moves.length || isPlayingStage
+                        }
                         title="Next move (Space)"
                         className="py-2 px-4 rounded-xl bg-gradient-to-r from-neon-blue to-blue-500 hover:from-neon-blue/90 hover:to-blue-400 text-black text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-neon-blue/25 active:scale-95"
                       >
@@ -942,7 +1076,14 @@ export default function SolveWorkspace() {
                             Stage Progress
                           </span>
                           <span className="text-xs font-mono font-bold text-gray-300">
-                            {Math.max(0, Math.min(stage.end - stage.start, cursor - stage.start))}/{stage.end - stage.start}
+                            {Math.max(
+                              0,
+                              Math.min(
+                                stage.end - stage.start,
+                                cursor - stage.start,
+                              ),
+                            )}
+                            /{stage.end - stage.start}
                           </span>
                         </div>
                       )}
@@ -953,8 +1094,12 @@ export default function SolveWorkspace() {
                     <div className="flex items-center gap-2.5">
                       <span className="text-xl">🎉</span>
                       <div>
-                        <div className="font-bold text-xs text-white">All Moves Completed!</div>
-                        <div className="text-[11px] text-emerald-400">The cube has been completely solved.</div>
+                        <div className="font-bold text-xs text-white">
+                          All Moves Completed!
+                        </div>
+                        <div className="text-[11px] text-emerald-400">
+                          The cube has been completely solved.
+                        </div>
                       </div>
                     </div>
                     <button
@@ -970,7 +1115,9 @@ export default function SolveWorkspace() {
                   {/* Left: Auto-Solve status & Move badge */}
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-12 h-12 rounded-xl bg-neon-blue text-black flex items-center justify-center font-mono font-black text-xl shadow-lg shadow-neon-blue/25 border border-cyan-200 shrink-0 select-none">
-                      {autoPlayIndex < solution.moves.length ? solution.moves[autoPlayIndex] : "✓"}
+                      {autoPlayIndex < solution.moves.length
+                        ? solution.moves[autoPlayIndex]
+                        : "✓"}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -978,31 +1125,64 @@ export default function SolveWorkspace() {
                           Auto-Solve
                         </span>
                         <span className="text-xs font-mono font-semibold text-gray-400">
-                          {autoPlayIndex < solution.moves.length ? `${autoPlayIndex + 1}/${solution.moves.length}` : "Done"}
+                          {autoPlayIndex < solution.moves.length
+                            ? `${autoPlayIndex + 1}/${solution.moves.length}`
+                            : "Done"}
                         </span>
                       </div>
                       <div className="text-xs font-bold text-white mt-0.5 truncate">
                         {autoPlayIndex < solution.moves.length
-                          ? MOVE_DESCRIPTIONS[solution.moves[autoPlayIndex]] || `${solution.moves[autoPlayIndex]} turn`
+                          ? MOVE_DESCRIPTIONS[solution.moves[autoPlayIndex]] ||
+                            `${solution.moves[autoPlayIndex]} turn`
                           : "Solve completed!"}
                       </div>
                     </div>
                   </div>
 
-                  {/* Center: Play/Pause & Speed */}
-                  <div className="flex items-center gap-2.5 shrink-0">
+                  {/* Center: Playback Control Trio & Speed */}
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
-                      onClick={isAutoPlaying ? pauseAutoSolve : resumeAutoSolve}
+                      onClick={stepBackAuto}
+                      disabled={autoPlayIndex <= 0 || isAutoPlaying}
+                      title="Previous move (Backspace or ←)"
+                      className="py-2 px-3 rounded-xl border border-dark-border bg-dark-bg text-gray-200 text-xs font-semibold cursor-pointer hover:text-white hover:border-gray-500 transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                    >
+                      <span>← Prev</span>
+                      <kbd className="hidden 2xl:inline text-[9px] font-mono text-gray-400 px-1 py-0.5 rounded bg-black/40 border border-dark-border">
+                        Backspace
+                      </kbd>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={togglePlayAuto}
                       disabled={autoPlayIndex >= solution.moves.length}
+                      title="Toggle play/pause (Space)"
                       className={`py-2 px-3.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm ${
                         isAutoPlaying
                           ? "border-amber-400/50 bg-amber-400/20 text-amber-300 hover:bg-amber-400/30"
                           : "border-neon-blue/40 bg-neon-blue/15 text-neon-blue hover:bg-neon-blue/25"
                       }`}
                     >
-                      <span>{isAutoPlaying ? "⏸ Pause Auto-Solve" : "▶ Resume Auto-Solve"}</span>
+                      <span>{isAutoPlaying ? "⏸ Pause" : "▶ Play"}</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={stepForwardAuto}
+                      disabled={
+                        autoPlayIndex >= solution.moves.length || isAutoPlaying
+                      }
+                      title="Next move (→)"
+                      className="py-2 px-4 rounded-xl bg-gradient-to-r from-neon-blue to-blue-500 hover:from-neon-blue/90 hover:to-blue-400 text-black text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-neon-blue/25 active:scale-95"
+                    >
+                      <span>Next →</span>
+                      <kbd className="hidden 2xl:inline text-[9px] font-mono text-black/80 font-bold px-1.5 py-0.5 rounded bg-black/15">
+                        →
+                      </kbd>
+                    </button>
+
                     <SpeedControl speed={speed} onSetSpeed={handleSetSpeed} />
                   </div>
 
@@ -1037,9 +1217,13 @@ export default function SolveWorkspace() {
 
                   {/* Center: Keyboard hint */}
                   <div className="hidden sm:block text-[11px] text-gray-400 text-center">
-                    Turn: <span className="font-mono text-gray-200">U D L R F B</span> &middot;{" "}
-                    <span className="font-mono text-gray-200">Shift</span> counter &middot;{" "}
-                    <span className="font-mono text-gray-200">2</span> double &middot;{" "}
+                    Turn:{" "}
+                    <span className="font-mono text-gray-200">U D L R F B</span>{" "}
+                    &middot;{" "}
+                    <span className="font-mono text-gray-200">Shift</span>{" "}
+                    counter &middot;{" "}
+                    <span className="font-mono text-gray-200">2</span> double
+                    &middot;{" "}
                     <span className="font-mono text-gray-200">Ctrl+Z</span> undo
                   </div>
 
@@ -1070,10 +1254,7 @@ export default function SolveWorkspace() {
           {/* Right Sidebar: Coaching HUD or Stats */}
           <div className="lg:col-span-1 flex flex-col gap-3 h-full overflow-y-auto pr-0.5">
             {solved && (
-              <Panel
-                title="Result"
-                className="border-neon-green/40 shadow-sm"
-              >
+              <Panel title="Result" className="border-neon-green/40 shadow-sm">
                 <div className="text-neon-green font-bold text-sm mb-1 flex items-center gap-1.5">
                   <span>🎉</span>
                   <span>Cube Solved!</span>
@@ -1132,9 +1313,18 @@ export default function SolveWorkspace() {
                     <Panel
                       title={
                         <div className="flex items-center justify-between w-full">
-                          <span className="text-white font-bold">{stage.name}</span>
+                          <span className="text-white font-bold">
+                            {stage.name}
+                          </span>
                           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neon-blue/15 text-neon-blue border border-neon-blue/30 font-semibold">
-                            {Math.max(0, Math.min(stage.end - stage.start, cursor - stage.start))}/{stage.end - stage.start} done
+                            {Math.max(
+                              0,
+                              Math.min(
+                                stage.end - stage.start,
+                                cursor - stage.start,
+                              ),
+                            )}
+                            /{stage.end - stage.start} done
                           </span>
                         </div>
                       }
@@ -1149,34 +1339,38 @@ export default function SolveWorkspace() {
                           ref={sidebarMovesRef}
                           className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1 scrollbar-thin scroll-smooth"
                         >
-                          {solution.moves.slice(stage.start, stage.end).map((m, mIdx) => {
-                            const globalIdx = stage.start + mIdx;
-                            const isCurrent = globalIdx === cursor;
-                            const isPast = globalIdx < cursor;
+                          {solution.moves
+                            .slice(stage.start, stage.end)
+                            .map((m, mIdx) => {
+                              const globalIdx = stage.start + mIdx;
+                              const isCurrent = globalIdx === cursor;
+                              const isPast = globalIdx < cursor;
 
-                            return (
-                              <span
-                                key={globalIdx}
-                                data-active={isCurrent ? "true" : undefined}
-                                className={`text-xs font-mono px-2.5 py-1 rounded-xl transition-all font-bold shrink-0 ${
-                                  isCurrent
-                                    ? "bg-neon-blue text-black shadow-lg shadow-neon-blue/30 scale-105 border-2 border-cyan-200 ring-2 ring-neon-blue/30"
-                                    : isPast
-                                      ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20 line-through"
-                                      : "bg-dark-bg text-gray-300 border border-dark-border"
-                                }`}
-                              >
-                                {m}
-                              </span>
-                            );
-                          })}
+                              return (
+                                <span
+                                  key={globalIdx}
+                                  data-active={isCurrent ? "true" : undefined}
+                                  className={`text-xs font-mono px-2.5 py-1 rounded-xl transition-all font-bold shrink-0 ${
+                                    isCurrent
+                                      ? "bg-neon-blue text-black shadow-lg shadow-neon-blue/30 scale-105 border-2 border-cyan-200 ring-2 ring-neon-blue/30"
+                                      : isPast
+                                        ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20 line-through"
+                                        : "bg-dark-bg text-gray-300 border border-dark-border"
+                                  }`}
+                                >
+                                  {m}
+                                </span>
+                              );
+                            })}
                         </div>
                       </div>
 
                       {/* Stage Algorithm box if available */}
                       {activeGuide?.formula && (
                         <div className="bg-dark-bg/90 border border-dark-border rounded-xl p-2.5 text-center my-3">
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-0.5">Algorithm</div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-0.5">
+                            Algorithm
+                          </div>
                           <div className="font-mono text-sm font-bold text-neon-blue tracking-wider">
                             {activeGuide.formula}
                           </div>
@@ -1185,24 +1379,28 @@ export default function SolveWorkspace() {
 
                       {/* Target Face & Reference Center */}
                       <div className="mt-3 pt-2.5 border-t border-dark-border text-xs space-y-1.5">
-                        {activeGuide?.targetFace && activeGuide.targetFace !== "Middle" && activeGuide.targetFace !== "All" && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-400">Target Face:</span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-semibold text-white">
-                                {activeGuide.targetLabel ?? activeGuide.title}
+                        {activeGuide?.targetFace &&
+                          activeGuide.targetFace !== "Middle" &&
+                          activeGuide.targetFace !== "All" && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-400">
+                                Target Face:
                               </span>
-                              {targetCenterInfo && (
-                                <span
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 ${targetCenterInfo.bg} ${targetCenterInfo.text} ${targetCenterInfo.border}`}
-                                >
-                                  <span>{targetCenterInfo.dot}</span>
-                                  <span>{targetCenterInfo.name}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-white">
+                                  {activeGuide.targetLabel ?? activeGuide.title}
                                 </span>
-                              )}
+                                {targetCenterInfo && (
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 ${targetCenterInfo.bg} ${targetCenterInfo.text} ${targetCenterInfo.border}`}
+                                  >
+                                    <span>{targetCenterInfo.dot}</span>
+                                    <span>{targetCenterInfo.name}</span>
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
 
                         {frontCenterInfo && (
                           <div className="flex items-center justify-between text-gray-400 text-[11px]">
@@ -1226,13 +1424,17 @@ export default function SolveWorkspace() {
                         <div className="mt-2.5 pt-2 border-t border-dark-border text-[11px] text-gray-400 space-y-1.5">
                           {activeGuide.learn.humanNote && (
                             <p>
-                              <span className="text-amber-400 font-semibold">Human Tip:</span>{" "}
+                              <span className="text-amber-400 font-semibold">
+                                Human Tip:
+                              </span>{" "}
                               {activeGuide.learn.humanNote}
                             </p>
                           )}
                           {activeGuide.learn.engineNote && (
                             <p>
-                              <span className="text-neon-blue font-semibold">Engine:</span>{" "}
+                              <span className="text-neon-blue font-semibold">
+                                Engine:
+                              </span>{" "}
                               {activeGuide.learn.engineNote}
                             </p>
                           )}
@@ -1250,12 +1452,20 @@ export default function SolveWorkspace() {
                       )}
                     </Panel>
                   ) : (
-                    <Panel title="Solve Complete" className="border-emerald-500/40">
+                    <Panel
+                      title="Solve Complete"
+                      className="border-emerald-500/40"
+                    >
                       <div className="text-center py-4 space-y-2">
                         <div className="text-3xl">🎉</div>
-                        <div className="font-bold text-white text-sm">All Stages Solved!</div>
+                        <div className="font-bold text-white text-sm">
+                          All Stages Solved!
+                        </div>
                         <div className="text-xs text-gray-400">
-                          You successfully completed all {solution.stages.length} stages of the {solution.method_used?.toUpperCase() || "Guided"} solve.
+                          You successfully completed all{" "}
+                          {solution.stages.length} stages of the{" "}
+                          {solution.method_used?.toUpperCase() || "Guided"}{" "}
+                          solve.
                         </div>
                       </div>
                     </Panel>
@@ -1280,12 +1490,21 @@ export default function SolveWorkspace() {
                       </div>
                     }
                   >
-                    <div ref={allStagesRef} className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                    <div
+                      ref={allStagesRef}
+                      className="space-y-3 max-h-[460px] overflow-y-auto pr-1"
+                    >
                       {solution.stages.map((stg) => {
                         const isDone = cursor >= stg.end;
                         const isCurrent = stage?.name === stg.name;
-                        const stageMoves = solution.moves.slice(stg.start, stg.end);
-                        const movesDone = Math.max(0, Math.min(stg.end - stg.start, cursor - stg.start));
+                        const stageMoves = solution.moves.slice(
+                          stg.start,
+                          stg.end,
+                        );
+                        const movesDone = Math.max(
+                          0,
+                          Math.min(stg.end - stg.start, cursor - stg.start),
+                        );
 
                         return (
                           <div
@@ -1310,7 +1529,9 @@ export default function SolveWorkspace() {
                                         : "bg-gray-600"
                                   }`}
                                 />
-                                <span className="font-bold text-xs text-white">{stg.name}</span>
+                                <span className="font-bold text-xs text-white">
+                                  {stg.name}
+                                </span>
                               </div>
                               <span
                                 className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold ${
@@ -1339,7 +1560,9 @@ export default function SolveWorkspace() {
                                 return (
                                   <span
                                     key={globalIdx}
-                                    data-active={isMCurrent ? "true" : undefined}
+                                    data-active={
+                                      isMCurrent ? "true" : undefined
+                                    }
                                     className={`text-[11px] font-mono px-2 py-0.5 rounded-md transition-all font-bold ${
                                       isMCurrent
                                         ? "bg-neon-blue text-black shadow scale-105 border border-cyan-200"
@@ -1384,4 +1607,3 @@ export default function SolveWorkspace() {
     </AppShell>
   );
 }
-
