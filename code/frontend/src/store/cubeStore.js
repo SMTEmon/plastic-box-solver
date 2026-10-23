@@ -90,13 +90,14 @@ export const useCubeStore = create((set, get) => ({
     set((s) => {
       const next = applyMoveToFacelets(s.facelets, move);
       const solved = isSolved(next);
-      const startedAt = s.startedAt ?? (countIt ? Date.now() : null);
+      const now = Date.now();
+      const startedAt = s.startedAt ?? (countIt ? now : (solved ? now : null));
       return {
         facelets: next,
         history: countIt ? [...s.history, move] : s.history,
         redoStack: countIt ? [] : s.redoStack,
         startedAt,
-        finishedAt: solved && startedAt ? (s.finishedAt ?? Date.now()) : s.finishedAt,
+        finishedAt: solved ? (s.finishedAt ?? now) : null,
       };
     }),
 
@@ -151,7 +152,8 @@ export const useCubeStore = create((set, get) => ({
   elapsedSeconds: () => {
     const { startedAt, finishedAt } = get();
     if (!startedAt) return 0;
-    return ((finishedAt ?? Date.now()) - startedAt) / 1000;
+    const end = finishedAt ?? (get().isSolved() ? startedAt : Date.now());
+    return Math.max(0, (end - startedAt) / 1000);
   },
 
   /**
