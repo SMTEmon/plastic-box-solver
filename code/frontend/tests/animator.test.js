@@ -16,7 +16,7 @@ import JEASINGS from "jeasings";
 import { createAnimator } from "../src/cube/animate.js";
 import { useCubeStore } from "../src/store/cubeStore.js";
 import { applyMoves } from "../src/cube/moves.js";
-import { SOLVED } from "../src/cube/facelets.js";
+import { SOLVED, isSolved } from "../src/cube/facelets.js";
 
 // --- minimal Three.js stand-ins (only what the animator touches) ------------
 
@@ -260,5 +260,64 @@ test("fastForwardAll drains entire queue synchronously to completion", async () 
   assert.strictEqual(useCubeStore.getState().history.length, 4);
   h.stop();
 });
+
+test("manually solving cube automatically sets finishedAt and stops timer", async () => {
+  const h = harness();
+  const scramble = applyMoves(SOLVED, ["R", "U"]);
+  useCubeStore.getState().loadScramble(scramble, 2);
+
+  assert.strictEqual(useCubeStore.getState().startedAt, null);
+  assert.strictEqual(useCubeStore.getState().finishedAt, null);
+  assert.strictEqual(useCubeStore.getState().isSolved(), false);
+
+  // User manually makes first move: U'
+  h.animator.enqueue("U'", true);
+  await h.drain();
+
+  assert.ok(useCubeStore.getState().startedAt !== null, "startedAt set on first move");
+  assert.strictEqual(useCubeStore.getState().finishedAt, null, "not yet solved");
+  assert.strictEqual(useCubeStore.getState().isSolved(), false);
+
+  // User manually makes solving move: R'
+  h.animator.enqueue("R'", true);
+  await h.drain();
+
+  assert.ok(useCubeStore.getState().isSolved(), "cube is solved");
+  assert.ok(useCubeStore.getState().finishedAt !== null, "finishedAt is automatically set");
+  assert.ok(useCubeStore.getState().finishedAt >= useCubeStore.getState().startedAt);
+  const elapsed = useCubeStore.getState().elapsedSeconds();
+  assert.ok(elapsed >= 0);
+
+  // Moving away from solved state resets finishedAt to null
+  h.animator.enqueue("R", true);
+  await h.drain();
+  assert.strictEqual(useCubeStore.getState().isSolved(), false);
+  assert.strictEqual(useCubeStore.getState().finishedAt, null, "finishedAt reset when no longer solved");
+
+  h.stop();
+});
+
+test("reoriented solved cube (monochromatic faces in any orientation) is solved and stops timer", async () => {
+  const h = harness();
+  // Cube rotated around X axis via slice move M': R L' M'
+  const rotXSolved = applyMoves(SOLVED, ["R", "L'", "M'"]);
+  assert.ok(isSolved(rotXSolved), "isSolved handles reoriented cube");
+
+  // Scramble from that reoriented state with U
+  const scrambled = applyMoves(rotXSolved, ["U"]);
+  useCubeStore.getState().loadScramble(scrambled, 1);
+
+  assert.strictEqual(useCubeStore.getState().isSolved(), false);
+  assert.strictEqual(useCubeStore.getState().finishedAt, null);
+
+  // Solve with U'
+  h.animator.enqueue("U'", true);
+  await h.drain();
+
+  assert.ok(useCubeStore.getState().isSolved(), "cube in reoriented state is solved");
+  assert.ok(useCubeStore.getState().finishedAt !== null, "timer automatically stopped for reoriented solve");
+  h.stop();
+});
+
 
 
