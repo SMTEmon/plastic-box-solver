@@ -153,7 +153,7 @@ export default function Dashboard() {
                       {formatTime(solve.solve_time)}
                     </td>
                     <td className="py-2.5 px-3 text-gray-300">
-                      {solve.move_count} <span className="text-gray-500 text-[11px]">(opt {solve.optimal_moves})</span>
+                      {solve.move_count} <span className="text-gray-500 text-[11px]">(cfop {solve.optimal_moves})</span>
                     </td>
                     <td className="py-2.5 px-3 font-mono text-emerald-400 font-semibold">
                       {solve.efficiency?.toFixed(1)}%

@@ -56,10 +56,10 @@ class ScanResponse(BaseModel):
 # --- Persistence (FR-12a, FR-13a, FR-13b) -----------------------------------
 
 class SolveCreate(BaseModel):
-    solve_time: float = Field(..., gt=0)   # seconds the user took
+    solve_time: float = Field(..., ge=0)   # seconds the user took
     move_count: int = Field(..., ge=1)     # user's actual move count
-    optimal_moves: int = Field(..., ge=0)  # optimalMoveCount from /solve
-    method: str = "Beginner"
+    optimal_moves: int = Field(..., ge=0)  # CFOP baseline move count from /solve
+    method: str = "CFOP"
     scramble: Optional[str] = None
     solution: Optional[str] = None
 

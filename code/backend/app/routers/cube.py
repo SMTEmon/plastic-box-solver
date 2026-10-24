@@ -71,10 +71,10 @@ def solve(body: SolveRequest):
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    optimal = solver.solve_optimal(body.facelets)
+    cfop_moves = solver.solve_guided(body.facelets, method="CFOP")
 
     if body.method == "optimal":
-        moves = optimal
+        moves = solver.solve_optimal(body.facelets)
         stages = (
             [{"name": "Solution", "start": 0, "end": len(moves)}] if moves else []
         )
@@ -82,14 +82,14 @@ def solve(body: SolveRequest):
             moves=moves,
             moveCount=len(moves),
             stages=stages,
-            optimalMoves=optimal,
-            optimalMoveCount=len(optimal),
+            optimalMoves=cfop_moves,
+            optimalMoveCount=len(cfop_moves),
             method_used="optimal",
         )
 
     # Teaching methods: beginner or cfop
     if body.method == "cfop":
-        moves = solver.solve_guided(body.facelets, method="CFOP")
+        moves = cfop_moves
         stage_defs = stages_mod.CFOP_STAGES
     else:
         moves = solver.solve_guided(body.facelets, method="Beginner")
@@ -101,7 +101,7 @@ def solve(body: SolveRequest):
         moves=moves,
         moveCount=len(moves),
         stages=stages,
-        optimalMoves=optimal,
-        optimalMoveCount=len(optimal),
+        optimalMoves=cfop_moves,
+        optimalMoveCount=len(cfop_moves),
         method_used=body.method,
     )
