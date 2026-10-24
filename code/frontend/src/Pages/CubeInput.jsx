@@ -170,10 +170,11 @@ export default function CubeInput() {
     setScanNotice("");
     try {
       const { facelets: fl } = await cubeApi.scramble(20);
+      const cfop = await cubeApi.solve(fl, "cfop");
       setInputStr(fl.toUpperCase());
       setFacelets(fl);
       setLocalError("");
-      loadScramble(fl);
+      loadScramble(fl, cfop.optimalMoveCount);
       // Pre-fill the net editor so switching to manual shows the scramble
       setNetInitial(fl);
       setNetKey((k) => k + 1);
@@ -193,10 +194,10 @@ export default function CubeInput() {
     setBusy(true);
     setApiError("");
     try {
-      // Fetch the optimal solution up front: its length is the denominator of
+      // Fetch the CFOP solution up front: its length is the denominator of
       // the efficiency score, needed even in Interactive mode.
-      const optimal = await cubeApi.solve(facelets, "optimal");
-      loadScramble(facelets, optimal.optimalMoveCount);
+      const cfop = await cubeApi.solve(facelets, "cfop");
+      loadScramble(facelets, cfop.optimalMoveCount);
       navigate("/solve");
     } catch (err) {
       setApiError(err.message);

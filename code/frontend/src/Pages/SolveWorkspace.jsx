@@ -6,9 +6,11 @@ import AppShell from "../Layout/AppShell";
 import CubeScene from "../Three/CubeScene";
 import KeyboardControls from "../Components/KeyboardControls";
 import MoveButtons from "../Components/MoveButtons";
-import { cubeApi } from "../lib/api.js";
+import { cubeApi, solvesApi } from "../lib/api.js";
+import { isSolved as isFaceletsSolved } from "../cube/facelets.js";
 import { invert } from "../cube/moves.js";
 import { getStageGuide, getCenterInfo } from "../cube/stageGuides.js";
+import { useAuthStore } from "../store/authStore.js";
 import { useCubeStore, MODES } from "../store/cubeStore.js";
 
 const CAMERA_POSITIONS = {
@@ -121,6 +123,7 @@ function SpeedControl({ speed, onSetSpeed }) {
 export default function SolveWorkspace() {
   const navigate = useNavigate();
 
+  const initial = useCubeStore((s) => s.initial);
   const facelets = useCubeStore((s) => s.facelets);
   const history = useCubeStore((s) => s.history);
   const mode = useCubeStore((s) => s.mode);
@@ -131,11 +134,15 @@ export default function SolveWorkspace() {
   const finishedAt = useCubeStore((s) => s.finishedAt);
   const optimalMoveCount = useCubeStore((s) => s.optimalMoveCount);
 
+  const token = useAuthStore((s) => s.token);
+
   const animatorRef = useRef(null);
   const controlsRef = useRef(null);
+  const submittedRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [saveState, setSaveState] = useState(null); // null | "saving" | "saved" | error msg
   const [tick, setTick] = useState(0); // forces the timer to repaint
   const [showGuidedPicker, setShowGuidedPicker] = useState(false);
   const [assistWarning, setAssistWarning] = useState(null); // null | { type: "guided", method: "beginner" | "cfop" } | { type: "auto" }
@@ -289,22 +296,34 @@ export default function SolveWorkspace() {
   /**
    * Landing here with a solved cube (deep link, refresh) means there is
    * nothing to solve. Pull a scramble so the page is never a dead end.
+   * Also ensure CFOP baseline optimalMoveCount is populated if missing.
    */
   useEffect(() => {
     const s = useCubeStore.getState();
-    if (!s.isSolved() || s.history.length) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const { facelets: fl } = await cubeApi.scramble(20);
-        if (cancelled) return;
-        const optimal = await cubeApi.solve(fl, "optimal");
-        if (cancelled) return;
-        useCubeStore.getState().loadScramble(fl, optimal.optimalMoveCount);
-      } catch (err) {
-        if (!cancelled) setError(err.message);
-      }
-    })();
+    if (s.isSolved() && !s.history.length) {
+      (async () => {
+        try {
+          const { facelets: fl } = await cubeApi.scramble(20);
+          if (cancelled) return;
+          const cfop = await cubeApi.solve(fl, "cfop");
+          if (cancelled) return;
+          useCubeStore.getState().loadScramble(fl, cfop.optimalMoveCount);
+        } catch (err) {
+          if (!cancelled) setError(err.message);
+        }
+      })();
+    } else if (!s.optimalMoveCount && s.initial && !isFaceletsSolved(s.initial)) {
+      (async () => {
+        try {
+          const cfop = await cubeApi.solve(s.initial, "cfop");
+          if (cancelled) return;
+          useCubeStore.setState({ optimalMoveCount: cfop.optimalMoveCount });
+        } catch (err) {
+          if (!cancelled) setError(err.message);
+        }
+      })();
+    }
     return () => {
       cancelled = true;
     };
@@ -326,6 +345,53 @@ export default function SolveWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tick, history.length, finishedAt, solved, optimalMoveCount],
   );
+
+  /**
+   * FR-13a: save a finished solve.
+   *
+   * Only when it was genuinely the user's own work: solved, unassisted, at
+   * least one move made, and signed in. submittedRef guards against the effect
+   * firing twice for one solve.
+   */
+  useEffect(() => {
+    if (!solved) {
+      submittedRef.current = false;
+      setSaveState(null);
+      return;
+    }
+    if (assisted || !history.length || !token) return;
+    if (submittedRef.current) return;
+    submittedRef.current = true;
+
+    let cancelled = false;
+    (async () => {
+      setSaveState("saving");
+      try {
+        const s = useCubeStore.getState();
+        let optMoves = s.optimalMoveCount;
+        if (!optMoves && s.initial && !isFaceletsSolved(s.initial)) {
+          const cfop = await cubeApi.solve(s.initial, "cfop");
+          optMoves = cfop.optimalMoveCount;
+          useCubeStore.setState({ optimalMoveCount: optMoves });
+        }
+        await solvesApi.create({
+          solve_time: Math.max(0.01, s.elapsedSeconds()),
+          move_count: s.history.length,
+          optimal_moves: optMoves,
+          method: "CFOP",
+          scramble: s.initial,
+          solution: s.history.join(" "),
+        });
+        if (!cancelled) setSaveState("saved");
+      } catch (err) {
+        if (!cancelled) setSaveState(err.message);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [solved, assisted, history.length, token, initial]);
 
   // --- user moves ---------------------------------------------------------
 
@@ -575,6 +641,8 @@ export default function SolveWorkspace() {
     animatorRef.current?.cancel();
     setShowGuidedPicker(false);
     setAssistWarning(null);
+    submittedRef.current = false;
+    setSaveState(null);
     useCubeStore.getState().reset();
   }, [pauseStage, pauseAutoSolve]);
 
@@ -796,7 +864,7 @@ export default function SolveWorkspace() {
               <span className="font-mono text-lg font-bold text-white">
                 {history.length}{" "}
                 <span className="text-xs text-gray-400 font-normal">
-                  / opt {optimalMoveCount || "?"}
+                  / cfop {optimalMoveCount || "?"}
                 </span>
               </span>
             </div>
@@ -1263,6 +1331,26 @@ export default function SolveWorkspace() {
                   {elapsed.toFixed(1)}s &middot; {history.length} moves
                   {assisted ? " (assisted)" : ""}
                 </div>
+                {saveState === "saving" && (
+                  <div className="text-[11px] text-gray-400 mt-1.5">
+                    Saving solve to your history...
+                  </div>
+                )}
+                {saveState === "saved" && (
+                  <div className="text-[11px] text-neon-green mt-1.5">
+                    ✓ Saved to your dashboard &amp; leaderboard.
+                  </div>
+                )}
+                {!token && !assisted && (
+                  <div className="text-[11px] text-amber-300 mt-1.5">
+                    Log in to save your solve to the dashboard and leaderboard.
+                  </div>
+                )}
+                {saveState && saveState !== "saving" && saveState !== "saved" && (
+                  <div className="text-[11px] text-rose-400 mt-1.5">
+                    Could not save solve: {saveState}
+                  </div>
+                )}
               </Panel>
             )}
 
@@ -1594,10 +1682,10 @@ export default function SolveWorkspace() {
                     value={efficiency ? `${efficiency.toFixed(0)}%` : "--"}
                     tone={efficiency >= 50 ? "text-neon-green" : "text-white"}
                   />
-                  <Stat label="Optimal" value={optimalMoveCount || "?"} />
+                  <Stat label="CFOP Moves" value={optimalMoveCount || "?"} />
                 </div>
                 <div className="text-[11px] text-gray-500 pt-2 border-t border-dark-border">
-                  Scramble solved with Kociemba 2-phase baseline.
+                  Efficiency measured against CFOP method baseline.
                 </div>
               </Panel>
             )}
