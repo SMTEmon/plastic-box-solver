@@ -109,7 +109,17 @@ export default function CameraScan({ onScanComplete, onCancel }) {
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          if (playErr.name === "AbortError") {
+            if (!isMountedRef.current || sessionIdRef.current !== currentSession) {
+              stream.getTracks().forEach((t) => t.stop());
+            }
+            return;
+          }
+          throw playErr;
+        }
       }
 
       if (!isMountedRef.current || sessionIdRef.current !== currentSession) {
@@ -123,6 +133,9 @@ export default function CameraScan({ onScanComplete, onCancel }) {
       setCameraError("");
       setCameraActive(true);
     } catch (err) {
+      if (err.name === "AbortError") {
+        return;
+      }
       if (!isMountedRef.current || sessionIdRef.current !== currentSession) {
         return;
       }
