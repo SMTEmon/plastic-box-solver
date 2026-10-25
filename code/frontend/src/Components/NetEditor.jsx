@@ -17,15 +17,15 @@ import { useState, useCallback, useEffect } from "react";
 
 /* ── constants ─────────────────────────────────────────────────────────── */
 
-/** Cross layout — each entry places one face in the 4×3 outer grid.
+/** Cross layout — adapts between 3-column vertical cross on mobile and 4-column cross on desktop.
  *  fi = index in URFDLB order (the canonical facelet index base). */
 const NET_LAYOUT = [
-  { row: 0, col: 1, fi: 0, face: "U", name: "UP (WHITE)" },
-  { row: 1, col: 0, fi: 4, face: "L", name: "LEFT (ORANGE)" },
-  { row: 1, col: 1, fi: 2, face: "F", name: "FRONT (GREEN)" },
-  { row: 1, col: 2, fi: 1, face: "R", name: "RIGHT (RED)" },
-  { row: 1, col: 3, fi: 5, face: "B", name: "BACK (BLUE)" },
-  { row: 2, col: 1, fi: 3, face: "D", name: "DOWN (YELLOW)" },
+  { face: "U", fi: 0, name: "UP (WHITE)", pos: "row-start-1 col-start-2 md:row-start-1 md:col-start-2" },
+  { face: "L", fi: 4, name: "LEFT (ORANGE)", pos: "row-start-2 col-start-1 md:row-start-2 md:col-start-1" },
+  { face: "F", fi: 2, name: "FRONT (GREEN)", pos: "row-start-2 col-start-2 md:row-start-2 md:col-start-2" },
+  { face: "R", fi: 1, name: "RIGHT (RED)", pos: "row-start-2 col-start-3 md:row-start-2 md:col-start-3" },
+  { face: "D", fi: 3, name: "DOWN (YELLOW)", pos: "row-start-3 col-start-2 md:row-start-3 md:col-start-2" },
+  { face: "B", fi: 5, name: "BACK (BLUE)", pos: "row-start-4 col-start-2 md:row-start-2 md:col-start-4" },
 ];
 
 /** Standard western colour scheme — centres are fixed. */
@@ -54,11 +54,10 @@ const COLOUR_NAMES = {
 /* ── helpers ───────────────────────────────────────────────────────────── */
 
 function buildInitialStickers(facelets) {
-  if (facelets && facelets.length === 54) {
-    return facelets.toLowerCase().split("");
-  }
-  // Empty net — only centres pre-set
-  const arr = Array(54).fill(null);
+  const arr =
+    facelets && facelets.length === 54
+      ? facelets.toLowerCase().split("")
+      : Array(54).fill(null);
   for (let fi = 0; fi < 6; fi++) {
     arr[fi * 9 + 4] = CENTRE_COLOURS[fi];
   }
@@ -204,50 +203,44 @@ export default function NetEditor({ initialFacelets = null, onChange }) {
         </span>
       </div>
 
-      {/* ── cube net (cross layout) ───────────────────────────────── */}
-      <div
-        className="inline-grid gap-1.5"
-        style={{
-          gridTemplateColumns: "repeat(4, auto)",
-          gridTemplateRows: "repeat(3, auto)",
-        }}
-      >
-        {NET_LAYOUT.map(({ row, col, fi, face }) => (
-          <div
-            key={face}
-            className="relative"
-            style={{ gridRow: row + 1, gridColumn: col + 1 }}
-          >
-            <div className="text-[10px] text-gray-400 text-center mb-1 font-mono font-semibold">
-              {face}
-            </div>
-            <div className="grid grid-cols-3 gap-1 bg-dark-bg/90 p-1.5 rounded-xl border border-dark-border shadow-sm">
-              {Array.from({ length: 9 }, (_, si) => {
-                const gi = fi * 9 + si;
-                const colour = stickers[gi];
-                const centre = isCentre(gi);
+      {/* ── cube net (responsive layout: 3-column cross on mobile, 4-column strip on desktop) ── */}
+      <div className="overflow-x-auto max-w-full pb-2 flex justify-center">
+        <div className="grid grid-cols-3 grid-rows-4 md:grid-cols-4 md:grid-rows-3 gap-1.5 sm:gap-2.5 w-fit min-w-max">
+          {NET_LAYOUT.map(({ face, fi, pos }) => (
+            <div
+              key={face}
+              className={`relative ${pos} flex flex-col items-center`}
+            >
+              <div className="text-[10px] text-gray-400 text-center mb-1 font-mono font-semibold">
+                {face}
+              </div>
+              <div className="grid grid-cols-3 gap-1 bg-dark-bg/90 p-1 sm:p-1.5 rounded-xl border border-dark-border shadow-sm">
+                {Array.from({ length: 9 }, (_, si) => {
+                  const gi = fi * 9 + si;
+                  const colour = stickers[gi];
+                  const centre = isCentre(gi);
 
-                return (
-                  <button
-                    key={si}
-                    type="button"
-                    onClick={() => handleClick(gi)}
-                    onContextMenu={(e) => handleRightClick(e, gi)}
-                    disabled={centre}
-                    className={`w-9 h-9 rounded-md transition-all flex items-center justify-center font-bold text-xs select-none ${
-                      centre
-                        ? "cursor-default ring-1 ring-white/40 shadow-inner"
-                        : colour
-                          ? "cursor-pointer hover:scale-105 hover:brightness-110 border border-black/20 shadow-sm"
-                          : "cursor-pointer border border-dashed border-white/20 hover:border-neon-blue hover:bg-neon-blue/5"
-                    }`}
-                    style={{
-                      background: colour
-                        ? COLOUR_HEX[colour]
-                        : "rgba(255,255,255,0.03)",
-                    }}
-                    title={
-                      centre
+                  return (
+                    <button
+                      key={si}
+                      type="button"
+                      onClick={() => handleClick(gi)}
+                      onContextMenu={(e) => handleRightClick(e, gi)}
+                      disabled={centre}
+                      className={`w-7 h-7 sm:w-8.5 sm:h-8.5 md:w-9 md:h-9 shrink-0 aspect-square rounded-md transition-all flex items-center justify-center font-bold text-xs select-none ${
+                        centre
+                          ? "cursor-default ring-1 ring-white/40 shadow-inner"
+                          : colour
+                            ? "cursor-pointer hover:scale-105 hover:brightness-110 border border-black/20 shadow-sm"
+                            : "cursor-pointer border border-dashed border-white/20 hover:border-neon-blue hover:bg-neon-blue/5"
+                      }`}
+                      style={{
+                        background: colour
+                          ? COLOUR_HEX[colour]
+                          : "rgba(255,255,255,0.03)",
+                      }}
+                      title={
+                        centre
                         ? `${COLOUR_NAMES[colour]} centre — locked`
                         : colour
                           ? `${COLOUR_NAMES[colour]} (right-click to clear)`
@@ -272,6 +265,7 @@ export default function NetEditor({ initialFacelets = null, onChange }) {
             </div>
           </div>
         ))}
+        </div>
       </div>
 
       {/* ── bottom controls ───────────────────────────────────────── */}

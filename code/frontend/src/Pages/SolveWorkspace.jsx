@@ -55,6 +55,15 @@ const MOVE_DESCRIPTIONS = {
   Z: "Rotate cube along Z axis",
   "Z'": "Rotate cube along Z inverted",
   Z2: "Rotate cube 180° along Z",
+  M: "Middle slice turn downwards",
+  "M'": "Middle slice turn upwards",
+  M2: "Middle slice 180° turn",
+  E: "Equatorial slice turn right",
+  "E'": "Equatorial slice turn left",
+  E2: "Equatorial slice 180° turn",
+  S: "Standing slice clockwise",
+  "S'": "Standing slice counter-clockwise",
+  S2: "Standing slice 180° turn",
 };
 
 function animateCameraTo(controls, viewType = "top") {
@@ -86,28 +95,17 @@ function Panel({ title, children, className = "" }) {
   );
 }
 
-function Stat({ label, value, tone = "text-white" }) {
-  return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">
-        {label}
-      </div>
-      <div className={`text-lg font-bold font-mono tracking-tight ${tone}`}>
-        {value}
-      </div>
-    </div>
-  );
-}
+
 
 function SpeedControl({ speed, onSetSpeed }) {
   return (
-    <div className="flex items-center gap-1 text-xs bg-dark-bg/60 border border-dark-border rounded-xl p-1 shrink-0">
+    <div className="flex items-center gap-0.5 sm:gap-1 text-xs bg-dark-bg/60 border border-dark-border rounded-xl p-1 shrink-0">
       {[0.5, 1, 1.5, 2].map((s) => (
         <button
           key={s}
           type="button"
           onClick={() => onSetSpeed(s)}
-          className={`px-2 py-0.5 rounded-lg text-xs font-mono font-medium transition-all cursor-pointer ${
+          className={`px-1.5 sm:px-2 py-0.5 rounded-lg text-[11px] sm:text-xs font-mono font-medium transition-all cursor-pointer ${
             speed === s
               ? "bg-neon-blue/20 text-neon-blue font-bold border border-neon-blue/40 shadow-sm"
               : "text-gray-400 hover:text-white hover:bg-white/5"
@@ -133,6 +131,7 @@ export default function SolveWorkspace() {
   const startedAt = useCubeStore((s) => s.startedAt);
   const finishedAt = useCubeStore((s) => s.finishedAt);
   const optimalMoveCount = useCubeStore((s) => s.optimalMoveCount);
+  const redoStack = useCubeStore((s) => s.redoStack);
 
   const token = useAuthStore((s) => s.token);
 
@@ -356,7 +355,6 @@ export default function SolveWorkspace() {
   useEffect(() => {
     if (!solved) {
       submittedRef.current = false;
-      setSaveState(null);
       return;
     }
     if (assisted || !history.length || !token) return;
@@ -549,11 +547,10 @@ export default function SolveWorkspace() {
     const data = await fetchSolution("optimal");
     if (!data || !data.moves?.length) return;
 
-    autoPlayRef.current = { isPlaying: true, index: 0, moves: data.moves };
+    autoPlayRef.current = { isPlaying: false, index: 0, moves: data.moves };
     setAutoPlayIndex(0);
-    setIsAutoPlaying(true);
+    setIsAutoPlaying(false);
     animatorRef.current?.setSpeed(speed);
-    animatorRef.current?.enqueue(data.moves[0], false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facelets, speed]);
 
@@ -566,8 +563,8 @@ export default function SolveWorkspace() {
       useCubeStore.getState().markAssisted();
       useCubeStore.getState().setMode(MODES.GUIDED);
       await fetchSolution(method);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [facelets, pauseAutoSolve, pauseStage],
   );
 
@@ -647,6 +644,7 @@ export default function SolveWorkspace() {
   }, [pauseStage, pauseAutoSolve]);
 
   const guided = mode === MODES.GUIDED && solution;
+  const showSidebar = Boolean(guided || solved || error);
   const canTurn = ready && mode === MODES.INTERACTIVE;
 
   const [autoTrackCamera, setAutoTrackCamera] = useState(true);
@@ -842,47 +840,66 @@ export default function SolveWorkspace() {
         </div>
       )}
 
-      <div className="flex flex-col gap-3 h-[calc(100vh-2rem)]">
+      <div className="flex flex-col gap-3 min-h-0 lg:h-[calc(100vh-2rem)]">
         {/* --- Top Header HUD --- */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl px-4 py-3 shrink-0 shadow-sm">
-          {/* Left stats: Timer, Moves, Efficiency, Scramble info */}
-          <div className="flex items-center gap-5">
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block">
-                Timer
-              </span>
-              <span className="font-mono text-xl font-bold text-white tracking-tight">
-                {elapsed.toFixed(1)}
-                <span className="text-xs text-gray-400 font-normal">s</span>
-              </span>
-            </div>
-            <div className="h-6 w-px bg-white/10" />
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block">
-                Moves
-              </span>
-              <span className="font-mono text-lg font-bold text-white">
-                {history.length}{" "}
-                <span className="text-xs text-gray-400 font-normal">
-                  / cfop {optimalMoveCount || "?"}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl px-3 py-2.5 sm:px-4 sm:py-3 shrink-0 shadow-sm">
+          {/* Left stats: Timer, Moves, Efficiency (Interactive) OR Assisted Run Notice (Assisted / Guided / Auto-Solve) */}
+          {!assisted && mode === MODES.INTERACTIVE ? (
+            <div className="flex items-center gap-3 sm:gap-5 flex-wrap">
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block">
+                  Timer
                 </span>
-              </span>
+                <span className="font-mono text-base sm:text-xl font-bold text-white tracking-tight">
+                  {elapsed.toFixed(1)}
+                  <span className="text-xs text-gray-400 font-normal">s</span>
+                </span>
+              </div>
+              <div className="h-6 w-px bg-white/10" />
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block">
+                  Moves
+                </span>
+                <span className="font-mono text-sm sm:text-lg font-bold text-white">
+                  {history.length}{" "}
+                  <span className="text-xs text-gray-400 font-normal">
+                    / cfop {optimalMoveCount || "?"}
+                  </span>
+                </span>
+              </div>
+              <div className="h-6 w-px bg-white/10" />
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block">
+                  Efficiency
+                </span>
+                <span
+                  className={`font-mono text-sm sm:text-lg font-bold ${efficiency && efficiency >= 50 ? "text-neon-green" : "text-white"}`}
+                >
+                  {efficiency ? `${efficiency.toFixed(0)}%` : "--"}
+                </span>
+              </div>
             </div>
-            <div className="h-6 w-px bg-white/10" />
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block">
-                Efficiency
-              </span>
-              <span
-                className={`font-mono text-lg font-bold ${efficiency && efficiency >= 50 ? "text-neon-green" : "text-white"}`}
-              >
-                {efficiency ? `${efficiency.toFixed(0)}%` : "--"}
-              </span>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 animate-morph-in">
+              <span className="text-sm">⚠️</span>
+              <div className="leading-tight">
+                <span className="text-xs font-semibold block">
+                  {mode === MODES.GUIDED
+                    ? "Guided Solve"
+                    : mode === MODES.AUTO
+                      ? "Auto-Solve"
+                      : "Interactive Solve"}{" "}
+                  — Assisted Run
+                </span>
+                <span className="text-[10px] text-amber-300/80">
+                  Timer &amp; leaderboard submission disabled
+                </span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Right Mode Switcher & Quick Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center rounded-xl bg-dark-bg/80 p-1 border border-dark-border text-xs transition-all duration-200">
               {showGuidedPicker ? (
                 <div
@@ -929,7 +946,7 @@ export default function SolveWorkspace() {
                   <button
                     disabled={loading}
                     onClick={backToInteractive}
-                    className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                       mode === MODES.INTERACTIVE
                         ? "bg-neon-blue/20 text-neon-blue font-semibold border border-neon-blue/40 shadow-sm"
                         : "text-gray-400 hover:text-white"
@@ -940,7 +957,7 @@ export default function SolveWorkspace() {
                   <button
                     disabled={loading}
                     onClick={() => setShowGuidedPicker(true)}
-                    className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                       mode === MODES.GUIDED
                         ? "bg-neon-blue/20 text-neon-blue font-semibold border border-neon-blue/40 shadow-sm"
                         : "text-gray-400 hover:text-white"
@@ -954,7 +971,7 @@ export default function SolveWorkspace() {
                   <button
                     disabled={loading}
                     onClick={handleSelectAuto}
-                    className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                       mode === MODES.AUTO
                         ? "bg-neon-blue/20 text-neon-blue font-semibold border border-neon-blue/40 shadow-sm"
                         : "text-gray-400 hover:text-white"
@@ -969,14 +986,14 @@ export default function SolveWorkspace() {
             <button
               onClick={resetCube}
               title="Reset to scramble"
-              className="px-3 py-2 rounded-xl bg-white/5 border border-dark-border hover:bg-white/10 text-xs font-medium text-gray-300 transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white/5 border border-dark-border hover:bg-white/10 text-xs font-medium text-gray-300 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <span>↺</span> Reset
             </button>
             <button
               onClick={() => navigate("/cube-input")}
               title="Load new cube"
-              className="px-3 py-2 rounded-xl bg-white/5 border border-dark-border hover:bg-white/10 text-xs font-medium text-gray-300 transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white/5 border border-dark-border hover:bg-white/10 text-xs font-medium text-gray-300 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <span>+</span> New
             </button>
@@ -984,11 +1001,19 @@ export default function SolveWorkspace() {
         </div>
 
         {/* Main Stage & Sidebar Grid */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0 overflow-hidden">
+        <div
+          className={`flex-1 grid grid-cols-1 ${
+            showSidebar ? "lg:grid-cols-4" : ""
+          } gap-4 min-h-0 lg:overflow-hidden`}
+        >
           {/* 3D Viewport & Bottom Controls */}
-          <div className="lg:col-span-3 flex flex-col gap-3 min-w-0 h-full overflow-hidden">
+          <div
+            className={`${
+              showSidebar ? "lg:col-span-3" : "w-full"
+            } flex flex-col gap-3 min-w-0 min-h-0`}
+          >
             {/* 3D Viewport Canvas */}
-            <div className="flex-1 rounded-2xl overflow-hidden border border-dark-border bg-gradient-to-b from-dark-surface/50 to-dark-bg shadow-inner min-h-[300px] relative">
+            <div className="rounded-2xl overflow-hidden border border-dark-border bg-gradient-to-b from-dark-surface/50 to-dark-bg shadow-inner h-[38vh] min-h-[260px] max-h-[440px] lg:h-auto lg:flex-1 relative touch-none">
               <CubeScene
                 onAnimatorReady={onAnimatorReady}
                 controlsRef={controlsRef}
@@ -997,7 +1022,7 @@ export default function SolveWorkspace() {
               />
 
               {/* Floating Camera Pills Top-Right */}
-              <div className="absolute top-3 right-3 flex items-center gap-1 bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-xl p-1 shadow-lg text-xs z-10">
+              <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex items-center gap-0.5 sm:gap-1 bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-xl p-1 shadow-lg text-[10px] sm:text-xs z-10 max-w-[calc(100%-1rem)] overflow-x-auto">
                 <button
                   type="button"
                   onClick={() => animateCameraTo(controlsRef.current, "top")}
@@ -1091,70 +1116,71 @@ export default function SolveWorkspace() {
                       </div>
                     </div>
 
-                    {/* Center: Playback Control Trio */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={stepBack}
-                        disabled={cursor <= 0 || isPlayingStage}
-                        title="Previous move (Backspace)"
-                        className="py-2 px-3 rounded-xl border border-dark-border bg-dark-bg text-gray-200 text-xs font-semibold cursor-pointer hover:text-white hover:border-gray-500 transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
-                      >
-                        <span>← Back</span>
-                        <kbd className="hidden 2xl:inline text-[9px] font-mono text-gray-400 px-1 py-0.5 rounded bg-black/40 border border-dark-border">
-                          Backspace
-                        </kbd>
-                      </button>
+                    {/* Center & Right: Playback Control Trio & Speed */}
+                    <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <button
+                          type="button"
+                          onClick={stepBack}
+                          disabled={cursor <= 0 || isPlayingStage}
+                          title="Previous move (Backspace)"
+                          className="py-1.5 sm:py-2 px-2.5 sm:px-3 rounded-xl border border-dark-border bg-dark-bg text-gray-200 text-xs font-semibold cursor-pointer hover:text-white hover:border-gray-500 transition-all flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                        >
+                          <span>← Back</span>
+                          <kbd className="hidden 2xl:inline text-[9px] font-mono text-gray-400 px-1 py-0.5 rounded bg-black/40 border border-dark-border">
+                            Backspace
+                          </kbd>
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={togglePlayStage}
-                        disabled={cursor >= solution.moves.length}
-                        className={`py-2 px-3.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm ${
-                          isPlayingStage
-                            ? "border-amber-400/50 bg-amber-400/20 text-amber-300 hover:bg-amber-400/30"
-                            : "border-neon-blue/40 bg-neon-blue/15 text-neon-blue hover:bg-neon-blue/25"
-                        }`}
-                      >
-                        <span>{isPlayingStage ? "⏸ Pause" : "▶ Play"}</span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={togglePlayStage}
+                          disabled={cursor >= solution.moves.length}
+                          className={`py-1.5 sm:py-2 px-3 sm:px-3.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm ${
+                            isPlayingStage
+                              ? "border-amber-400/50 bg-amber-400/20 text-amber-300 hover:bg-amber-400/30"
+                              : "border-neon-blue/40 bg-neon-blue/15 text-neon-blue hover:bg-neon-blue/25"
+                          }`}
+                        >
+                          <span>{isPlayingStage ? "⏸ Pause" : "▶ Play"}</span>
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={stepForward}
-                        disabled={
-                          cursor >= solution.moves.length || isPlayingStage
-                        }
-                        title="Next move (Space)"
-                        className="py-2 px-4 rounded-xl bg-gradient-to-r from-neon-blue to-blue-500 hover:from-neon-blue/90 hover:to-blue-400 text-black text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-neon-blue/25 active:scale-95"
-                      >
-                        <span>Next Move →</span>
-                        <kbd className="hidden 2xl:inline text-[9px] font-mono text-black/80 font-bold px-1.5 py-0.5 rounded bg-black/15">
-                          Space
-                        </kbd>
-                      </button>
-                    </div>
+                        <button
+                          type="button"
+                          onClick={stepForward}
+                          disabled={
+                            cursor >= solution.moves.length || isPlayingStage
+                          }
+                          title="Next move (Space)"
+                          className="py-1.5 sm:py-2 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-neon-blue to-blue-500 hover:from-neon-blue/90 hover:to-blue-400 text-black text-xs font-bold cursor-pointer transition-all flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-neon-blue/25 active:scale-95"
+                        >
+                          <span>Next Move →</span>
+                          <kbd className="hidden 2xl:inline text-[9px] font-mono text-black/80 font-bold px-1.5 py-0.5 rounded bg-black/15">
+                            Space
+                          </kbd>
+                        </button>
+                      </div>
 
-                    {/* Right: Speed & Stage Progress */}
-                    <div className="flex items-center gap-3 shrink-0">
-                      <SpeedControl speed={speed} onSetSpeed={handleSetSpeed} />
-                      {stage && (
-                        <div className="hidden xl:flex flex-col items-end text-right shrink-0">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                            Stage Progress
-                          </span>
-                          <span className="text-xs font-mono font-bold text-gray-300">
-                            {Math.max(
-                              0,
-                              Math.min(
-                                stage.end - stage.start,
-                                cursor - stage.start,
-                              ),
-                            )}
-                            /{stage.end - stage.start}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-3 shrink-0">
+                        <SpeedControl speed={speed} onSetSpeed={handleSetSpeed} />
+                        {stage && (
+                          <div className="hidden xl:flex flex-col items-end text-right shrink-0">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                              Stage Progress
+                            </span>
+                            <span className="text-xs font-mono font-bold text-gray-300">
+                              {Math.max(
+                                0,
+                                Math.min(
+                                  stage.end - stage.start,
+                                  cursor - stage.start,
+                                ),
+                              )}
+                              /{stage.end - stage.start}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -1207,49 +1233,51 @@ export default function SolveWorkspace() {
                     </div>
                   </div>
 
-                  {/* Center: Playback Control Trio & Speed */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={stepBackAuto}
-                      disabled={autoPlayIndex <= 0 || isAutoPlaying}
-                      title="Previous move (Backspace or ←)"
-                      className="py-2 px-3 rounded-xl border border-dark-border bg-dark-bg text-gray-200 text-xs font-semibold cursor-pointer hover:text-white hover:border-gray-500 transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
-                    >
-                      <span>← Prev</span>
-                      <kbd className="hidden 2xl:inline text-[9px] font-mono text-gray-400 px-1 py-0.5 rounded bg-black/40 border border-dark-border">
-                        Backspace
-                      </kbd>
-                    </button>
+                  {/* Center & Right: Playback Control Trio & Speed */}
+                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <button
+                        type="button"
+                        onClick={stepBackAuto}
+                        disabled={autoPlayIndex <= 0 || isAutoPlaying}
+                        title="Previous move (Backspace or ←)"
+                        className="py-1.5 sm:py-2 px-2.5 sm:px-3 rounded-xl border border-dark-border bg-dark-bg text-gray-200 text-xs font-semibold cursor-pointer hover:text-white hover:border-gray-500 transition-all flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                      >
+                        <span>← Prev</span>
+                        <kbd className="hidden 2xl:inline text-[9px] font-mono text-gray-400 px-1 py-0.5 rounded bg-black/40 border border-dark-border">
+                          Backspace
+                        </kbd>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={togglePlayAuto}
-                      disabled={autoPlayIndex >= solution.moves.length}
-                      title="Toggle play/pause (Space)"
-                      className={`py-2 px-3.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm ${
-                        isAutoPlaying
-                          ? "border-amber-400/50 bg-amber-400/20 text-amber-300 hover:bg-amber-400/30"
-                          : "border-neon-blue/40 bg-neon-blue/15 text-neon-blue hover:bg-neon-blue/25"
-                      }`}
-                    >
-                      <span>{isAutoPlaying ? "⏸ Pause" : "▶ Play"}</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={togglePlayAuto}
+                        disabled={autoPlayIndex >= solution.moves.length}
+                        title="Toggle play/pause (Space)"
+                        className={`py-1.5 sm:py-2 px-3 sm:px-3.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm ${
+                          isAutoPlaying
+                            ? "border-amber-400/50 bg-amber-400/20 text-amber-300 hover:bg-amber-400/30"
+                            : "border-neon-blue/40 bg-neon-blue/15 text-neon-blue hover:bg-neon-blue/25"
+                        }`}
+                      >
+                        <span>{isAutoPlaying ? "⏸ Pause" : "▶ Play"}</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={stepForwardAuto}
-                      disabled={
-                        autoPlayIndex >= solution.moves.length || isAutoPlaying
-                      }
-                      title="Next move (→)"
-                      className="py-2 px-4 rounded-xl bg-gradient-to-r from-neon-blue to-blue-500 hover:from-neon-blue/90 hover:to-blue-400 text-black text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-neon-blue/25 active:scale-95"
-                    >
-                      <span>Next →</span>
-                      <kbd className="hidden 2xl:inline text-[9px] font-mono text-black/80 font-bold px-1.5 py-0.5 rounded bg-black/15">
-                        →
-                      </kbd>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={stepForwardAuto}
+                        disabled={
+                          autoPlayIndex >= solution.moves.length || isAutoPlaying
+                        }
+                        title="Next move (→)"
+                        className="py-1.5 sm:py-2 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-neon-blue to-blue-500 hover:from-neon-blue/90 hover:to-blue-400 text-black text-xs font-bold cursor-pointer transition-all flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-neon-blue/25 active:scale-95"
+                      >
+                        <span>Next →</span>
+                        <kbd className="hidden 2xl:inline text-[9px] font-mono text-black/80 font-bold px-1.5 py-0.5 rounded bg-black/15">
+                          →
+                        </kbd>
+                      </button>
+                    </div>
 
                     <SpeedControl speed={speed} onSetSpeed={handleSetSpeed} />
                   </div>
@@ -1308,7 +1336,7 @@ export default function SolveWorkspace() {
                     <button
                       type="button"
                       onClick={doRedo}
-                      disabled={!canTurn}
+                      disabled={!canTurn || redoStack.length === 0}
                       className="px-3 py-1.5 rounded-xl border border-dark-border bg-dark-bg/80 text-gray-300 hover:text-white hover:border-gray-500 text-xs font-semibold disabled:opacity-30 cursor-pointer shadow-sm transition-all"
                     >
                       ↷ Redo
@@ -1320,52 +1348,47 @@ export default function SolveWorkspace() {
           </div>
 
           {/* Right Sidebar: Coaching HUD or Stats */}
-          <div className="lg:col-span-1 flex flex-col gap-3 h-full overflow-y-auto pr-0.5">
-            {solved && (
-              <Panel title="Result" className="border-neon-green/40 shadow-sm">
-                <div className="text-neon-green font-bold text-sm mb-1 flex items-center gap-1.5">
-                  <span>🎉</span>
-                  <span>Cube Solved!</span>
-                </div>
-                <div className="text-xs text-gray-400">
-                  {elapsed.toFixed(1)}s &middot; {history.length} moves
-                  {assisted ? " (assisted)" : ""}
-                </div>
-                {saveState === "saving" && (
-                  <div className="text-[11px] text-gray-400 mt-1.5">
-                    Saving solve to your history...
+          {showSidebar && (
+            <div className="lg:col-span-1 flex flex-col gap-3 min-h-0 lg:h-full lg:overflow-y-auto pr-0.5">
+              {solved && (
+                <Panel title="Result" className="border-neon-green/40 shadow-sm">
+                  <div className="text-neon-green font-bold text-sm mb-1 flex items-center gap-1.5">
+                    <span>🎉</span>
+                    <span>Cube Solved!</span>
                   </div>
-                )}
-                {saveState === "saved" && (
-                  <div className="text-[11px] text-neon-green mt-1.5">
-                    ✓ Saved to your dashboard &amp; leaderboard.
-                  </div>
-                )}
-                {!token && !assisted && (
-                  <div className="text-[11px] text-amber-300 mt-1.5">
-                    Log in to save your solve to the dashboard and leaderboard.
-                  </div>
-                )}
-                {saveState && saveState !== "saving" && saveState !== "saved" && (
-                  <div className="text-[11px] text-rose-400 mt-1.5">
-                    Could not save solve: {saveState}
-                  </div>
-                )}
-              </Panel>
-            )}
+                  {!assisted && (
+                    <div className="text-xs text-gray-400">
+                      {elapsed.toFixed(1)}s &middot; {history.length} moves
+                    </div>
+                  )}
+                  {saveState === "saving" && (
+                    <div className="text-[11px] text-gray-400 mt-1.5">
+                      Saving solve to your history...
+                    </div>
+                  )}
+                  {saveState === "saved" && (
+                    <div className="text-[11px] text-neon-green mt-1.5">
+                      ✓ Saved to your dashboard &amp; leaderboard.
+                    </div>
+                  )}
+                  {!token && !assisted && (
+                    <div className="text-[11px] text-amber-300 mt-1.5">
+                      Log in to save your solve to the dashboard and leaderboard.
+                    </div>
+                  )}
+                  {saveState && saveState !== "saving" && saveState !== "saved" && (
+                    <div className="text-[11px] text-rose-400 mt-1.5">
+                      Could not save solve: {saveState}
+                    </div>
+                  )}
+                </Panel>
+              )}
 
-            {assisted && (
-              <div className="text-xs text-amber-300 border border-amber-500/30 bg-amber-500/10 rounded-2xl p-3">
-                <span className="font-semibold block mb-0.5">Assisted Run</span>
-                This attempt won&apos;t be submitted to the leaderboard.
-              </div>
-            )}
-
-            {error && (
-              <Panel title="Error" className="border-red-500/40">
-                <div className="text-xs text-red-400">{error}</div>
-              </Panel>
-            )}
+              {error && (
+                <Panel title="Error" className="border-red-500/40">
+                  <div className="text-xs text-red-400">{error}</div>
+                </Panel>
+              )}
 
             {guided ? (
               <>
@@ -1671,27 +1694,11 @@ export default function SolveWorkspace() {
                   </Panel>
                 )}
               </>
-            ) : (
-              /* Interactive / Auto-solve Stats & Reference Panel */
-              <Panel title="Attempt Summary">
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <Stat label="Time" value={`${elapsed.toFixed(1)}s`} />
-                  <Stat label="Moves" value={history.length} />
-                  <Stat
-                    label="Efficiency"
-                    value={efficiency ? `${efficiency.toFixed(0)}%` : "--"}
-                    tone={efficiency >= 50 ? "text-neon-green" : "text-white"}
-                  />
-                  <Stat label="CFOP Moves" value={optimalMoveCount || "?"} />
-                </div>
-                <div className="text-[11px] text-gray-500 pt-2 border-t border-dark-border">
-                  Efficiency measured against CFOP method baseline.
-                </div>
-              </Panel>
-            )}
+            ) : null}
           </div>
-        </div>
+        )}
       </div>
+    </div>
     </AppShell>
   );
 }
