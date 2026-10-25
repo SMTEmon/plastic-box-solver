@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 
 from app.db.database import get_db
@@ -49,6 +50,10 @@ def update_profile(body: ProfileUpdate, db: Session = Depends(get_db), user=Depe
     if body.avatar is not None:
         user.avatar = body.avatar
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(400, "Display name taken")
     db.refresh(user)
     return user
