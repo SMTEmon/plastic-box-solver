@@ -50,6 +50,7 @@ export const MOVE_SPEC = {
 };
 
 export const BASE_DURATION_MS = 200;
+export const ASSISTED_BASE_DURATION_MS = 600;
 
 function getQueueMultiplier(qLen) {
   if (qLen >= 4) return 3.5;
@@ -134,19 +135,18 @@ export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
       rotationGroup.current.rotation[spec.axis] +
       (Math.PI / 2) * quarters * dir;
 
-    // Only apply queueMultiplier to interactive user moves (count === true).
-    // Assisted modes (Auto-solve / Guided) strictly follow the user's selected speed.
-    const queueMultiplier = count ? getQueueMultiplier(queue.length) : 1.0;
-    const effectiveSpeed = speed * queueMultiplier;
-
+    // Interactive user turns (count === true) always use snappy 200ms duration,
+    // scaling up dynamically when moves accumulate in the input queue.
+    // Assisted moves (count === false, i.e. Guided / Auto-Solve) use dedicated
+    // ASSISTED_BASE_DURATION_MS strictly controlled by the user's selected playback speed.
+    const duration = count
+      ? (BASE_DURATION_MS * quarters) / getQueueMultiplier(queue.length)
+      : (ASSISTED_BASE_DURATION_MS * quarters) / speed;
 
     currentMoveInfo = { move, count, spec, target, quarters };
 
     currentTween = new JEasing(rotationGroup.current.rotation)
-      .to(
-        { [spec.axis]: target },
-        (BASE_DURATION_MS * quarters) / effectiveSpeed,
-      )
+      .to({ [spec.axis]: target }, duration)
       .easing(JEASINGS.Cubic.InOut)
       .onComplete(() => {
         if (rotationGroup.current && spec) {

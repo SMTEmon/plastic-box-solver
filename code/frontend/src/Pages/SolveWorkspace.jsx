@@ -52,6 +52,7 @@ export default function SolveWorkspace() {
   const controlsRef = useRef(null);
   const submittedRef = useRef(false);
   const playbackRef = useRef({ isPlaying: false, targetEnd: 0 });
+  const playbackTimerRef = useRef(null);
 
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
@@ -64,6 +65,15 @@ export default function SolveWorkspace() {
 
   const activeGuide = getStageGuide(stage?.name);
 
+  // Clean up any pending playback timer on unmount
+  useEffect(() => {
+    return () => {
+      if (playbackTimerRef.current) {
+        clearTimeout(playbackTimerRef.current);
+      }
+    };
+  }, []);
+
   // Unified playback callback invoked on each animation step completion
   const handleStepDone = useCallback(() => {
     if (!playbackRef.current.isPlaying) return;
@@ -75,11 +85,25 @@ export default function SolveWorkspace() {
       playbackRef.current.isPlaying = false;
       setIsPlaying(false);
     } else {
-      const nextMove = s.solution.moves[s.cursor];
-      animatorRef.current?.enqueue(nextMove, false);
-      s.setCursor(s.cursor + 1);
+      // Natural breather between consecutive moves in playback (~180ms at 1x, ~360ms at 0.5x)
+      const breatherMs = Math.round(180 / speed);
+      playbackTimerRef.current = setTimeout(() => {
+        if (!playbackRef.current.isPlaying) return;
+        const curStore = useCubeStore.getState();
+        if (
+          curStore.cursor >= targetEnd ||
+          curStore.cursor >= curStore.solution?.moves?.length
+        ) {
+          playbackRef.current.isPlaying = false;
+          setIsPlaying(false);
+          return;
+        }
+        const nextMove = curStore.solution.moves[curStore.cursor];
+        animatorRef.current?.enqueue(nextMove, false);
+        curStore.setCursor(curStore.cursor + 1);
+      }, breatherMs);
     }
-  }, []);
+  }, [speed]);
 
   const handleSetSpeed = useCallback((s) => {
     setSpeed(s);
@@ -212,12 +236,20 @@ export default function SolveWorkspace() {
   }, []);
 
   const pausePlayback = useCallback(() => {
+    if (playbackTimerRef.current) {
+      clearTimeout(playbackTimerRef.current);
+      playbackTimerRef.current = null;
+    }
     playbackRef.current.isPlaying = false;
     setIsPlaying(false);
     animatorRef.current?.fastForward();
   }, []);
 
   const startPlayback = useCallback(() => {
+    if (playbackTimerRef.current) {
+      clearTimeout(playbackTimerRef.current);
+      playbackTimerRef.current = null;
+    }
     animatorRef.current?.fastForward();
     const s = useCubeStore.getState();
     if (!s.solution || !s.solution.moves?.length) return;
