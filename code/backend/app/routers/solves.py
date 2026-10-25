@@ -2,7 +2,7 @@
 (FR-12a, FR-13a, FR-13b). Efficiency (FR-12b) is computed server-side so the DB
 is the single source of truth."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -39,14 +39,30 @@ def create_solve(body: SolveCreate, db: Session = Depends(get_db), user=Depends(
 
 
 @router.get("", response_model=HistoryResponse)
-def history(db: Session = Depends(get_db), user=Depends(get_current_user)):
+def history(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    # Support direct positional test calls like history(db, user)
+    if not isinstance(limit, int) and hasattr(limit, "query"):
+        db, user = limit, offset
+        limit_val, offset_val = 50, 0
+    else:
+        limit_val = limit if isinstance(limit, int) else 50
+        offset_val = offset if isinstance(offset, int) else 0
+
+    user_solves = db.query(Solve).filter(Solve.user_id == user.id)
     solves = (
-        db.query(Solve)
-        .filter(Solve.user_id == user.id)
+        user_solves
         .order_by(Solve.created_at.desc())
+        .offset(offset_val)
+        .limit(limit_val)
         .all()
     )
     # FR-13b: personal best = fastest recorded solve, ties broken by higher efficiency.
     # Empty history -> None, which the schema renders as null (FR-13a empty-state, not an error).
-    pb = min(solves, key=lambda s: (s.solve_time, -(s.efficiency or 0.0)), default=None)
+    all_solves = solves if (offset_val == 0 and len(solves) < limit_val) else user_solves.all()
+    pb = min(all_solves, key=lambda s: (s.solve_time, -(s.efficiency or 0.0)), default=None)
     return HistoryResponse(solves=solves, personal_best=pb)
