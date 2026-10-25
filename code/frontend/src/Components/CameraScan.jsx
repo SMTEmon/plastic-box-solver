@@ -83,11 +83,21 @@ export default function CameraScan({ onScanComplete, onCancel }) {
     }
   }, []);
 
-  // Stop webcam
+  // Stop webcam and release video element source
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
+    }
+    if (videoRef.current) {
+      if (videoRef.current.srcObject && "getTracks" in videoRef.current.srcObject) {
+        try {
+          videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+        } catch {
+          // Ignore
+        }
+      }
+      videoRef.current.srcObject = null;
     }
     setCameraActive(false);
   }, []);
@@ -189,6 +199,7 @@ export default function CameraScan({ onScanComplete, onCancel }) {
 
       // Successfully processed: provide the facelets and quality info to parent
       if (res.facelets) {
+        stopCamera();
         onScanComplete?.(res.facelets, res);
       }
     } catch (err) {
