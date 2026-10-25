@@ -37,7 +37,7 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
   const sidebarMovesRef = useRef(null);
   const allStagesRef = useRef(null);
 
-  const activeGuide = getStageGuide(stage?.name);
+  const activeGuide = getStageGuide(stage?.name, facelets);
 
   const targetCenterInfo =
     activeGuide?.targetFace &&
@@ -47,11 +47,12 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
       : null;
   const frontCenterInfo = getCenterInfo(facelets, "F");
 
-  const isCrossStage = stage?.name?.toLowerCase().includes("cross");
+  const isIntuitiveCrossStage =
+    stage?.name === "Cross" || stage?.name?.toLowerCase() === "bottom cross";
 
   const stageChunks =
     stage && solution?.moves
-      ? isCrossStage
+      ? isIntuitiveCrossStage
         ? solution.moves.slice(stage.start, stage.end).map((m, idx) => ({
             type: "single",
             move: m,
@@ -64,11 +65,27 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
           )
       : [];
 
-  // Auto-scroll active move in current stage moves sequence
+  // Auto-scroll active move in current stage moves sequence (vertical only)
   useEffect(() => {
-    sidebarMovesRef.current
-      ?.querySelector('[data-active="true"]')
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (sidebarTab !== "coach") return;
+    const activeEl = sidebarMovesRef.current?.querySelector('[data-active="true"]');
+    const container = sidebarMovesRef.current;
+    if (!activeEl || !container) return;
+
+    const elRect = activeEl.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+
+    if (elRect.top < containerRect.top) {
+      container.scrollBy({
+        top: elRect.top - containerRect.top - 8,
+        behavior: "smooth",
+      });
+    } else if (elRect.bottom > containerRect.bottom) {
+      container.scrollBy({
+        top: elRect.bottom - containerRect.bottom + 8,
+        behavior: "smooth",
+      });
+    }
   }, [cursor, stage, sidebarTab]);
 
   // Auto-scroll active stage card in All Stages view
@@ -179,7 +196,7 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
                   </div>
                   <div
                     ref={sidebarMovesRef}
-                    className="flex flex-wrap items-center gap-1.5 max-h-48 overflow-y-auto pr-1 scrollbar-thin scroll-smooth"
+                    className="flex flex-wrap items-center gap-1.5 max-h-48 overflow-y-auto overflow-x-hidden pr-1 scrollbar-thin scroll-smooth"
                   >
                     {stageChunks.map((chunk) => {
                       if (chunk.type === "trigger") {
@@ -192,7 +209,7 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
                         return (
                           <div
                             key={`chunk-${chunk.startIndex}`}
-                            className={`p-1.5 rounded-xl border flex flex-col gap-1 transition-all shrink-0 ${
+                            className={`p-1.5 rounded-xl border flex flex-col gap-1 transition-all w-full min-w-0 ${
                               isInside
                                 ? `${colorPreset.border} bg-white/[0.04] ring-1 ring-neon-blue/30`
                                 : isDone

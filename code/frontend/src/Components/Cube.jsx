@@ -1,3 +1,4 @@
+import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import JEASINGS from "jeasings";
@@ -7,6 +8,7 @@ import Cubelet from "./Cubelet";
 import { mapFacesToCubelets } from "../lib/mapToCubelets.js";
 import { faceletsToFaces } from "../cube/facelets.js";
 import { createAnimator } from "../cube/animate.js";
+import { getActiveLayerY } from "../cube/stageGuides.js";
 import { useCubeStore } from "../store/cubeStore.js";
 
 /**
@@ -23,6 +25,8 @@ export default function Cube({ onAnimatorReady, cubeGroupRef }) {
   const rotationGroup = useRef();
 
   const sceneEpoch = useCubeStore((s) => s.sceneEpoch);
+  const tempVec = useRef(new THREE.Vector3()).current;
+  const wasFocusModeRef = useRef(false);
 
   const roundedBoxGeometry = useMemo(
     () => new RoundedBoxGeometry(1, 1, 1, 3, 0.1),
@@ -31,6 +35,58 @@ export default function Cube({ onAnimatorReady, cubeGroupRef }) {
 
   useFrame(() => {
     JEASINGS.update();
+
+    const { focusMode } = useCubeStore.getState();
+    const stage = useCubeStore.getState().currentStage();
+    const activeY = focusMode ? getActiveLayerY(stage?.name) : null;
+
+    if (!focusMode && !wasFocusModeRef.current) {
+      return;
+    }
+
+    wasFocusModeRef.current = focusMode;
+
+    const updateMesh = (mesh) => {
+      if (!mesh?.userData?.isCubelet) return;
+      const { normalMaterials, ghostMaterials, textRef } = mesh.userData;
+
+      if (!focusMode || !activeY) {
+        if (mesh.material !== normalMaterials) {
+          mesh.material = normalMaterials;
+        }
+        if (textRef?.current && textRef.current.fillOpacity !== 1) {
+          textRef.current.fillOpacity = 1;
+        }
+        return;
+      }
+
+      mesh.getWorldPosition(tempVec);
+      const currentY = Math.round(tempVec.y);
+      const isActive = activeY.includes(currentY);
+
+      if (isActive) {
+        if (mesh.material !== normalMaterials) {
+          mesh.material = normalMaterials;
+        }
+        if (textRef?.current && textRef.current.fillOpacity !== 1) {
+          textRef.current.fillOpacity = 1;
+        }
+      } else {
+        if (mesh.material !== ghostMaterials) {
+          mesh.material = ghostMaterials;
+        }
+        if (textRef?.current && textRef.current.fillOpacity !== 0.2) {
+          textRef.current.fillOpacity = 0.2;
+        }
+      }
+    };
+
+    if (cubeGroup.current) {
+      cubeGroup.current.children.forEach(updateMesh);
+    }
+    if (rotationGroup.current) {
+      rotationGroup.current.children.forEach(updateMesh);
+    }
   });
 
   // Read facelets imperatively so this only recomputes when the epoch changes.

@@ -32,6 +32,7 @@ export const useCubeStore = create((set, get) => ({
   assisted: false, // FR-12b: did they use guided or auto-solve this session?
 
   mode: MODES.INTERACTIVE,
+  focusMode: false,
   solution: null, // { moves, moveCount, stages, optimalMoves, optimalMoveCount }
   cursor: 0, // index into solution.moves, for guided stepping
   optimalMoveCount: 0, // efficiency denominator, from /api/cube/solve
@@ -135,6 +136,8 @@ export const useCubeStore = create((set, get) => ({
   // --- solve modes ---
 
   setMode: (mode) => set({ mode }),
+  setFocusMode: (focusMode) => set({ focusMode }),
+  toggleFocusMode: () => set((s) => ({ focusMode: !s.focusMode })),
 
   setSolution: (solution) =>
     set({

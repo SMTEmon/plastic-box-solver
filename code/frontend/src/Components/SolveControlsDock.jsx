@@ -53,12 +53,13 @@ export default function SolveControlsDock({
   const currentMove = solution?.moves?.[cursor];
   const turnDir = getTurnDirection(currentMove);
 
-  const isCrossStage = stage?.name?.toLowerCase().includes("cross");
+  const isIntuitiveCrossStage =
+    stage?.name === "Cross" || stage?.name?.toLowerCase() === "bottom cross";
 
   const activeChunks = !solution?.moves
     ? []
     : stage
-      ? isCrossStage
+      ? isIntuitiveCrossStage
         ? []
         : chunkMoves(solution.moves.slice(stage.start, stage.end), stage.start)
       : chunkMoves(solution.moves, 0);

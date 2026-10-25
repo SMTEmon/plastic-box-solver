@@ -41,6 +41,9 @@ export default function SolveWorkspace() {
   const assisted = useCubeStore((s) => s.assisted);
   const solved = useCubeStore((s) => s.isSolved());
   const stage = useCubeStore((s) => s.currentStage());
+  const facelets = useCubeStore((s) => s.facelets);
+  const focusMode = useCubeStore((s) => s.focusMode);
+  const toggleFocusMode = useCubeStore((s) => s.toggleFocusMode);
   const token = useAuthStore((s) => s.token);
 
   const turnCount = useMemo(
@@ -63,7 +66,7 @@ export default function SolveWorkspace() {
   const [autoTrackCamera, setAutoTrackCamera] = useState(true);
   const lastTrackedFaceRef = useRef(null);
 
-  const activeGuide = getStageGuide(stage?.name);
+  const activeGuide = getStageGuide(stage?.name, facelets);
 
   // Clean up any pending playback timer on unmount
   useEffect(() => {
@@ -439,6 +442,24 @@ export default function SolveWorkspace() {
                 </button>
                 {guided && (
                   <>
+                    <div className="w-px h-3.5 bg-dark-border mx-0.5" />
+                    <button
+                      type="button"
+                      onClick={toggleFocusMode}
+                      title={
+                        focusMode
+                          ? "Focus Mode: ON (dims non-target layers - click to disable)"
+                          : "Focus Mode: OFF (click to ghost inactive layers)"
+                      }
+                      className={`px-2 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-colors flex items-center gap-1 ${
+                        focusMode
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <span>{focusMode ? "👁" : "👁‍🗨"}</span>
+                      <span>Focus {focusMode ? "ON" : "OFF"}</span>
+                    </button>
                     <div className="w-px h-3.5 bg-dark-border mx-0.5" />
                     <button
                       type="button"
