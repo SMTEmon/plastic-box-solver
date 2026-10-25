@@ -53,6 +53,7 @@ export default function CameraScan({ onScanComplete, onCancel }) {
   const isMountedRef = useRef(false);
   const isStartingRef = useRef(false);
   const sessionIdRef = useRef(0);
+  const blobUrlsRef = useRef(new Set());
 
   const currentFace = FACE_STEPS[currentStepIndex];
 
@@ -165,12 +166,12 @@ export default function CameraScan({ onScanComplete, onCancel }) {
 
   // Clean up blob URLs when component unmounts
   useEffect(() => {
+    const urls = blobUrlsRef.current;
     return () => {
-      Object.values(capturedImages).forEach((img) => {
-        if (img?.previewUrl) URL.revokeObjectURL(img.previewUrl);
-      });
+      urls.forEach((url) => URL.revokeObjectURL(url));
+      urls.clear();
     };
-  }, [capturedImages]);
+  }, []);
 
   // Capture current video frame
   const captureFrame = () => {
@@ -194,10 +195,12 @@ export default function CameraScan({ onScanComplete, onCancel }) {
           type: "image/jpeg",
         });
         const previewUrl = URL.createObjectURL(blob);
+        blobUrlsRef.current.add(previewUrl);
 
         setCapturedImages((prev) => {
           if (prev[currentFace.key]?.previewUrl) {
             URL.revokeObjectURL(prev[currentFace.key].previewUrl);
+            blobUrlsRef.current.delete(prev[currentFace.key].previewUrl);
           }
           const next = {
             ...prev,
