@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { getStageGuide, getCenterInfo } from "../cube/stageGuides.js";
+import {
+  chunkMoves,
+  getTurnDirection,
+  TRIGGER_COLORS,
+} from "../cube/triggerChunker.js";
 import { useAuthStore } from "../store/authStore.js";
 import { useCubeStore, MODES } from "../store/cubeStore.js";
 
@@ -41,6 +46,23 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
       ? getCenterInfo(facelets, activeGuide.targetFace)
       : null;
   const frontCenterInfo = getCenterInfo(facelets, "F");
+
+  const isCrossStage = stage?.name?.toLowerCase().includes("cross");
+
+  const stageChunks =
+    stage && solution?.moves
+      ? isCrossStage
+        ? solution.moves.slice(stage.start, stage.end).map((m, idx) => ({
+            type: "single",
+            move: m,
+            startIndex: stage.start + idx,
+            endIndex: stage.start + idx + 1,
+          }))
+        : chunkMoves(
+            solution.moves.slice(stage.start, stage.end),
+            stage.start,
+          )
+      : [];
 
   // Auto-scroll active move in current stage moves sequence
   useEffect(() => {
@@ -157,31 +179,114 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
                   </div>
                   <div
                     ref={sidebarMovesRef}
-                    className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1 scrollbar-thin scroll-smooth"
+                    className="flex flex-wrap items-center gap-1.5 max-h-48 overflow-y-auto pr-1 scrollbar-thin scroll-smooth"
                   >
-                    {solution.moves
-                      .slice(stage.start, stage.end)
-                      .map((m, mIdx) => {
-                        const globalIdx = stage.start + mIdx;
-                        const isCurrent = globalIdx === cursor;
-                        const isPast = globalIdx < cursor;
+                    {stageChunks.map((chunk) => {
+                      if (chunk.type === "trigger") {
+                        const isInside =
+                          cursor >= chunk.startIndex && cursor < chunk.endIndex;
+                        const isDone = cursor >= chunk.endIndex;
+                        const colorPreset =
+                          TRIGGER_COLORS[chunk.color] || TRIGGER_COLORS.cyan;
 
                         return (
-                          <span
-                            key={globalIdx}
-                            data-active={isCurrent ? "true" : undefined}
-                            className={`text-xs font-mono px-2.5 py-1 rounded-xl transition-all font-bold shrink-0 ${
-                              isCurrent
-                                ? "bg-neon-blue text-black shadow-lg shadow-neon-blue/30 scale-105 border-2 border-cyan-200 ring-2 ring-neon-blue/30"
-                                : isPast
-                                  ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20 line-through"
-                                  : "bg-dark-bg text-gray-300 border border-dark-border"
+                          <div
+                            key={`chunk-${chunk.startIndex}`}
+                            className={`p-1.5 rounded-xl border flex flex-col gap-1 transition-all shrink-0 ${
+                              isInside
+                                ? `${colorPreset.border} bg-white/[0.04] ring-1 ring-neon-blue/30`
+                                : isDone
+                                  ? "border-emerald-500/20 bg-emerald-500/[0.02] opacity-80"
+                                  : "border-dark-border bg-dark-bg/60"
                             }`}
                           >
-                            {m}
-                          </span>
+                            <div className="flex items-center justify-between gap-1.5 px-0.5">
+                              <span
+                                className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border select-none ${colorPreset.badge}`}
+                                title={chunk.description}
+                              >
+                                {chunk.badge}
+                              </span>
+                              {isInside ? (
+                                <span className="text-[9px] font-mono text-neon-blue font-bold">
+                                  {cursor - chunk.startIndex + 1}/{chunk.moves.length}
+                                </span>
+                              ) : isDone ? (
+                                <span className="text-[9px] text-emerald-400 font-bold">
+                                  ✓
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {chunk.moves.map((m, idx) => {
+                                const globalIdx = chunk.startIndex + idx;
+                                const isCurrent = globalIdx === cursor;
+                                const isPast = globalIdx < cursor;
+                                const dir = getTurnDirection(m);
+
+                                return (
+                                  <span
+                                    key={globalIdx}
+                                    data-active={isCurrent ? "true" : undefined}
+                                    title={`${m}: ${dir.label}`}
+                                    className={`text-xs font-mono px-2 py-0.5 rounded-lg transition-all font-bold shrink-0 flex items-center gap-0.5 ${
+                                      isCurrent
+                                        ? "bg-neon-blue text-black shadow-md shadow-neon-blue/30 scale-105 border border-cyan-200 ring-1 ring-neon-blue/40"
+                                        : isPast
+                                          ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20 line-through"
+                                          : "bg-black/30 text-gray-300 border border-dark-border/60"
+                                    }`}
+                                  >
+                                    <span>{m}</span>
+                                    <span
+                                      className={`text-[10px] select-none ${
+                                        isCurrent
+                                          ? "text-black/80 font-bold"
+                                          : "text-gray-500 font-normal"
+                                      }`}
+                                    >
+                                      {dir.arrow}
+                                    </span>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
                         );
-                      })}
+                      }
+
+                      // Single move
+                      const globalIdx = chunk.startIndex;
+                      const isCurrent = globalIdx === cursor;
+                      const isPast = globalIdx < cursor;
+                      const dir = getTurnDirection(chunk.move);
+
+                      return (
+                        <span
+                          key={globalIdx}
+                          data-active={isCurrent ? "true" : undefined}
+                          title={`${chunk.move}: ${dir.label}`}
+                          className={`text-xs font-mono px-2.5 py-1 rounded-xl transition-all font-bold shrink-0 flex items-center gap-1 self-center ${
+                            isCurrent
+                              ? "bg-neon-blue text-black shadow-lg shadow-neon-blue/30 scale-105 border-2 border-cyan-200 ring-2 ring-neon-blue/30"
+                              : isPast
+                                ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20 line-through"
+                                : "bg-dark-bg text-gray-300 border border-dark-border"
+                          }`}
+                        >
+                          <span>{chunk.move}</span>
+                          <span
+                            className={`text-[10px] select-none ${
+                              isCurrent
+                                ? "text-black/80 font-bold"
+                                : "text-gray-500 font-normal"
+                            }`}
+                          >
+                            {dir.arrow}
+                          </span>
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -367,12 +472,14 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
                           const globalIdx = stg.start + mIdx;
                           const isMCurrent = globalIdx === cursor;
                           const isMPast = globalIdx < cursor;
+                          const dir = getTurnDirection(m);
 
                           return (
                             <span
                               key={globalIdx}
                               data-active={isMCurrent ? "true" : undefined}
-                              className={`text-[11px] font-mono px-2 py-0.5 rounded-md transition-all font-bold ${
+                              title={`${m}: ${dir.label}`}
+                              className={`text-[11px] font-mono px-1.5 py-0.5 rounded-md transition-all font-bold flex items-center gap-0.5 ${
                                 isMCurrent
                                   ? "bg-neon-blue text-black shadow scale-105 border border-cyan-200"
                                   : isMPast
@@ -380,7 +487,14 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
                                     : "text-gray-300 bg-black/20"
                               }`}
                             >
-                              {m}
+                              <span>{m}</span>
+                              <span
+                                className={`text-[9px] select-none ${
+                                  isMCurrent ? "text-black/80 font-bold" : "text-gray-500"
+                                }`}
+                              >
+                                {dir.arrow}
+                              </span>
                             </span>
                           );
                         })}

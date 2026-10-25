@@ -1,6 +1,12 @@
 import { useEffect, useRef } from "react";
 import MoveButtons from "./MoveButtons";
 import { getMoveDescription } from "../cube/stageGuides.js";
+import {
+  chunkMoves,
+  getTriggerAtMove,
+  getTurnDirection,
+  TRIGGER_COLORS,
+} from "../cube/triggerChunker.js";
 import { useCubeStore, MODES } from "../store/cubeStore.js";
 
 function SpeedControl({ speed, onSetSpeed }) {
@@ -43,6 +49,21 @@ export default function SolveControlsDock({
   const history = useCubeStore((s) => s.history);
   const redoStack = useCubeStore((s) => s.redoStack);
   const stage = useCubeStore((s) => s.currentStage());
+
+  const currentMove = solution?.moves?.[cursor];
+  const turnDir = getTurnDirection(currentMove);
+
+  const isCrossStage = stage?.name?.toLowerCase().includes("cross");
+
+  const activeChunks = !solution?.moves
+    ? []
+    : stage
+      ? isCrossStage
+        ? []
+        : chunkMoves(solution.moves.slice(stage.start, stage.end), stage.start)
+      : chunkMoves(solution.moves, 0);
+
+  const activeTrigger = getTriggerAtMove(activeChunks, cursor);
 
   const autoTapeRef = useRef(null);
 
@@ -98,25 +119,51 @@ export default function SolveControlsDock({
         cursor < solution.moves.length ? (
           <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-3">
             {/* Left: Active Move Focus */}
-            <div className="flex items-center gap-3 min-w-[180px] max-w-[300px] shrink-0">
-              <div className="w-13 h-13 rounded-xl bg-neon-blue text-black flex items-center justify-center font-mono font-black text-2xl shadow-lg shadow-neon-blue/25 border-2 border-cyan-200 shrink-0 select-none">
-                {solution.moves[cursor]}
+            <div className="flex items-center gap-3 min-w-[200px] max-w-[340px] shrink-0">
+              <div
+                className="relative w-13 h-13 rounded-xl bg-neon-blue text-black flex items-center justify-center font-mono font-black text-2xl shadow-lg shadow-neon-blue/25 border-2 border-cyan-200 shrink-0 select-none"
+                title={`${solution.moves[cursor]}: ${turnDir.label}`}
+              >
+                <span>{solution.moves[cursor]}</span>
+                <span className="absolute bottom-0.5 right-1 text-[11px] font-bold text-black/75">
+                  {turnDir.arrow}
+                </span>
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-neon-blue/15 text-neon-blue border border-neon-blue/30 shrink-0">
                     {mode === MODES.AUTO
                       ? `Auto-Solve ${cursor + 1}/${solution.moves.length}`
                       : `Move ${cursor + 1}/${solution.moves.length}`}
                   </span>
+                  {activeTrigger && (
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                        TRIGGER_COLORS[activeTrigger.color]?.badge ??
+                        "bg-cyan-400/15 text-cyan-300 border-cyan-400/30"
+                      }`}
+                      title={activeTrigger.description}
+                    >
+                      {activeTrigger.badge} ({activeTrigger.stepInTrigger}/{activeTrigger.totalSteps})
+                    </span>
+                  )}
                   {mode === MODES.GUIDED && stage?.name && (
                     <span className="text-xs font-semibold text-gray-300 truncate">
                       {stage.name}
                     </span>
                   )}
                 </div>
-                <div className="text-xs font-bold text-white mt-0.5 truncate">
-                  {getMoveDescription(solution.moves[cursor])}
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs font-bold text-white truncate">
+                    {getMoveDescription(solution.moves[cursor])}
+                  </span>
+                  <span
+                    className="inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded bg-white/10 text-gray-300 border border-white/10 shrink-0"
+                    title={turnDir.label}
+                  >
+                    <span>{turnDir.arrow}</span>
+                    <span>{turnDir.short}</span>
+                  </span>
                 </div>
                 <div className="text-[11px] text-gray-400 font-mono">
                   {cursor + 1 < solution.moves.length ? (
@@ -207,21 +254,32 @@ export default function SolveControlsDock({
                 ref={autoTapeRef}
                 className="hidden lg:flex items-center gap-1 overflow-x-auto max-w-sm py-1 px-2 bg-dark-bg/60 border border-dark-border rounded-xl"
               >
-                {solution.moves.map((m, i) => (
-                  <span
-                    key={i}
-                    data-active={i === cursor ? "true" : undefined}
-                    className={`text-[11px] font-mono px-2 py-0.5 rounded shrink-0 transition-all font-bold ${
-                      i === cursor
-                        ? "bg-neon-blue text-black shadow-sm scale-105 border border-cyan-300"
-                        : i < cursor
-                          ? "text-gray-500 line-through"
-                          : "text-gray-400 bg-white/5"
-                    }`}
-                  >
-                    {m}
-                  </span>
-                ))}
+                {solution.moves.map((m, i) => {
+                  const dir = getTurnDirection(m);
+                  return (
+                    <span
+                      key={i}
+                      data-active={i === cursor ? "true" : undefined}
+                      title={`${m}: ${dir.label}`}
+                      className={`text-[11px] font-mono px-2 py-0.5 rounded shrink-0 transition-all font-bold flex items-center gap-0.5 ${
+                        i === cursor
+                          ? "bg-neon-blue text-black shadow-sm scale-105 border border-cyan-300"
+                          : i < cursor
+                            ? "text-gray-500 line-through"
+                            : "text-gray-400 bg-white/5"
+                      }`}
+                    >
+                      <span>{m}</span>
+                      <span
+                        className={`text-[9px] select-none ${
+                          i === cursor ? "text-black/80 font-bold" : "text-gray-500"
+                        }`}
+                      >
+                        {dir.arrow}
+                      </span>
+                    </span>
+                  );
+                })}
               </div>
             )}
           </div>
