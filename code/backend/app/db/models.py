@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 class User(Base):
     __tablename__ = "users"
@@ -10,7 +10,7 @@ class User(Base):
     display_name = Column(String, unique=True, index=True)    # shown on leaderboard (FR-03)
     avatar = Column(String, nullable=True)                    # avatar URL / identifier (FR-03)
     hashed_password = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     solves = relationship("Solve", back_populates="user")
 
 class Solve(Base):
@@ -24,5 +24,5 @@ class Solve(Base):
     scramble = Column(String)
     solution = Column(String)
     method = Column(String, default="Beginner")
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     user = relationship("User", back_populates="solves")
