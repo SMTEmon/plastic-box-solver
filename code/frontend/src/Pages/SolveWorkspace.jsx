@@ -133,6 +133,11 @@ export default function SolveWorkspace() {
   const optimalMoveCount = useCubeStore((s) => s.optimalMoveCount);
   const redoStack = useCubeStore((s) => s.redoStack);
 
+  const turnCount = useMemo(
+    () => history.filter((m) => !["X", "Y", "Z"].includes(m[0])).length,
+    [history],
+  );
+
   const token = useAuthStore((s) => s.token);
 
   const animatorRef = useRef(null);
@@ -357,7 +362,7 @@ export default function SolveWorkspace() {
       submittedRef.current = false;
       return;
     }
-    if (assisted || !history.length || !token) return;
+    if (assisted || !turnCount || !token) return;
     if (submittedRef.current) return;
     submittedRef.current = true;
 
@@ -374,7 +379,7 @@ export default function SolveWorkspace() {
         }
         await solvesApi.create({
           solve_time: Math.max(0.01, s.elapsedSeconds()),
-          move_count: s.history.length,
+          move_count: turnCount,
           optimal_moves: optMoves,
           method: "CFOP",
           scramble: s.initial,
@@ -389,7 +394,7 @@ export default function SolveWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [solved, assisted, history.length, token, initial]);
+  }, [solved, assisted, turnCount, token, initial]);
 
   // --- user moves ---------------------------------------------------------
 
@@ -861,7 +866,7 @@ export default function SolveWorkspace() {
                   Moves
                 </span>
                 <span className="font-mono text-sm sm:text-lg font-bold text-white">
-                  {history.length}{" "}
+                  {turnCount}{" "}
                   <span className="text-xs text-gray-400 font-normal">
                     / cfop {optimalMoveCount || "?"}
                   </span>
@@ -880,18 +885,13 @@ export default function SolveWorkspace() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 animate-morph-in">
-              <span className="text-sm">⚠️</span>
-              <div className="leading-tight">
-                <span className="text-xs font-semibold block">
-                  {mode === MODES.GUIDED
-                    ? "Guided Solve"
-                    : mode === MODES.AUTO
-                      ? "Auto-Solve"
-                      : "Interactive Solve"}{" "}
-                  — Assisted Run
+            <div className="flex items-center gap-2.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 animate-morph-in">
+              <span className="text-base sm:text-lg select-none">⚠️</span>
+              <div className="leading-snug">
+                <span className="text-xs sm:text-sm font-bold text-amber-200 block">
+                  Assisted Run
                 </span>
-                <span className="text-[10px] text-amber-300/80">
+                <span className="text-[11px] sm:text-xs text-amber-300/80 block">
                   Timer &amp; leaderboard submission disabled
                 </span>
               </div>
@@ -1315,10 +1315,14 @@ export default function SolveWorkspace() {
                   <div className="hidden sm:block text-[11px] text-gray-400 text-center">
                     Turn:{" "}
                     <span className="font-mono text-gray-200">U D L R F B</span>{" "}
+                    &middot; Middle:{" "}
+                    <span className="font-mono text-gray-200">M E S</span>{" "}
+                    &middot; Rotate:{" "}
+                    <span className="font-mono text-gray-200">← → ↑ ↓</span>{" "}
                     &middot;{" "}
                     <span className="font-mono text-gray-200">Shift</span>{" "}
                     counter &middot;{" "}
-                    <span className="font-mono text-gray-200">2</span> double
+                    Hold <span className="font-mono text-gray-200">2</span> double
                     &middot;{" "}
                     <span className="font-mono text-gray-200">Ctrl+Z</span> undo
                   </div>
@@ -1358,7 +1362,7 @@ export default function SolveWorkspace() {
                   </div>
                   {!assisted && (
                     <div className="text-xs text-gray-400">
-                      {elapsed.toFixed(1)}s &middot; {history.length} moves
+                      {elapsed.toFixed(1)}s &middot; {turnCount} moves
                     </div>
                   )}
                   {saveState === "saving" && (

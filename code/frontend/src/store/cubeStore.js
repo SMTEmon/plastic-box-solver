@@ -91,7 +91,8 @@ export const useCubeStore = create((set, get) => ({
       const next = applyMoveToFacelets(s.facelets, move);
       const solved = isSolved(next);
       const now = Date.now();
-      const startedAt = s.startedAt ?? (countIt ? now : (solved ? now : null));
+      const isRot = Boolean(move && ["X", "Y", "Z"].includes(move[0]));
+      const startedAt = s.startedAt ?? (countIt && !isRot ? now : (solved ? now : null));
       return {
         facelets: next,
         history: countIt ? [...s.history, move] : s.history,
@@ -162,8 +163,9 @@ export const useCubeStore = create((set, get) => ({
    */
   efficiency: () => {
     const { optimalMoveCount, history } = get();
-    if (!history.length || !optimalMoveCount) return 0;
-    return Math.min(100, (optimalMoveCount / history.length) * 100);
+    const turns = history.filter((m) => !["X", "Y", "Z"].includes(m[0])).length;
+    if (!turns || !optimalMoveCount) return 0;
+    return Math.min(100, (optimalMoveCount / turns) * 100);
   },
 
   isSolved: () => isSolved(get().facelets),
