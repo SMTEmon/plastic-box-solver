@@ -1,0 +1,398 @@
+import { useEffect, useRef, useState } from "react";
+import { getStageGuide, getCenterInfo } from "../cube/stageGuides.js";
+import { useAuthStore } from "../store/authStore.js";
+import { useCubeStore, MODES } from "../store/cubeStore.js";
+
+export function Panel({ title, children, className = "" }) {
+  return (
+    <div
+      className={`bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl p-4 shadow-sm ${className}`}
+    >
+      {title && (
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-3 flex items-center justify-between">
+          {title}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
+  const token = useAuthStore((s) => s.token);
+  const facelets = useCubeStore((s) => s.facelets);
+  const mode = useCubeStore((s) => s.mode);
+  const solution = useCubeStore((s) => s.solution);
+  const cursor = useCubeStore((s) => s.cursor);
+  const assisted = useCubeStore((s) => s.assisted);
+  const solved = useCubeStore((s) => s.isSolved());
+  const stage = useCubeStore((s) => s.currentStage());
+
+  const [sidebarTab, setSidebarTab] = useState("coach"); // "coach" | "all_stages"
+  const sidebarMovesRef = useRef(null);
+  const allStagesRef = useRef(null);
+
+  const activeGuide = getStageGuide(stage?.name);
+
+  const targetCenterInfo =
+    activeGuide?.targetFace &&
+    activeGuide.targetFace !== "Middle" &&
+    activeGuide.targetFace !== "All"
+      ? getCenterInfo(facelets, activeGuide.targetFace)
+      : null;
+  const frontCenterInfo = getCenterInfo(facelets, "F");
+
+  // Auto-scroll active move in current stage moves sequence
+  useEffect(() => {
+    sidebarMovesRef.current
+      ?.querySelector('[data-active="true"]')
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [cursor, stage, sidebarTab]);
+
+  // Auto-scroll active stage card in All Stages view
+  useEffect(() => {
+    if (sidebarTab !== "all_stages") return;
+    allStagesRef.current
+      ?.querySelector('[data-active-stage="true"]')
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [cursor, stage, sidebarTab]);
+
+  const guided = mode === MODES.GUIDED && solution;
+
+  return (
+    <div className="lg:col-span-1 flex flex-col gap-3 min-h-0 lg:h-full lg:overflow-y-auto pr-0.5">
+      {solved && (
+        <Panel title="Result" className="border-neon-green/40 shadow-sm">
+          <div className="text-neon-green font-bold text-sm mb-1 flex items-center gap-1.5">
+            <span>🎉</span>
+            <span>Cube Solved!</span>
+          </div>
+          {!assisted && (
+            <div className="text-xs text-gray-400">
+              {elapsed.toFixed(1)}s &middot; {turnCount} moves
+            </div>
+          )}
+          {saveState === "saving" && (
+            <div className="text-[11px] text-gray-400 mt-1.5">
+              Saving solve to your history...
+            </div>
+          )}
+          {saveState === "saved" && (
+            <div className="text-[11px] text-neon-green mt-1.5">
+              ✓ Saved to your dashboard &amp; leaderboard.
+            </div>
+          )}
+          {!token && !assisted && (
+            <div className="text-[11px] text-amber-300 mt-1.5">
+              Log in to save your solve to the dashboard and leaderboard.
+            </div>
+          )}
+          {saveState && saveState !== "saving" && saveState !== "saved" && (
+            <div className="text-[11px] text-rose-400 mt-1.5">
+              Could not save solve: {saveState}
+            </div>
+          )}
+        </Panel>
+      )}
+
+      {error && (
+        <Panel title="Error" className="border-red-500/40">
+          <div className="text-xs text-red-400">{error}</div>
+        </Panel>
+      )}
+
+      {guided && (
+        <>
+          {/* Segmented Tab Controls: Coach & Moves vs All Stages */}
+          <div className="flex rounded-xl bg-dark-bg/80 p-1 border border-dark-border text-xs shrink-0">
+            <button
+              type="button"
+              onClick={() => setSidebarTab("coach")}
+              className={`flex-1 py-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center ${
+                sidebarTab === "coach"
+                  ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Coach & Moves
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarTab("all_stages")}
+              className={`flex-1 py-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center ${
+                sidebarTab === "all_stages"
+                  ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              All Stages ({solution.stages.length})
+            </button>
+          </div>
+
+          {sidebarTab === "coach" ? (
+            /* --- Tab 1: Coach & Current Stage Moves View --- */
+            stage ? (
+              <Panel
+                title={
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-white font-bold">{stage.name}</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neon-blue/15 text-neon-blue border border-neon-blue/30 font-semibold">
+                      {Math.max(
+                        0,
+                        Math.min(
+                          stage.end - stage.start,
+                          cursor - stage.start,
+                        ),
+                      )}
+                      /{stage.end - stage.start} done
+                    </span>
+                  </div>
+                }
+                className="border-neon-blue/30"
+              >
+                {/* The moves for this specific stage */}
+                <div className="space-y-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    Stage Moves Sequence:
+                  </div>
+                  <div
+                    ref={sidebarMovesRef}
+                    className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1 scrollbar-thin scroll-smooth"
+                  >
+                    {solution.moves
+                      .slice(stage.start, stage.end)
+                      .map((m, mIdx) => {
+                        const globalIdx = stage.start + mIdx;
+                        const isCurrent = globalIdx === cursor;
+                        const isPast = globalIdx < cursor;
+
+                        return (
+                          <span
+                            key={globalIdx}
+                            data-active={isCurrent ? "true" : undefined}
+                            className={`text-xs font-mono px-2.5 py-1 rounded-xl transition-all font-bold shrink-0 ${
+                              isCurrent
+                                ? "bg-neon-blue text-black shadow-lg shadow-neon-blue/30 scale-105 border-2 border-cyan-200 ring-2 ring-neon-blue/30"
+                                : isPast
+                                  ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20 line-through"
+                                  : "bg-dark-bg text-gray-300 border border-dark-border"
+                            }`}
+                          >
+                            {m}
+                          </span>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {/* Stage Algorithm box if available */}
+                {activeGuide?.formula && (
+                  <div className="bg-dark-bg/90 border border-dark-border rounded-xl p-2.5 text-center my-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-0.5">
+                      Algorithm
+                    </div>
+                    <div className="font-mono text-sm font-bold text-neon-blue tracking-wider">
+                      {activeGuide.formula}
+                    </div>
+                  </div>
+                )}
+
+                {/* Target Face & Reference Center */}
+                <div className="mt-3 pt-2.5 border-t border-dark-border text-xs space-y-1.5">
+                  {activeGuide?.targetFace &&
+                    activeGuide.targetFace !== "Middle" &&
+                    activeGuide.targetFace !== "All" && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">Target Face:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-white">
+                            {activeGuide.targetLabel ?? activeGuide.title}
+                          </span>
+                          {targetCenterInfo && (
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 ${targetCenterInfo.bg} ${targetCenterInfo.text} ${targetCenterInfo.border}`}
+                            >
+                              <span>{targetCenterInfo.dot}</span>
+                              <span>{targetCenterInfo.name}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                  {frontCenterInfo && (
+                    <div className="flex items-center justify-between text-gray-400 text-[11px]">
+                      <span>Reference Front (F):</span>
+                      <span className="font-medium text-gray-200 flex items-center gap-1">
+                        <span>{frontCenterInfo.dot}</span>
+                        <span>{frontCenterInfo.name}</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Coach Tip & Learn */}
+                {activeGuide?.tip && (
+                  <p className="text-xs text-gray-300 leading-relaxed mt-3 pt-2.5 border-t border-dark-border">
+                    {activeGuide.tip}
+                  </p>
+                )}
+
+                {activeGuide?.learn && (
+                  <div className="mt-2.5 pt-2 border-t border-dark-border text-[11px] text-gray-400 space-y-1.5">
+                    {activeGuide.learn.humanNote && (
+                      <p>
+                        <span className="text-amber-400 font-semibold">
+                          Human Tip:
+                        </span>{" "}
+                        {activeGuide.learn.humanNote}
+                      </p>
+                    )}
+                    {activeGuide.learn.engineNote && (
+                      <p>
+                        <span className="text-neon-blue font-semibold">
+                          Engine:
+                        </span>{" "}
+                        {activeGuide.learn.engineNote}
+                      </p>
+                    )}
+                    {activeGuide.learn.jpermUrl && (
+                      <a
+                        href={activeGuide.learn.jpermUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-neon-blue hover:underline text-[10px] font-medium pt-1"
+                      >
+                        Learn on JPerm.net &rarr;
+                      </a>
+                    )}
+                  </div>
+                )}
+              </Panel>
+            ) : (
+              <Panel title="Solve Complete" className="border-emerald-500/40">
+                <div className="text-center py-4 space-y-2">
+                  <div className="text-3xl">🎉</div>
+                  <div className="font-bold text-white text-sm">
+                    All Stages Solved!
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    You successfully completed all {solution.stages.length}{" "}
+                    stages of the{" "}
+                    {solution.method_used?.toUpperCase() || "Guided"} solve.
+                  </div>
+                </div>
+              </Panel>
+            )
+          ) : (
+            /* --- Tab 2: All Stages Overview View --- */
+            <Panel
+              title={
+                <div className="flex items-center justify-between w-full">
+                  <span>All Stages ({solution.stages.length})</span>
+                  {solution.method_used && (
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        solution.method_used === "cfop"
+                          ? "bg-amber-400/20 text-amber-300 border border-amber-400/40"
+                          : "bg-neon-blue/20 text-neon-blue border border-neon-blue/40"
+                      }`}
+                    >
+                      {solution.method_used.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              }
+            >
+              <div
+                ref={allStagesRef}
+                className="space-y-3 max-h-[460px] overflow-y-auto pr-1"
+              >
+                {solution.stages.map((stg) => {
+                  const isDone = cursor >= stg.end;
+                  const isCurrent = stage?.name === stg.name;
+                  const stageMoves = solution.moves.slice(stg.start, stg.end);
+                  const movesDone = Math.max(
+                    0,
+                    Math.min(stg.end - stg.start, cursor - stg.start),
+                  );
+
+                  return (
+                    <div
+                      key={stg.name}
+                      data-active-stage={isCurrent ? "true" : undefined}
+                      className={`p-3 rounded-xl border transition-all ${
+                        isCurrent
+                          ? "border-neon-blue/40 bg-neon-blue/[0.04] ring-1 ring-neon-blue/20"
+                          : isDone
+                            ? "border-emerald-500/20 bg-emerald-500/[0.02]"
+                            : "border-dark-border bg-dark-bg/40 opacity-70"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              isCurrent
+                                ? "bg-neon-blue animate-pulse"
+                                : isDone
+                                  ? "bg-emerald-400"
+                                  : "bg-gray-600"
+                            }`}
+                          />
+                          <span className="font-bold text-xs text-white">
+                            {stg.name}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold ${
+                            isDone
+                              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                              : isCurrent
+                                ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/30"
+                                : "bg-white/5 text-gray-400"
+                          }`}
+                        >
+                          {isDone
+                            ? "✓ Done"
+                            : isCurrent
+                              ? `${movesDone}/${stg.end - stg.start}`
+                              : `${stg.end - stg.start} moves`}
+                        </span>
+                      </div>
+
+                      {/* Move tokens for this stage */}
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {stageMoves.map((m, mIdx) => {
+                          const globalIdx = stg.start + mIdx;
+                          const isMCurrent = globalIdx === cursor;
+                          const isMPast = globalIdx < cursor;
+
+                          return (
+                            <span
+                              key={globalIdx}
+                              data-active={isMCurrent ? "true" : undefined}
+                              className={`text-[11px] font-mono px-2 py-0.5 rounded-md transition-all font-bold ${
+                                isMCurrent
+                                  ? "bg-neon-blue text-black shadow scale-105 border border-cyan-200"
+                                  : isMPast
+                                    ? "text-emerald-400/70 line-through"
+                                    : "text-gray-300 bg-black/20"
+                              }`}
+                            >
+                              {m}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Panel>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
