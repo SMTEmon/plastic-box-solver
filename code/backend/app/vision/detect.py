@@ -58,13 +58,13 @@ def _to_lab(bgr) -> np.ndarray:
     return cv2.cvtColor(px, cv2.COLOR_BGR2LAB)[0][0].astype(float)
 
 
-def sample_face(image_bytes: bytes) -> list:
+def sample_face(image: bytes | np.ndarray) -> list:
     """Return 9 median BGR samples (row-major) from a single face image.
 
     Splits the frame into a 3x3 grid and takes the median colour of the middle
     ~50% of each cell so shadows and bevels at the cell edges are ignored.
     """
-    img = _decode(image_bytes)
+    img = _decode(image) if isinstance(image, (bytes, bytearray)) else image
     h, w = img.shape[:2]
     ch, cw = h // 3, w // 3
     margin = (1 - CELL_INNER) / 2
@@ -132,10 +132,10 @@ def detect_facelets(images: list) -> str:
     return "".join(out)
 
 
-def assess_quality(image_bytes: bytes) -> dict:
+def assess_quality(image: bytes | np.ndarray) -> dict:
     """Cheap per-face capture checks for FR-04 (prompt retake on bad frames)."""
     try:
-        img = _decode(image_bytes)
+        img = _decode(image) if isinstance(image, (bytes, bytearray)) else image
     except ValueError:
         return {"blurry": True, "dark": True}
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)

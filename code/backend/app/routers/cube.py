@@ -58,13 +58,18 @@ def scan(images: list[UploadFile] = File(...)):
             )
         contents.append(data)
 
+    try:
+        imgs = [detect._decode(b) for b in contents]
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
     faces = [
-        FaceQuality(face=letter, **detect.assess_quality(data))
-        for letter, data in zip("URFDLB", contents)
+        FaceQuality(face=letter, **detect.assess_quality(img))
+        for letter, img in zip("URFDLB", imgs)
     ]
 
     try:
-        facelets = detect.detect_facelets(contents)
+        facelets = detect.detect_facelets(imgs)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
