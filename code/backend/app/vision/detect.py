@@ -37,6 +37,13 @@ def _decode(image_bytes: bytes) -> np.ndarray:
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if img is None:
         raise ValueError("could not decode image")
+    h, w = img.shape[:2]
+    if h > 8192 or w > 8192:
+        raise ValueError(f"image dimensions {w}x{h} exceed maximum limit")
+    if h > 2048 or w > 2048:
+        scale = min(2048 / h, 2048 / w)
+        new_w, new_h = max(1, int(w * scale)), max(1, int(h * scale))
+        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
     return img
 
 
