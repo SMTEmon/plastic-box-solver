@@ -46,7 +46,7 @@ def history(db: Session = Depends(get_db), user=Depends(get_current_user)):
         .order_by(Solve.created_at.desc())
         .all()
     )
-    # FR-13b: personal best = fastest recorded solve. Empty history -> None,
-    # which the schema renders as null (FR-13a empty-state, not an error).
-    pb = min(solves, key=lambda s: s.solve_time, default=None)
+    # FR-13b: personal best = fastest recorded solve, ties broken by higher efficiency.
+    # Empty history -> None, which the schema renders as null (FR-13a empty-state, not an error).
+    pb = min(solves, key=lambda s: (s.solve_time, -(s.efficiency or 0.0)), default=None)
     return HistoryResponse(solves=solves, personal_best=pb)
