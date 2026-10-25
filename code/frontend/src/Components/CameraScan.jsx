@@ -50,49 +50,15 @@ export default function CameraScan({ onScanComplete, onCancel }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const isMountedRef = useRef(false);
   const isStartingRef = useRef(false);
+  const sessionIdRef = useRef(0);
 
   const currentFace = FACE_STEPS[currentStepIndex];
 
-  // Start webcam
-  const startCamera = useCallback(async () => {
-    if (isStartingRef.current) {
-      return;
-    }
-    isStartingRef.current = true;
-
-    try {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment",
-          width: { ideal: 640 },
-          height: { ideal: 640 },
-        },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setCameraError("");
-      setCameraActive(true);
-    } catch (err) {
-      setCameraError(
-        err.name === "NotAllowedError" || err.name === "PermissionDeniedError"
-          ? "Camera permission denied. Please allow camera access in your browser or use Manual Net."
-          : `Unable to access camera: ${err.message}`
-      );
-      setCameraActive(false);
-    } finally {
-      isStartingRef.current = false;
-    }
-  }, []);
-
   // Stop webcam and release video element source
   const stopCamera = useCallback(() => {
+    sessionIdRef.current += 1;
     isStartingRef.current = false;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -111,16 +77,75 @@ export default function CameraScan({ onScanComplete, onCancel }) {
     setCameraActive(false);
   }, []);
 
+  // Start webcam
+  const startCamera = useCallback(async () => {
+    if (isStartingRef.current) {
+      return;
+    }
+    isStartingRef.current = true;
+    const currentSession = ++sessionIdRef.current;
+
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        throw new Error("Camera API is not supported in this browser or context (requires HTTPS).");
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+          width: { ideal: 640 },
+          height: { ideal: 640 },
+        },
+      });
+
+      if (!isMountedRef.current || sessionIdRef.current !== currentSession) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      if (!isMountedRef.current || sessionIdRef.current !== currentSession) {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        }
+        return;
+      }
+
+      setCameraError("");
+      setCameraActive(true);
+    } catch (err) {
+      if (!isMountedRef.current || sessionIdRef.current !== currentSession) {
+        return;
+      }
+      setCameraError(
+        err.name === "NotAllowedError" || err.name === "PermissionDeniedError"
+          ? "Camera permission denied. Please allow camera access in your browser or use Manual Net."
+          : `Unable to access camera: ${err.message}`
+      );
+      setCameraActive(false);
+    } finally {
+      if (sessionIdRef.current === currentSession) {
+        isStartingRef.current = false;
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    let active = true;
+    isMountedRef.current = true;
     (async () => {
       await startCamera();
-      if (!active) {
-        stopCamera();
-      }
     })();
     return () => {
-      active = false;
+      isMountedRef.current = false;
       stopCamera();
     };
   }, [startCamera, stopCamera]);
