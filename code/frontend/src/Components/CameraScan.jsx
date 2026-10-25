@@ -55,7 +55,6 @@ export default function CameraScan({ onScanComplete, onCancel }) {
 
   // Start webcam
   const startCamera = useCallback(async () => {
-    setCameraError("");
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
@@ -72,6 +71,7 @@ export default function CameraScan({ onScanComplete, onCancel }) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
+      setCameraError("");
       setCameraActive(true);
     } catch (err) {
       setCameraError(
@@ -93,11 +93,27 @@ export default function CameraScan({ onScanComplete, onCancel }) {
   }, []);
 
   useEffect(() => {
-    startCamera();
+    let active = true;
+    (async () => {
+      await startCamera();
+      if (!active) {
+        stopCamera();
+      }
+    })();
     return () => {
+      active = false;
       stopCamera();
     };
   }, [startCamera, stopCamera]);
+
+  // Clean up blob URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      Object.values(capturedImages).forEach((img) => {
+        if (img?.previewUrl) URL.revokeObjectURL(img.previewUrl);
+      });
+    };
+  }, [capturedImages]);
 
   // Capture current video frame
   const captureFrame = () => {
@@ -122,29 +138,35 @@ export default function CameraScan({ onScanComplete, onCancel }) {
         });
         const previewUrl = URL.createObjectURL(blob);
 
-        setCapturedImages((prev) => ({
-          ...prev,
-          [currentFace.key]: { file, previewUrl },
-        }));
-
-        // Advance to next uncaptured face or stay
-        const nextIdx = FACE_STEPS.findIndex(
-          (step, idx) => idx > currentStepIndex && !capturedImages[step.key]
-        );
-        if (nextIdx !== -1) {
-          setCurrentStepIndex(nextIdx);
-        } else {
-          // Check if any prior face is missing
-          const anyMissing = FACE_STEPS.findIndex(
-            (step) => step.key !== currentFace.key && !capturedImages[step.key]
-          );
-          if (anyMissing !== -1) {
-            setCurrentStepIndex(anyMissing);
+        setCapturedImages((prev) => {
+          if (prev[currentFace.key]?.previewUrl) {
+            URL.revokeObjectURL(prev[currentFace.key].previewUrl);
           }
-        }
+          const next = {
+            ...prev,
+            [currentFace.key]: { file, previewUrl },
+          };
+
+          // Advance to next uncaptured face or stay using updated state
+          const nextIdx = FACE_STEPS.findIndex(
+            (step, idx) => idx > currentStepIndex && !next[step.key],
+          );
+          if (nextIdx !== -1) {
+            setCurrentStepIndex(nextIdx);
+          } else {
+            const anyMissing = FACE_STEPS.findIndex(
+              (step) => step.key !== currentFace.key && !next[step.key],
+            );
+            if (anyMissing !== -1) {
+              setCurrentStepIndex(anyMissing);
+            }
+          }
+
+          return next;
+        });
       },
       "image/jpeg",
-      0.92
+      0.92,
     );
   };
 

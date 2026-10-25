@@ -25,7 +25,7 @@ export default function Leaderboard() {
           setEntries(data || []);
           setError("");
         }
-      } catch (err) {
+      } catch {
         if (mounted) {
           setError("Failed to load leaderboard.");
         }

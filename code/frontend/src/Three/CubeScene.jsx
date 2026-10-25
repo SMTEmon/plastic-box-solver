@@ -10,18 +10,26 @@ import SwipeControls from "../Components/SwipeControls";
  *
  * onMove + swipeEnabled power the touch swipe-to-turn layer controls.
  */
-export default function CubeScene({ onAnimatorReady, controlsRef, onMove, swipeEnabled }) {
+export default function CubeScene({
+  onAnimatorReady,
+  controlsRef,
+  onMove,
+  swipeEnabled,
+}) {
   const cubeGroupRef = useRef();
+  const fallbackControlsRef = useRef();
+  const effectiveControlsRef = controlsRef ?? fallbackControlsRef;
+
   return (
     <Canvas camera={{ position: [3.4, 3.4, 3.4] }}>
       <Suspense fallback={null}>
         <Environment preset="forest" />
       </Suspense>
       <Cube onAnimatorReady={onAnimatorReady} cubeGroupRef={cubeGroupRef} />
-      <OrbitControls ref={controlsRef} target={[0, 0, 0]} enablePan={false} makeDefault />
+      <OrbitControls ref={effectiveControlsRef} target={[0, 0, 0]} enablePan={false} makeDefault />
       <SwipeControls
         cubeGroupRef={cubeGroupRef}
-        controlsRef={controlsRef}
+        controlsRef={effectiveControlsRef}
         onMove={onMove}
         enabled={swipeEnabled}
       />

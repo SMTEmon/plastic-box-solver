@@ -16,11 +16,10 @@ export default function Dashboard() {
   const loadingAuth = useAuthStore((s) => s.loading);
   
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(user));
 
   useEffect(() => {
     if (!user) {
-      setLoading(false);
       return;
     }
     

@@ -12,7 +12,7 @@ import { useCubeStore } from "../store/cubeStore.js";
 
 function Card({ title, right, children, className = "" }) {
   return (
-    <div className={`bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl p-4 shadow-sm ${className}`}>
+    <div className={`bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl p-3 sm:p-4 shadow-sm ${className}`}>
       <div className="flex items-center justify-between mb-3">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
           {title}
@@ -233,7 +233,7 @@ export default function CubeInput() {
 
   return (
     <AppShell>
-      <div className="flex gap-4 h-[calc(100vh-2rem)]">
+      <div className="flex flex-col lg:flex-row gap-4 min-h-0 lg:h-[calc(100vh-2rem)]">
         <div className="flex-1 flex flex-col gap-3 min-w-0">
           {/* ── header ──────────────────────────────────────────── */}
           <div className="flex flex-wrap items-center justify-between gap-3 bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl px-4 py-3 shadow-sm shrink-0">
@@ -244,7 +244,7 @@ export default function CubeInput() {
               <p className="text-[11px] text-gray-400">Input cube state via Camera Scan, Interactive 2D Net, or Scramble text.</p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={handleScramble}
                 disabled={busy}
@@ -308,7 +308,7 @@ export default function CubeInput() {
 
           {/* ── input workspace ──────────────────────────────────── */}
           <Card
-            className="flex-1 overflow-y-auto"
+            className={inputMode === "text" ? "shrink-0" : "flex-1 overflow-y-auto"}
             title={
               inputMode === "camera"
                 ? "Camera capture (OpenCV)"
@@ -347,9 +347,9 @@ export default function CubeInput() {
               />
             ) : (
               /* ── text mode ────────────────────────────────────── */
-              <div className="flex flex-col gap-3 h-full">
+              <div className="flex flex-col gap-3">
                 <textarea
-                  className="w-full flex-1 min-h-[320px] rounded-2xl p-4 bg-dark-bg/80 text-white border border-dark-border font-mono text-xs resize-none focus:outline-none focus:border-neon-blue/50 focus:shadow-sm transition-colors placeholder:text-gray-600 leading-relaxed"
+                  className="w-full h-24 sm:h-28 min-h-[88px] rounded-2xl p-3 bg-dark-bg/80 text-white border border-dark-border font-mono text-xs resize-none focus:outline-none focus:border-neon-blue/50 focus:shadow-sm transition-colors placeholder:text-gray-600 leading-relaxed"
                   value={inputStr}
                   onChange={handleInputChange}
                   spellCheck={false}
@@ -379,10 +379,36 @@ export default function CubeInput() {
               </div>
             )}
           </Card>
+
+          {/* In text mode, fill remaining main column space on desktop with 3D Preview */}
+          {inputMode === "text" && (
+            <Card title="3D State Preview" className="hidden lg:flex flex-1 min-h-[260px] flex-col">
+              <div className="flex-1 min-h-[200px] rounded-xl overflow-hidden bg-dark-bg/80 border border-dark-border flex items-center justify-center relative">
+                {facelets ? (
+                  <CubeScene />
+                ) : (
+                  <div className="text-xs text-gray-500 flex flex-col items-center gap-1.5">
+                    <span className="text-base opacity-40">⬡</span>
+                    <span>Enter 54 stickers or hit Scramble to preview</span>
+                  </div>
+                )}
+              </div>
+              {facelets && (
+                <div className="mt-2 text-[10px] text-gray-400 font-mono flex items-center justify-between border-t border-dark-border/60 pt-2 shrink-0">
+                  {Object.entries(faceletsToFaces(facelets))
+                    .map(([f, arr]) => (
+                      <span key={f} className="px-1.5 py-0.5 rounded bg-white/[0.03] border border-white/5">
+                        {f}:<strong className="text-white">{arr[4]}</strong>
+                      </span>
+                    ))}
+                </div>
+              )}
+            </Card>
+          )}
         </div>
 
         {/* ── sidebar ───────────────────────────────────────────── */}
-        <div className="w-80 flex flex-col gap-3 shrink-0 h-full overflow-y-auto pr-0.5">
+        <div className="w-full lg:w-80 flex flex-col gap-3 shrink-0 min-h-0 lg:h-full lg:overflow-y-auto pr-0.5">
           <Card title="Status & Launch">
             <div
               className={`text-xs font-semibold mb-3 flex items-center gap-2 transition-all duration-300 ${statusTone}`}
@@ -419,7 +445,10 @@ export default function CubeInput() {
             </div>
           </Card>
 
-          <Card title="3D State Preview">
+          <Card
+            title="3D State Preview"
+            className={inputMode === "text" ? "lg:hidden" : ""}
+          >
             <div className="h-52 rounded-xl overflow-hidden bg-dark-bg/80 border border-dark-border flex items-center justify-center relative">
               {facelets ? (
                 <CubeScene />
