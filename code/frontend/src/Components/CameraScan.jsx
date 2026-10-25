@@ -50,11 +50,17 @@ export default function CameraScan({ onScanComplete, onCancel }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const isStartingRef = useRef(false);
 
   const currentFace = FACE_STEPS[currentStepIndex];
 
   // Start webcam
   const startCamera = useCallback(async () => {
+    if (isStartingRef.current) {
+      return;
+    }
+    isStartingRef.current = true;
+
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
@@ -80,11 +86,14 @@ export default function CameraScan({ onScanComplete, onCancel }) {
           : `Unable to access camera: ${err.message}`
       );
       setCameraActive(false);
+    } finally {
+      isStartingRef.current = false;
     }
   }, []);
 
   // Stop webcam and release video element source
   const stopCamera = useCallback(() => {
+    isStartingRef.current = false;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
