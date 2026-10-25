@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
 from app.cube import solver, stages as stages_mod, validate as validate_mod
 from app.cube.scramble import random_scramble
@@ -19,8 +19,9 @@ MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB limit per image
 
 
 @router.post("/scramble", response_model=ScrambleResponse)
-def scramble(n_moves: int = 20):
-    facelets, moves = random_scramble(n_moves)
+def scramble(n_moves: int = Query(default=20, ge=1, le=100)):
+    n = n_moves if isinstance(n_moves, int) else 20
+    facelets, moves = random_scramble(n)
     return ScrambleResponse(facelets=facelets, moves=moves)
 
 
