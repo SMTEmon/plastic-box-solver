@@ -56,6 +56,13 @@ test("keyboard: Arrow keys with '2' held trigger double rotation (Y2, X2)", () =
   assert.deepStrictEqual(processKeyEvent({ key: "ArrowDown" }, true), { type: "move", move: "X2" });
 });
 
+test("keyboard: Arrow keys with Shift trigger double rotation (Y2, X2)", () => {
+  assert.deepStrictEqual(processKeyEvent({ key: "ArrowLeft", shiftKey: true }), { type: "move", move: "Y2" });
+  assert.deepStrictEqual(processKeyEvent({ key: "ArrowRight", shiftKey: true }), { type: "move", move: "Y2" });
+  assert.deepStrictEqual(processKeyEvent({ key: "ArrowUp", shiftKey: true }), { type: "move", move: "X2" });
+  assert.deepStrictEqual(processKeyEvent({ key: "ArrowDown", shiftKey: true }), { type: "move", move: "X2" });
+});
+
 test("keyboard: Undo (Ctrl+Z) and Redo (Ctrl+Shift+Z or Cmd)", () => {
   assert.deepStrictEqual(processKeyEvent({ key: "z", ctrlKey: true }), { type: "undo" });
   assert.deepStrictEqual(processKeyEvent({ key: "z", metaKey: true }), { type: "undo" });

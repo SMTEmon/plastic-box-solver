@@ -1322,7 +1322,8 @@ export default function SolveWorkspace() {
                     &middot;{" "}
                     <span className="font-mono text-gray-200">Shift</span>{" "}
                     counter &middot;{" "}
-                    Hold <span className="font-mono text-gray-200">2</span> double
+                    <span className="font-mono text-gray-200">2</span> /{" "}
+                    <span className="font-mono text-gray-200">Shift+Arrow</span> double
                     &middot;{" "}
                     <span className="font-mono text-gray-200">Ctrl+Z</span> undo
                   </div>
