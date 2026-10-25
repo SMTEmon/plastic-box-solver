@@ -16,13 +16,13 @@ class User(Base):
 class Solve(Base):
     __tablename__ = "solves"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    solve_time = Column(Float)        # seconds the user took
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    solve_time = Column(Float, index=True)        # seconds the user took
     move_count = Column(Integer)      # moves user actually did
     optimal_moves = Column(Integer)   # moves from the solution
     efficiency = Column(Float)        # (optimal/actual)*100
     scramble = Column(String)
     solution = Column(String)
     method = Column(String, default="Beginner")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
     user = relationship("User", back_populates="solves")
