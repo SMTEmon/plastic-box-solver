@@ -122,13 +122,13 @@ def detect_facelets(images: list) -> str:
 
     faces = [sample_face(b) for b in images]           # 6 x 9 median BGR samples
     centre_bgrs = [faces[f][4] for f in range(6)]      # local index 4 == centre
-    letters, white_letter = _label_centres(centre_bgrs)
-    refs = [(letters[f], _to_lab(centre_bgrs[f])) for f in range(6)]
+    centre_letters = ("w", "r", "g", "y", "o", "b")
+    refs = [(centre_letters[f], _to_lab(centre_bgrs[f])) for f in range(6)]
 
     out = []
     for f in range(6):
         for i in range(9):
-            out.append(_classify(faces[f][i], refs, white_letter))
+            out.append(_classify(faces[f][i], refs, "w"))
     return "".join(out)
 
 
