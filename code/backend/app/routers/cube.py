@@ -15,6 +15,8 @@ from app.vision import detect
 
 router = APIRouter(prefix="/api/cube", tags=["cube"])
 
+MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB limit per image
+
 
 @router.post("/scramble", response_model=ScrambleResponse)
 def scramble(n_moves: int = 20):
@@ -45,7 +47,15 @@ def scan(images: list[UploadFile] = File(...)):
             detail=f"expected 6 face images in URFDLB order, got {len(images)}",
         )
 
-    contents = [img.file.read() for img in images]
+    contents = []
+    for img in images:
+        data = img.file.read(MAX_IMAGE_BYTES + 1)
+        if len(data) > MAX_IMAGE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Image '{img.filename or 'upload'}' exceeds maximum size of 5MB",
+            )
+        contents.append(data)
 
     faces = [
         FaceQuality(face=letter, **detect.assess_quality(data))
