@@ -21,6 +21,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 #copy app source
 COPY . .
 
+#create non-root user and set permissions
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
 EXPOSE 8000
 
 #run uvicorn
