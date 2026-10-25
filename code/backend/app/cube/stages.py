@@ -80,35 +80,28 @@ def up_cross_matched(fl):
     return False
 
 
-_U_CORNERS = [
-    (6, 18, 38),  # UFL: U, F, L
-    (8, 20, 9),   # UFR: U, F, R
-    (2, 47, 11),  # UBR: U, B, R
-    (0, 45, 36),  # UBL: U, B, L
-]
-
-
 def corners_matched(fl):
     """Match corners (JPerm Step 6 / Niklas): all 4 top corners are in their
-    matching 3-colour position slots (even if not yet oriented upright)."""
+    matching 3-colour position slots (even if not yet oriented upright).
+    Verified directly against rubik_solver's placed_corners logic."""
     if not up_cross_matched(fl):
         return False
-    uc = fl[4]
-    for u_turn in ("", "U", "U2", "U'"):
-        tfl = apply_move(fl, u_turn) if u_turn else fl
-        f_c, r_c, b_c, l_c = tfl[2 * 9 + 4], tfl[1 * 9 + 4], tfl[5 * 9 + 4], tfl[4 * 9 + 4]
-        target_slots = [
-            {uc, f_c, l_c},
-            {uc, f_c, r_c},
-            {uc, b_c, r_c},
-            {uc, b_c, l_c},
-        ]
-        if all(
-            {tfl[c[0]], tfl[c[1]], tfl[c[2]]} == slot
-            for c, slot in zip(_U_CORNERS, target_slots)
-        ):
-            return True
-    return False
+    c_ufl = {fl[6], fl[18], fl[38]}
+    c_ufr = {fl[8], fl[20], fl[9]}
+    c_ubr = {fl[2], fl[45], fl[11]}
+    c_ubl = {fl[0], fl[47], fl[36]}
+
+    e_uf = fl[19]
+    e_ur = fl[10]
+    e_ub = fl[46]
+    e_ul = fl[37]
+
+    return (
+        e_uf in c_ufl and e_ul in c_ufl
+        and e_uf in c_ufr and e_ur in c_ufr
+        and e_ub in c_ubr and e_ur in c_ubr
+        and e_ub in c_ubl and e_ul in c_ubl
+    )
 
 
 def is_solved(fl):
