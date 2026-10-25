@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
@@ -21,21 +21,22 @@ oauth2_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=Fa
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=8)   # FR-01: at least 8 characters
+    password: str = Field(..., min_length=8, max_length=72)   # FR-01: at least 8 characters, max 72 for bcrypt
     display_name: str | None = None            # defaults to the email local-part
 
 
 @router.post("/register")
 def register(user: UserCreate, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.email == user.email).first():
+    normalized_email = user.email.strip().lower()
+    if db.query(User).filter(User.email == normalized_email).first():
         raise HTTPException(400, "Email already registered")
 
-    display_name = (user.display_name or user.email.split("@")[0]).strip()
+    display_name = (user.display_name or normalized_email.split("@")[0]).strip()
     if db.query(User).filter(User.display_name == display_name).first():
         raise HTTPException(400, "Display name taken")
 
     new_user = User(
-        email=user.email,
+        email=normalized_email,
         display_name=display_name,
         hashed_password=hash_password(user.password),
     )
@@ -48,7 +49,8 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # OAuth2PasswordRequestForm's `username` field carries the EMAIL here.
-    user = db.query(User).filter(User.email == form_data.username).first()
+    normalized_email = form_data.username.strip().lower()
+    user = db.query(User).filter(User.email == normalized_email).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(401, "Wrong email or password")
     token = create_access_token({"sub": user.email})
@@ -60,7 +62,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     email = decode_token(token)
     if not email:
         raise HTTPException(401, "Invalid token")
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(User.email == email.strip().lower()).first()
     if not user:
         raise HTTPException(404, "User not found")
     return user
@@ -68,11 +70,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 # Like get_current_user but returns None instead of raising when there is no
 # (or an invalid) token — for endpoints that are public but personalise when
-# authenticated, e.g. the leaderboard's "highlight my row".
+# an authenticated session exists (e.g. flagging "is_me" on the leaderboard).
 def get_optional_user(token: str | None = Depends(oauth2_optional), db: Session = Depends(get_db)):
     if not token:
         return None
     email = decode_token(token)
     if not email:
         return None
-    return db.query(User).filter(User.email == email).first()
+    return db.query(User).filter(User.email == email.strip().lower()).first()
