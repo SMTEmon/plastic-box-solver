@@ -50,14 +50,49 @@ export default function CameraScan({ onScanComplete, onCancel }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const isMountedRef = useRef(false);
+  const isStartingRef = useRef(false);
+  const sessionIdRef = useRef(0);
+  const blobUrlsRef = useRef(new Set());
 
   const currentFace = FACE_STEPS[currentStepIndex];
 
+  // Stop webcam and release video element source
+  const stopCamera = useCallback(() => {
+    sessionIdRef.current += 1;
+    isStartingRef.current = false;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      if (videoRef.current.srcObject && "getTracks" in videoRef.current.srcObject) {
+        try {
+          videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+        } catch {
+          // Ignore
+        }
+      }
+      videoRef.current.srcObject = null;
+    }
+    setCameraActive(false);
+  }, []);
+
   // Start webcam
   const startCamera = useCallback(async () => {
+    if (isStartingRef.current) {
+      return;
+    }
+    isStartingRef.current = true;
+    const currentSession = ++sessionIdRef.current;
+
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        throw new Error("Camera API is not supported in this browser or context (requires HTTPS).");
       }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -66,54 +101,77 @@ export default function CameraScan({ onScanComplete, onCancel }) {
           height: { ideal: 640 },
         },
       });
+
+      if (!isMountedRef.current || sessionIdRef.current !== currentSession) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          if (playErr.name === "AbortError") {
+            if (!isMountedRef.current || sessionIdRef.current !== currentSession) {
+              stream.getTracks().forEach((t) => t.stop());
+            }
+            return;
+          }
+          throw playErr;
+        }
       }
+
+      if (!isMountedRef.current || sessionIdRef.current !== currentSession) {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        }
+        return;
+      }
+
       setCameraError("");
       setCameraActive(true);
     } catch (err) {
+      if (err.name === "AbortError") {
+        return;
+      }
+      if (!isMountedRef.current || sessionIdRef.current !== currentSession) {
+        return;
+      }
       setCameraError(
         err.name === "NotAllowedError" || err.name === "PermissionDeniedError"
           ? "Camera permission denied. Please allow camera access in your browser or use Manual Net."
           : `Unable to access camera: ${err.message}`
       );
       setCameraActive(false);
+    } finally {
+      if (sessionIdRef.current === currentSession) {
+        isStartingRef.current = false;
+      }
     }
-  }, []);
-
-  // Stop webcam
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    setCameraActive(false);
   }, []);
 
   useEffect(() => {
-    let active = true;
+    isMountedRef.current = true;
     (async () => {
       await startCamera();
-      if (!active) {
-        stopCamera();
-      }
     })();
     return () => {
-      active = false;
+      isMountedRef.current = false;
       stopCamera();
     };
   }, [startCamera, stopCamera]);
 
   // Clean up blob URLs when component unmounts
   useEffect(() => {
+    const urls = blobUrlsRef.current;
     return () => {
-      Object.values(capturedImages).forEach((img) => {
-        if (img?.previewUrl) URL.revokeObjectURL(img.previewUrl);
-      });
+      urls.forEach((url) => URL.revokeObjectURL(url));
+      urls.clear();
     };
-  }, [capturedImages]);
+  }, []);
 
   // Capture current video frame
   const captureFrame = () => {
@@ -137,10 +195,12 @@ export default function CameraScan({ onScanComplete, onCancel }) {
           type: "image/jpeg",
         });
         const previewUrl = URL.createObjectURL(blob);
+        blobUrlsRef.current.add(previewUrl);
 
         setCapturedImages((prev) => {
           if (prev[currentFace.key]?.previewUrl) {
             URL.revokeObjectURL(prev[currentFace.key].previewUrl);
+            blobUrlsRef.current.delete(prev[currentFace.key].previewUrl);
           }
           const next = {
             ...prev,
@@ -189,6 +249,7 @@ export default function CameraScan({ onScanComplete, onCancel }) {
 
       // Successfully processed: provide the facelets and quality info to parent
       if (res.facelets) {
+        stopCamera();
         onScanComplete?.(res.facelets, res);
       }
     } catch (err) {

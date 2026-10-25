@@ -1,13 +1,14 @@
 from passlib.context import CryptContext
 from jose import JWTError, jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
+import secrets
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# We provide default fallback values so it works out of the box without a .env file
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback_secret_key_for_testing_only")
+# We default missing SECRET_KEY to a secure random token
+SECRET_KEY = os.getenv("SECRET_KEY") or secrets.token_urlsafe(32)
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
@@ -21,7 +22,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    to_encode["exp"] = datetime.utcnow() + timedelta(minutes=EXPIRE_MINUTES)
+    to_encode["exp"] = datetime.now(timezone.utc) + timedelta(minutes=EXPIRE_MINUTES)
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def decode_token(token: str):

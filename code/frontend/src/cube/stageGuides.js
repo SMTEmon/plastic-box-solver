@@ -207,3 +207,57 @@ export function getStageGuide(stageName) {
     }
   );
 }
+
+export const MOVE_DESCRIPTIONS = {
+  U: "Up face 90° clockwise",
+  "U'": "Up face 90° counter-clockwise",
+  U2: "Up face 180° double turn",
+  D: "Down face 90° clockwise",
+  "D'": "Down face 90° counter-clockwise",
+  D2: "Down face 180° double turn",
+  R: "Right face 90° clockwise",
+  "R'": "Right face 90° counter-clockwise",
+  R2: "Right face 180° double turn",
+  L: "Left face 90° clockwise",
+  "L'": "Left face 90° counter-clockwise",
+  L2: "Left face 180° double turn",
+  F: "Front face 90° clockwise",
+  "F'": "Front face 90° counter-clockwise",
+  F2: "Front face 180° double turn",
+  B: "Back face 90° clockwise",
+  "B'": "Back face 90° counter-clockwise",
+  B2: "Back face 180° double turn",
+  x: "Rotate cube along X axis",
+  "x'": "Rotate cube along X inverted",
+  x2: "Rotate cube 180° along X",
+  y: "Rotate cube along Y axis",
+  "y'": "Rotate cube along Y inverted",
+  y2: "Rotate cube 180° along Y",
+  z: "Rotate cube along Z axis",
+  "z'": "Rotate cube along Z inverted",
+  z2: "Rotate cube 180° along Z",
+  X: "Rotate cube along X axis",
+  "X'": "Rotate cube along X inverted",
+  X2: "Rotate cube 180° along X",
+  Y: "Rotate cube along Y axis",
+  "Y'": "Rotate cube along Y inverted",
+  Y2: "Rotate cube 180° along Y",
+  Z: "Rotate cube along Z axis",
+  "Z'": "Rotate cube along Z inverted",
+  Z2: "Rotate cube 180° along Z",
+  M: "Middle slice turn downwards",
+  "M'": "Middle slice turn upwards",
+  M2: "Middle slice 180° turn",
+  E: "Equatorial slice turn right",
+  "E'": "Equatorial slice turn left",
+  E2: "Equatorial slice 180° turn",
+  S: "Standing slice clockwise",
+  "S'": "Standing slice counter-clockwise",
+  S2: "Standing slice 180° turn",
+};
+
+export function getMoveDescription(move) {
+  if (!move) return "";
+  return MOVE_DESCRIPTIONS[move] || `${move} turn`;
+}
+

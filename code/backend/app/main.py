@@ -3,6 +3,7 @@
 # very first import in the app.
 from app import _compat_imp_shim  # noqa: F401
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,13 +11,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db.database import engine, Base
 from app.routers import cube, auth, solves, leaderboard, profile
 
-# Creates all DB tables automatically when the app starts
-Base.metadata.create_all(bind=engine)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Creates all DB tables automatically when the app starts
+    Base.metadata.create_all(bind=engine)
+    yield
+
 
 app = FastAPI(
     title="Plastic Box Solver API",
     description="Rubik's Cube teaching backend",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

@@ -37,6 +37,13 @@ def _decode(image_bytes: bytes) -> np.ndarray:
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if img is None:
         raise ValueError("could not decode image")
+    h, w = img.shape[:2]
+    if h > 8192 or w > 8192:
+        raise ValueError(f"image dimensions {w}x{h} exceed maximum limit")
+    if h > 2048 or w > 2048:
+        scale = min(2048 / h, 2048 / w)
+        new_w, new_h = max(1, int(w * scale)), max(1, int(h * scale))
+        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
     return img
 
 
@@ -51,13 +58,13 @@ def _to_lab(bgr) -> np.ndarray:
     return cv2.cvtColor(px, cv2.COLOR_BGR2LAB)[0][0].astype(float)
 
 
-def sample_face(image_bytes: bytes) -> list:
+def sample_face(image: bytes | np.ndarray) -> list:
     """Return 9 median BGR samples (row-major) from a single face image.
 
     Splits the frame into a 3x3 grid and takes the median colour of the middle
     ~50% of each cell so shadows and bevels at the cell edges are ignored.
     """
-    img = _decode(image_bytes)
+    img = _decode(image) if isinstance(image, (bytes, bytearray)) else image
     h, w = img.shape[:2]
     ch, cw = h // 3, w // 3
     margin = (1 - CELL_INNER) / 2
@@ -115,20 +122,20 @@ def detect_facelets(images: list) -> str:
 
     faces = [sample_face(b) for b in images]           # 6 x 9 median BGR samples
     centre_bgrs = [faces[f][4] for f in range(6)]      # local index 4 == centre
-    letters, white_letter = _label_centres(centre_bgrs)
-    refs = [(letters[f], _to_lab(centre_bgrs[f])) for f in range(6)]
+    centre_letters = ("w", "r", "g", "y", "o", "b")
+    refs = [(centre_letters[f], _to_lab(centre_bgrs[f])) for f in range(6)]
 
     out = []
     for f in range(6):
         for i in range(9):
-            out.append(_classify(faces[f][i], refs, white_letter))
+            out.append(_classify(faces[f][i], refs, "w"))
     return "".join(out)
 
 
-def assess_quality(image_bytes: bytes) -> dict:
+def assess_quality(image: bytes | np.ndarray) -> dict:
     """Cheap per-face capture checks for FR-04 (prompt retake on bad frames)."""
     try:
-        img = _decode(image_bytes)
+        img = _decode(image) if isinstance(image, (bytes, bytearray)) else image
     except ValueError:
         return {"blurry": True, "dark": True}
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)

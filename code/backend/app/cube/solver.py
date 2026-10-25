@@ -3,6 +3,7 @@ try:
 except Exception:
     kociemba = None
 
+from functools import lru_cache
 from rubik_solver import utils as rs_utils # type: ignore
 
 from .adapters import to_kociemba, to_rubik_solver
@@ -67,18 +68,33 @@ def _corrective_rotation(state: str) -> list[str]:
     return []  # not a pure reorientation (shouldn't happen for a valid solve)
 
 
-def solve_optimal(facelets: str) -> list[str]:
-    """Kociemba's near-optimal (~20 move) solution. Used for BOTH Auto-Solve
-    and the optimalMoveCount denominator in efficiency % (build_guide.md §1.1)."""
+@lru_cache(maxsize=512)
+def _solve_optimal_cached(facelets: str) -> tuple[str, ...]:
     if facelets == SOLVED:
-        return []  # guard: kociemba's C solver doesn't reliably return ""
+        return ()  # guard: kociemba's C solver doesn't reliably return ""
     if kociemba:
         moves = kociemba.solve(to_kociemba(facelets)).split()
-        return moves
+        return tuple(moves)
     raw = [str(m) for m in rs_utils.solve(to_rubik_solver(facelets), "Kociemba")]
     moves = [_translate(m) for m in raw]
     moves += _corrective_rotation(apply_moves(facelets, moves))
-    return _trim_after_solved(facelets, moves)
+    return tuple(_trim_after_solved(facelets, moves))
+
+
+def solve_optimal(facelets: str) -> list[str]:
+    """Kociemba's near-optimal (~20 move) solution. Used for BOTH Auto-Solve
+    and the optimalMoveCount denominator in efficiency % (build_guide.md §1.1)."""
+    return list(_solve_optimal_cached(facelets))
+
+
+@lru_cache(maxsize=512)
+def _solve_guided_cached(facelets: str, method: str = "Beginner") -> tuple[str, ...]:
+    if facelets == SOLVED:
+        return ()
+    raw = [str(m) for m in rs_utils.solve(to_rubik_solver(facelets), method)]
+    moves = [_translate(m) for m in raw]
+    moves += _corrective_rotation(apply_moves(facelets, moves))
+    return tuple(_trim_after_solved(facelets, moves))
 
 
 def solve_guided(facelets: str, method: str = "Beginner") -> list[str]:
@@ -87,12 +103,7 @@ def solve_guided(facelets: str, method: str = "Beginner") -> list[str]:
 
     method: 'Beginner' | 'CFOP' | 'Kociemba' (rubik_solver's own) — both
     'Beginner' and 'CFOP' are fully supported."""
-    if facelets == SOLVED:
-        return []
-    raw = [str(m) for m in rs_utils.solve(to_rubik_solver(facelets), method)]
-    moves = [_translate(m) for m in raw]
-    moves += _corrective_rotation(apply_moves(facelets, moves))
-    return _trim_after_solved(facelets, moves)
+    return list(_solve_guided_cached(facelets, method))
 
 
 def _trim_after_solved(facelets: str, moves: list[str]) -> list[str]:

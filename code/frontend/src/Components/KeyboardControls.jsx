@@ -1,13 +1,21 @@
 import { useEffect } from "react";
+import { processKeyEvent } from "../cube/keyboard.js";
 
-const FACE_KEYS = { u: "U", d: "D", l: "L", r: "R", f: "F", b: "B" };
+function isKey2(e) {
+  // Digit2 on top row, or Numpad2 when producing "2" (NumLock ON).
+  // When NumLock is OFF, Numpad2 emits key "ArrowDown", which must NOT be captured as 2.
+  return e.key === "2" || e.code === "Digit2" || (e.code === "Numpad2" && e.key === "2");
+}
 
 /**
- * FR-20 -- standard cube notation on the keyboard.
+ * Standard cube notation and whole-cube reorientation on the keyboard.
  *
  *   U D L R F B   clockwise quarter turn
- *   + Shift       counter-clockwise (prime)
- *   press 2 first double turn (e.g. 2 then R  ->  R2)
+ *   M E S         middle slice turns (M follows L, E follows D, S follows F)
+ *   + Shift       counter-clockwise (prime, e.g. M')
+ *   hold / press 2 double turn like Shift (e.g. hold 2 + M  ->  M2)
+ *   Arrow keys    whole-cube rotations (← Y, → Y', ↑ X, ↓ X')
+ *   Shift + Arrow double rotation (Y2, X2) avoiding keyboard matrix ghosting
  *   Ctrl/Cmd + Z  undo      Ctrl/Cmd + Shift + Z  redo   (FR-18)
  *
  * Renders nothing -- it is a behaviour, not a widget.
@@ -20,33 +28,56 @@ export default function KeyboardControls({
 }) {
   useEffect(() => {
     if (!enabled) return;
-    let doubleArmed = false;
+    let holding2 = false;
+    let armed2 = false;
 
-    const onKey = (e) => {
-      const tag = e.target.tagName;
+    const onKeyDown = (e) => {
+      const tag = e.target?.tagName;
       if (tag === "TEXTAREA" || tag === "INPUT") return;
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+      if (isKey2(e)) {
+        holding2 = true;
+        armed2 = true; // Both hold and arm support so matrix ghosting doesn't drop double intent
         e.preventDefault();
-        return e.shiftKey ? onRedo?.() : onUndo?.();
-      }
-
-      if (e.key === "2") {
-        doubleArmed = true;
         return;
       }
 
-      const face = FACE_KEYS[e.key.toLowerCase()];
-      if (!face) return;
+      const isDouble = holding2 || armed2;
+      const action = processKeyEvent(e, isDouble);
+      if (!action) return;
       e.preventDefault();
 
-      const suffix = doubleArmed ? "2" : e.shiftKey ? "'" : "";
-      doubleArmed = false;
-      onMove?.(face + suffix);
+      // Reset single-tap armed state once a move or action is performed
+      armed2 = false;
+
+      if (action.type === "undo") {
+        onUndo?.();
+      } else if (action.type === "redo") {
+        onRedo?.();
+      } else if (action.type === "move") {
+        onMove?.(action.move);
+      }
     };
 
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const onKeyUp = (e) => {
+      if (isKey2(e)) {
+        holding2 = false;
+      }
+    };
+
+    const onBlur = () => {
+      holding2 = false;
+      armed2 = false;
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
   }, [onMove, onUndo, onRedo, enabled]);
 
   return null;

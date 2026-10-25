@@ -66,3 +66,14 @@ import collections.abc as _abc
 for _name in ("Iterable", "Mapping", "MutableMapping", "Sequence", "Set", "Callable"):
     if not hasattr(collections, _name):
         setattr(collections, _name, getattr(_abc, _name))
+
+# Compatibility shim for passlib 1.7.4 with bcrypt >= 4.0
+try:
+    import bcrypt
+    if not hasattr(bcrypt, "__about__"):
+        bcrypt.__about__ = types.SimpleNamespace(__version__=getattr(bcrypt, "__version__", "4.0.0"))
+    if hasattr(bcrypt, "hashpw"):
+        _orig_hashpw = bcrypt.hashpw
+        bcrypt.hashpw = lambda p, s: _orig_hashpw(p[:72] if isinstance(p, (bytes, bytearray)) else p, s)
+except ImportError:
+    pass

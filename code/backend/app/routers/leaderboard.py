@@ -29,7 +29,7 @@ def leaderboard(db: Session = Depends(get_db), me: User | None = Depends(get_opt
     best: dict[int, Solve] = {}
     for s in db.query(Solve).all():
         cur = best.get(s.user_id)
-        if cur is None or s.solve_time < cur.solve_time:
+        if cur is None or (s.solve_time, -s.efficiency) < (cur.solve_time, -cur.efficiency):
             best[s.user_id] = s
 
     ranked = sorted(best.values(), key=lambda s: (s.solve_time, -s.efficiency))[:50]
