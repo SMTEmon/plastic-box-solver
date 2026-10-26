@@ -86,10 +86,17 @@ export const useCubeStore = create((set, get) => ({
    * Advance logical state by one move.
    * countIt=false for assisted playback, so auto-solve moves never inflate
    * the user's move count.
+   * countIt="drill" for practice drills (e.g. 4-Move Reset Drill), updating
+   * only facelets without touching history, redoStack, startedAt, or finishedAt.
    */
   applyMove: (move, countIt = true) =>
     set((s) => {
       const next = applyMoveToFacelets(s.facelets, move);
+      if (countIt === "drill") {
+        return {
+          facelets: next,
+        };
+      }
       const solved = isSolved(next);
       const now = Date.now();
       const isRot = Boolean(move && ["X", "Y", "Z"].includes(move[0]));
@@ -102,6 +109,23 @@ export const useCubeStore = create((set, get) => ({
         finishedAt: solved ? (s.finishedAt ?? now) : null,
       };
     }),
+
+  /** Offset startedAt by duration spent in a practice drill so solve timer is unaffected. */
+  shiftStartTime: (deltaMs) =>
+    set((s) =>
+      s.startedAt && !s.finishedAt && deltaMs > 0
+        ? { startedAt: s.startedAt + deltaMs }
+        : {},
+    ),
+
+  /** Restore a pre-drill cube state snapshot and remount the 3D scene if interrupted. */
+  restoreSnapshot: (snapshot) =>
+    set((s) => ({
+      facelets: snapshot.facelets ?? s.facelets,
+      startedAt: snapshot.startedAt !== undefined ? snapshot.startedAt : s.startedAt,
+      finishedAt: snapshot.finishedAt !== undefined ? snapshot.finishedAt : s.finishedAt,
+      sceneEpoch: s.sceneEpoch + 1,
+    })),
 
   /**
    * FR-18 undo. Updates the move bookkeeping ONLY and returns the move to
