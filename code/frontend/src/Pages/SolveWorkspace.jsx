@@ -76,15 +76,20 @@ export default function SolveWorkspace() {
     step: 0,
     completed: false,
   });
+  const [followAlongNotice, setFollowAlongNotice] = useState(null);
+  const followAlongTimerRef = useRef(null);
   const lastTrackedFaceRef = useRef(null);
 
   const activeGuide = getStageGuide(stage?.name, facelets);
 
-  // Clean up any pending playback timer on unmount
+  // Clean up any pending playback or follow-along timer on unmount
   useEffect(() => {
     return () => {
       if (playbackTimerRef.current) {
         clearTimeout(playbackTimerRef.current);
+      }
+      if (followAlongTimerRef.current) {
+        clearTimeout(followAlongTimerRef.current);
       }
     };
   }, []);
@@ -268,22 +273,6 @@ export default function SolveWorkspace() {
     });
   }, []);
 
-  // User interactive moves
-  const doMove = useCallback((move) => {
-    animatorRef.current?.enqueue(move, true);
-  }, []);
-
-  const doUndo = useCallback(() => {
-    animatorRef.current?.fastForward();
-    const move = useCubeStore.getState().undo();
-    if (move) animatorRef.current?.enqueue(move, false);
-  }, []);
-
-  const doRedo = useCallback(() => {
-    animatorRef.current?.fastForward();
-    const move = useCubeStore.getState().redo();
-    if (move) animatorRef.current?.enqueue(move, false);
-  }, []);
 
   // Assisted playback controls
   const fetchSolution = useCallback(async (method) => {
@@ -374,6 +363,59 @@ export default function SolveWorkspace() {
     s.setCursor(s.cursor - 1);
   }, [isPlaying, pausePlayback, speed, cancelResetDrill]);
 
+  // User interactive & follow-along guided moves
+  const doMove = useCallback(
+    (move) => {
+      const s = useCubeStore.getState();
+      if (s.mode === MODES.GUIDED && s.solution?.moves?.length) {
+        if (s.cursor >= s.solution.moves.length) return;
+        if (isPlaying) pausePlayback();
+        const expected = s.solution.moves[s.cursor];
+        if (move === expected) {
+          if (followAlongTimerRef.current) clearTimeout(followAlongTimerRef.current);
+          setFollowAlongNotice({ type: "success", text: `✓ Correct turn! Executed ${move}` });
+          followAlongTimerRef.current = setTimeout(() => setFollowAlongNotice(null), 1500);
+          animatorRef.current?.fastForward();
+          animatorRef.current?.setSpeed(speed);
+          animatorRef.current?.enqueue(move, false);
+          s.setCursor(s.cursor + 1);
+        } else {
+          if (followAlongTimerRef.current) clearTimeout(followAlongTimerRef.current);
+          setFollowAlongNotice({
+            type: "wrong",
+            text: `Guide expects ${expected}, but you turned ${move}. Try turning ${expected}!`,
+          });
+          followAlongTimerRef.current = setTimeout(() => setFollowAlongNotice(null), 2500);
+        }
+        return;
+      }
+      animatorRef.current?.enqueue(move, true);
+    },
+    [isPlaying, pausePlayback, speed],
+  );
+
+  const doUndo = useCallback(() => {
+    const s = useCubeStore.getState();
+    if (s.mode === MODES.GUIDED) {
+      stepBack();
+      return;
+    }
+    animatorRef.current?.fastForward();
+    const move = s.undo();
+    if (move) animatorRef.current?.enqueue(move, false);
+  }, [stepBack]);
+
+  const doRedo = useCallback(() => {
+    const s = useCubeStore.getState();
+    if (s.mode === MODES.GUIDED) {
+      stepForward();
+      return;
+    }
+    animatorRef.current?.fastForward();
+    const move = s.redo();
+    if (move) animatorRef.current?.enqueue(move, false);
+  }, [stepForward]);
+
   const runAutoSolve = useCallback(async () => {
     cancelResetDrill(true);
     pausePlayback();
@@ -397,6 +439,8 @@ export default function SolveWorkspace() {
   const backToInteractive = useCallback(() => {
     cancelResetDrill(true);
     pausePlayback();
+    if (followAlongTimerRef.current) clearTimeout(followAlongTimerRef.current);
+    setFollowAlongNotice(null);
     animatorRef.current?.fastForwardAll();
     animatorRef.current?.setSpeed(1);
     useCubeStore.getState().setMode(MODES.INTERACTIVE);
@@ -405,6 +449,8 @@ export default function SolveWorkspace() {
   const resetCube = useCallback(() => {
     cancelResetDrill(false);
     pausePlayback();
+    if (followAlongTimerRef.current) clearTimeout(followAlongTimerRef.current);
+    setFollowAlongNotice(null);
     animatorRef.current?.cancel();
     submittedRef.current = false;
     setSaveState(null);
@@ -440,7 +486,7 @@ export default function SolveWorkspace() {
   const showSidebar = Boolean(
     mode === MODES.INTERACTIVE || guided || solved || error,
   );
-  const canTurn = ready && mode === MODES.INTERACTIVE && !drillState.active;
+  const canTurn = ready && ((mode === MODES.INTERACTIVE && !drillState.active) || mode === MODES.GUIDED);
 
   // Auto-track camera to active target face when enabled
   useEffect(() => {
@@ -598,6 +644,7 @@ export default function SolveWorkspace() {
               onUndo={doUndo}
               onRedo={doRedo}
               onResetCube={resetCube}
+              followAlongNotice={followAlongNotice}
             />
           </div>
 
@@ -611,6 +658,7 @@ export default function SolveWorkspace() {
               drillState={drillState}
               onStartDrill={startResetDrill}
               drillDisabled={!ready || isPlaying}
+              onCancelAnimation={() => animatorRef.current?.cancel()}
             />
           )}
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import MoveButtons from "./MoveButtons";
 import { getMoveDescription } from "../cube/stageGuides.js";
 import {
@@ -42,6 +42,7 @@ export default function SolveControlsDock({
   onUndo,
   onRedo,
   onResetCube,
+  followAlongNotice,
 }) {
   const mode = useCubeStore((s) => s.mode);
   const solution = useCubeStore((s) => s.solution);
@@ -56,15 +57,20 @@ export default function SolveControlsDock({
   const isIntuitiveCrossStage =
     stage?.name === "Cross" || stage?.name?.toLowerCase() === "bottom cross";
 
-  const activeChunks = !solution?.moves
-    ? []
-    : stage
-      ? isIntuitiveCrossStage
+  const activeChunks = useMemo(() => {
+    if (!solution?.moves) return [];
+    if (stage?.start !== undefined && stage?.end !== undefined) {
+      return isIntuitiveCrossStage
         ? []
-        : chunkMoves(solution.moves.slice(stage.start, stage.end), stage.start)
-      : chunkMoves(solution.moves, 0);
+        : chunkMoves(solution.moves.slice(stage.start, stage.end), stage.start);
+    }
+    return chunkMoves(solution.moves, 0);
+  }, [solution, stage, isIntuitiveCrossStage]);
 
-  const activeTrigger = getTriggerAtMove(activeChunks, cursor);
+  const activeTrigger = useMemo(
+    () => getTriggerAtMove(activeChunks, cursor),
+    [activeChunks, cursor],
+  );
 
   const autoTapeRef = useRef(null);
 
@@ -84,7 +90,11 @@ export default function SolveControlsDock({
       const tag = e.target.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
 
-      if (e.code === "Space" || e.key === " " || e.key === "ArrowRight") {
+      if (
+        e.code === "Space" ||
+        e.key === " " ||
+        (mode === MODES.AUTO && e.key === "ArrowRight")
+      ) {
         e.preventDefault();
         if (isPlaying) {
           onTogglePlay();
@@ -100,8 +110,11 @@ export default function SolveControlsDock({
 
       if (
         e.key === "Backspace" ||
-        e.key === "ArrowLeft" ||
-        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z")
+        (mode === MODES.AUTO &&
+          (e.key === "ArrowLeft" ||
+            ((e.ctrlKey || e.metaKey) &&
+              !e.shiftKey &&
+              e.key.toLowerCase() === "z")))
       ) {
         e.preventDefault();
         onStepBack();
@@ -116,6 +129,18 @@ export default function SolveControlsDock({
 
   return (
     <div className="bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl p-2.5 sm:px-4 sm:py-3 shrink-0 shadow-md min-h-[74px] flex flex-col justify-center">
+      {followAlongNotice && (
+        <div
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold mb-2 flex items-center justify-between transition-all ${
+            followAlongNotice.type === "success"
+              ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm"
+              : "bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm"
+          }`}
+        >
+          <span>{followAlongNotice.text}</span>
+        </div>
+      )}
+
       {isAssistedMode ? (
         cursor < solution.moves.length ? (
           <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-3">
@@ -190,7 +215,11 @@ export default function SolveControlsDock({
                   type="button"
                   onClick={onStepBack}
                   disabled={cursor <= 0 || isPlaying}
-                  title="Previous move (Backspace or ←)"
+                  title={
+                    mode === MODES.AUTO
+                      ? "Previous move (Backspace or ←)"
+                      : "Previous move (Backspace)"
+                  }
                   className="py-1.5 sm:py-2 px-2.5 sm:px-3 rounded-xl border border-dark-border bg-dark-bg text-gray-200 text-xs font-semibold cursor-pointer hover:text-white hover:border-gray-500 transition-all flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                 >
                   <span>← Back</span>
@@ -217,7 +246,11 @@ export default function SolveControlsDock({
                   type="button"
                   onClick={onStepForward}
                   disabled={cursor >= solution.moves.length || isPlaying}
-                  title="Next move (Space or →)"
+                  title={
+                    mode === MODES.AUTO
+                      ? "Next move (Space or →)"
+                      : "Next move (Space)"
+                  }
                   className="py-1.5 sm:py-2 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-neon-blue to-blue-500 hover:from-neon-blue/90 hover:to-blue-400 text-black text-xs font-bold cursor-pointer transition-all flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-neon-blue/25 active:scale-95"
                 >
                   <span>Next →</span>
