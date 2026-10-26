@@ -4,6 +4,9 @@ import {
   getCenterInfo,
   CUBE_ANATOMY,
   FOUR_MOVE_SEQUENCES,
+  RESET_DRILL_CYCLE,
+  RESET_DRILL_TOTAL_CYCLES,
+  getDrillProgress,
 } from "../cube/stageGuides.js";
 import {
   chunkMoves,
@@ -124,7 +127,121 @@ export function FourMovesBreakdownPanel() {
   );
 }
 
-export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
+export function ResetDrillPanel({ drillState, onStartDrill, disabled = false }) {
+  const isRunning = Boolean(drillState?.active);
+  const isCompleted = Boolean(drillState?.completed && !drillState?.active);
+  const progress = getDrillProgress(drillState?.step ?? 0, isCompleted);
+
+  return (
+    <Panel
+      title={
+        <div className="flex items-center justify-between w-full">
+          <span className="text-white font-bold">4-Move Reset Drill</span>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30 font-semibold">
+            R U R&apos; U&apos; &times; 6
+          </span>
+        </div>
+      }
+      className="border-amber-400/30"
+    >
+      <div className="space-y-3">
+        <p className="text-[11px] text-gray-300 leading-relaxed">
+          Repeating <span className="font-mono font-bold text-white">R U R&apos; U&apos;</span>{" "}
+          exactly <span className="font-semibold text-amber-300">6 times (24 moves)</span>{" "}
+          always returns any cube to its exact starting state without affecting your solve timer or move count.
+        </p>
+
+        {/* Live 4-move step indicator */}
+        <div className="grid grid-cols-4 gap-1.5">
+          {RESET_DRILL_CYCLE.map((m, idx) => {
+            const dir = getTurnDirection(m);
+            const isCurrentMove = isRunning && progress.moveInCycle === idx;
+            return (
+              <div
+                key={`drill-move-${idx}`}
+                className={`py-1.5 px-2 rounded-xl border text-center font-mono text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+                  isCurrentMove
+                    ? "bg-neon-blue text-black border-cyan-200 shadow-md shadow-neon-blue/30 scale-105"
+                    : isCompleted
+                      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                      : "bg-dark-bg/80 text-gray-300 border-dark-border"
+                }`}
+              >
+                <span>{m}</span>
+                <span className="text-[10px] opacity-80">{dir.arrow}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 6-Cycle Progress Bar & Live Status */}
+        {(isRunning || isCompleted) && (
+          <div className="space-y-1.5 bg-dark-bg/80 border border-dark-border rounded-xl p-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-400 font-medium">Drill Progress</span>
+              <span
+                className={`font-mono font-bold ${
+                  isCompleted ? "text-emerald-400" : "text-neon-blue"
+                }`}
+              >
+                {progress.label}
+              </span>
+            </div>
+            <div className="grid grid-cols-6 gap-1">
+              {Array.from({ length: RESET_DRILL_TOTAL_CYCLES }).map((_, cIdx) => {
+                const cycleNum = cIdx + 1;
+                const done = isCompleted || cycleNum < progress.cycle;
+                const current = isRunning && cycleNum === progress.cycle;
+                return (
+                  <div
+                    key={`cycle-seg-${cycleNum}`}
+                    className={`h-1.5 rounded-full transition-all ${
+                      done
+                        ? "bg-emerald-400"
+                        : current
+                          ? "bg-neon-blue animate-pulse"
+                          : "bg-white/10"
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onStartDrill}
+          disabled={disabled || isRunning}
+          className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm ${
+            isRunning
+              ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 cursor-wait"
+              : "bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black shadow-amber-500/20 active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
+          }`}
+        >
+          <span>{isRunning ? "⏳" : "▶"}</span>
+          <span>
+            {isRunning
+              ? `${progress.label} (${(drillState?.step ?? 0) + 1}/24)...`
+              : isCompleted
+                ? "Run 4-Move Reset Drill Again (R U R' U' × 6)"
+                : "4-Move Reset Drill (R U R' U' × 6)"}
+          </span>
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
+export default function CoachSidebar({
+  error,
+  saveState,
+  elapsed,
+  turnCount,
+  drillState,
+  onStartDrill,
+  drillDisabled = false,
+}) {
   const token = useAuthStore((s) => s.token);
   const facelets = useCubeStore((s) => s.facelets);
   const mode = useCubeStore((s) => s.mode);
@@ -134,7 +251,9 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
   const solved = useCubeStore((s) => s.isSolved());
   const stage = useCubeStore((s) => s.currentStage());
 
-  const [sidebarTab, setSidebarTab] = useState("coach"); // "coach" | "all_stages"
+  const [sidebarTab, setSidebarTab] = useState(
+    mode === MODES.GUIDED ? "coach" : "cubing_101",
+  ); // "coach" | "all_stages" | "cubing_101"
   const sidebarMovesRef = useRef(null);
   const allStagesRef = useRef(null);
 
@@ -199,6 +318,14 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
 
   const guided = mode === MODES.GUIDED && solution;
 
+  useEffect(() => {
+    if (guided) {
+      setSidebarTab("coach");
+    } else if (mode === MODES.INTERACTIVE) {
+      setSidebarTab("cubing_101");
+    }
+  }, [guided, mode]);
+
   return (
     <div className="lg:col-span-1 flex flex-col gap-3 min-h-0 lg:h-full lg:overflow-y-auto pr-0.5">
       {solved && (
@@ -243,12 +370,12 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
 
       {guided && (
         <>
-          {/* Segmented Tab Controls: Coach & Moves vs All Stages */}
-          <div className="flex rounded-xl bg-dark-bg/80 p-1 border border-dark-border text-xs shrink-0">
+          {/* Segmented Tab Controls: Coach & Moves | All Stages | Cubing 101 */}
+          <div className="flex rounded-xl bg-dark-bg/80 p-1 border border-dark-border text-[11px] shrink-0 gap-0.5">
             <button
               type="button"
               onClick={() => setSidebarTab("coach")}
-              className={`flex-1 py-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center ${
+              className={`flex-1 py-1.5 px-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
                 sidebarTab === "coach"
                   ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
                   : "text-gray-400 hover:text-white"
@@ -259,13 +386,24 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
             <button
               type="button"
               onClick={() => setSidebarTab("all_stages")}
-              className={`flex-1 py-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center ${
+              className={`flex-1 py-1.5 px-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
                 sidebarTab === "all_stages"
                   ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
                   : "text-gray-400 hover:text-white"
               }`}
             >
               All Stages ({solution.stages.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarTab("cubing_101")}
+              className={`flex-1 py-1.5 px-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
+                sidebarTab === "cubing_101"
+                  ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Cubing 101
             </button>
           </div>
 
@@ -507,7 +645,7 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
                 </div>
               </Panel>
             )
-          ) : (
+          ) : sidebarTab === "all_stages" ? (
             /* --- Tab 2: All Stages Overview View --- */
             <Panel
               title={
@@ -622,8 +760,41 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
                 })}
               </div>
             </Panel>
+          ) : (
+            /* --- Tab 3: Cubing 101 View in Guided Mode --- */
+            <div className="flex flex-col gap-3">
+              <ResetDrillPanel
+                drillState={drillState}
+                onStartDrill={onStartDrill}
+                disabled={drillDisabled}
+              />
+              <FourMovesBreakdownPanel />
+              <CubeAnatomyPanel />
+            </div>
           )}
         </>
+      )}
+
+      {/* Interactive Mode Default Sidebar: 🎓 Cubing 101 */}
+      {!guided && mode === MODES.INTERACTIVE && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between rounded-xl bg-dark-bg/80 px-3 py-2 border border-dark-border text-xs shrink-0">
+            <span className="font-bold text-neon-blue flex items-center gap-1.5">
+              <span>🎓</span>
+              <span>Cubing 101</span>
+            </span>
+            <span className="text-[10px] font-mono text-gray-400">
+              Practice &amp; Reference
+            </span>
+          </div>
+          <ResetDrillPanel
+            drillState={drillState}
+            onStartDrill={onStartDrill}
+            disabled={drillDisabled}
+          />
+          <FourMovesBreakdownPanel />
+          <CubeAnatomyPanel />
+        </div>
       )}
     </div>
   );

@@ -10,7 +10,7 @@ import CoachSidebar from "../Components/CoachSidebar";
 import { cubeApi, solvesApi } from "../lib/api.js";
 import { isSolved as isFaceletsSolved } from "../cube/facelets.js";
 import { invert } from "../cube/moves.js";
-import { getStageGuide } from "../cube/stageGuides.js";
+import { getStageGuide, RESET_DRILL_MOVES } from "../cube/stageGuides.js";
 import { useAuthStore } from "../store/authStore.js";
 import { useCubeStore, MODES } from "../store/cubeStore.js";
 
@@ -56,6 +56,12 @@ export default function SolveWorkspace() {
   const submittedRef = useRef(false);
   const playbackRef = useRef({ isPlaying: false, targetEnd: 0 });
   const playbackTimerRef = useRef(null);
+  const drillRef = useRef({
+    active: false,
+    step: 0,
+    startedWallMs: 0,
+    snapshot: null,
+  });
 
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
@@ -64,6 +70,11 @@ export default function SolveWorkspace() {
   const [speed, setSpeed] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [autoTrackCamera, setAutoTrackCamera] = useState(true);
+  const [drillState, setDrillState] = useState({
+    active: false,
+    step: 0,
+    completed: false,
+  });
   const lastTrackedFaceRef = useRef(null);
 
   const activeGuide = getStageGuide(stage?.name, facelets);
@@ -78,35 +89,66 @@ export default function SolveWorkspace() {
   }, []);
 
   // Unified playback callback invoked on each animation step completion
-  const handleStepDone = useCallback(() => {
-    if (!playbackRef.current.isPlaying) return;
-
-    const s = useCubeStore.getState();
-    const targetEnd = playbackRef.current.targetEnd;
-
-    if (s.cursor >= targetEnd || s.cursor >= s.solution?.moves?.length) {
-      playbackRef.current.isPlaying = false;
-      setIsPlaying(false);
-    } else {
-      // Natural breather between consecutive moves in playback (~180ms at 1x, ~360ms at 0.5x)
-      const breatherMs = Math.round(180 / speed);
-      playbackTimerRef.current = setTimeout(() => {
-        if (!playbackRef.current.isPlaying) return;
-        const curStore = useCubeStore.getState();
-        if (
-          curStore.cursor >= targetEnd ||
-          curStore.cursor >= curStore.solution?.moves?.length
-        ) {
-          playbackRef.current.isPlaying = false;
-          setIsPlaying(false);
-          return;
+  const handleStepDone = useCallback(
+    (_move, count) => {
+      if (drillRef.current.active && count === "drill") {
+        const nextStep = drillRef.current.step + 1;
+        if (nextStep >= RESET_DRILL_MOVES.length) {
+          const deltaMs = Date.now() - drillRef.current.startedWallMs;
+          drillRef.current = {
+            active: false,
+            step: RESET_DRILL_MOVES.length,
+            startedWallMs: 0,
+            snapshot: null,
+          };
+          useCubeStore.getState().shiftStartTime(deltaMs);
+          setDrillState({
+            active: false,
+            step: RESET_DRILL_MOVES.length,
+            completed: true,
+          });
+        } else {
+          drillRef.current.step = nextStep;
+          setDrillState({
+            active: true,
+            step: nextStep,
+            completed: false,
+          });
+          animatorRef.current?.enqueue(RESET_DRILL_MOVES[nextStep], "drill");
         }
-        const nextMove = curStore.solution.moves[curStore.cursor];
-        animatorRef.current?.enqueue(nextMove, false);
-        curStore.setCursor(curStore.cursor + 1);
-      }, breatherMs);
-    }
-  }, [speed]);
+        return;
+      }
+
+      if (!playbackRef.current.isPlaying) return;
+
+      const s = useCubeStore.getState();
+      const targetEnd = playbackRef.current.targetEnd;
+
+      if (s.cursor >= targetEnd || s.cursor >= s.solution?.moves?.length) {
+        playbackRef.current.isPlaying = false;
+        setIsPlaying(false);
+      } else {
+        // Natural breather between consecutive moves in playback (~180ms at 1x, ~360ms at 0.5x)
+        const breatherMs = Math.round(180 / speed);
+        playbackTimerRef.current = setTimeout(() => {
+          if (!playbackRef.current.isPlaying) return;
+          const curStore = useCubeStore.getState();
+          if (
+            curStore.cursor >= targetEnd ||
+            curStore.cursor >= curStore.solution?.moves?.length
+          ) {
+            playbackRef.current.isPlaying = false;
+            setIsPlaying(false);
+            return;
+          }
+          const nextMove = curStore.solution.moves[curStore.cursor];
+          animatorRef.current?.enqueue(nextMove, false);
+          curStore.setCursor(curStore.cursor + 1);
+        }, breatherMs);
+      }
+    },
+    [speed],
+  );
 
   const handleSetSpeed = useCallback((s) => {
     setSpeed(s);
@@ -337,9 +379,35 @@ export default function SolveWorkspace() {
     useCubeStore.getState().reset();
   }, [pausePlayback]);
 
+  const startResetDrill = useCallback(() => {
+    if (!animatorRef.current || drillRef.current.active) return;
+    pausePlayback();
+    animatorRef.current.fastForwardAll();
+
+    const s = useCubeStore.getState();
+    drillRef.current = {
+      active: true,
+      step: 0,
+      startedWallMs: Date.now(),
+      snapshot: {
+        facelets: s.facelets,
+        startedAt: s.startedAt,
+        finishedAt: s.finishedAt,
+      },
+    };
+    setDrillState({
+      active: true,
+      step: 0,
+      completed: false,
+    });
+    animatorRef.current.enqueue(RESET_DRILL_MOVES[0], "drill");
+  }, [pausePlayback]);
+
   const guided = mode === MODES.GUIDED && solution;
-  const showSidebar = Boolean(guided || solved || error);
-  const canTurn = ready && mode === MODES.INTERACTIVE;
+  const showSidebar = Boolean(
+    mode === MODES.INTERACTIVE || guided || solved || error,
+  );
+  const canTurn = ready && mode === MODES.INTERACTIVE && !drillState.active;
 
   // Auto-track camera to active target face when enabled
   useEffect(() => {
@@ -506,6 +574,9 @@ export default function SolveWorkspace() {
               saveState={saveState}
               elapsed={useCubeStore.getState().elapsedSeconds()}
               turnCount={turnCount}
+              drillState={drillState}
+              onStartDrill={startResetDrill}
+              drillDisabled={!ready || isPlaying}
             />
           )}
         </div>
