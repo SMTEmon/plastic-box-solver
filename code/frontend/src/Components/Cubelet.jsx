@@ -1,15 +1,5 @@
 import { useRef } from "react";
 import * as THREE from "three";
-import { Text } from "@react-three/drei";
-
-const centerLabels = {
-  "1,0,0": { text: "R", rotation: [0, Math.PI / 2, 0], pos: [0.51, 0, 0] },
-  "-1,0,0": { text: "L", rotation: [0, -Math.PI / 2, 0], pos: [-0.51, 0, 0] },
-  "0,1,0": { text: "U", rotation: [-Math.PI / 2, 0, 0], pos: [0, 0.51, 0] },
-  "0,-1,0": { text: "D", rotation: [Math.PI / 2, 0, 0], pos: [0, -0.51, 0] },
-  "0,0,1": { text: "F", rotation: [0, 0, 0], pos: [0, 0, 0.51] },
-  "0,0,-1": { text: "B", rotation: [0, Math.PI, 0], pos: [0, 0, -0.51] },
-};
 
 const colorSides = [
   [0, 1, "red"],         // +x Right
@@ -53,11 +43,6 @@ const GHOST_MATERIALS = {
 
 export default function Cubelet({ position, geometry, stickers }) {
   const meshRef = useRef();
-  const textRef = useRef();
-
-  const isCenter = Math.abs(position[0]) + Math.abs(position[1]) + Math.abs(position[2]) === 1;
-  const posKey = `${position[0]},${position[1]},${position[2]}`;
-  const labelInfo = isCenter ? centerLabels[posKey] : null;
 
   const materials = [0, 1, 2, 3, 4, 5].map((i) => {
     const color =
@@ -80,37 +65,18 @@ export default function Cubelet({ position, geometry, stickers }) {
   });
 
   return (
-    <>
-      <mesh
-        ref={(el) => {
-          meshRef.current = el;
-          if (el) {
-            el.userData.isCubelet = true;
-            el.userData.normalMaterials = materials;
-            el.userData.ghostMaterials = ghostMaterials;
-            el.userData.textRef = textRef;
-          }
-        }}
-        position={position}
-        geometry={geometry}
-        material={materials}
-      >
-        {labelInfo && (
-          <Text
-            ref={textRef}
-            position={labelInfo.pos}
-            rotation={labelInfo.rotation}
-            fontSize={0.36}
-            color="#0f172a"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.03}
-            outlineColor="#ffffff"
-          >
-            {labelInfo.text}
-          </Text>
-        )}
-      </mesh>
-    </>
+    <mesh
+      ref={(el) => {
+        meshRef.current = el;
+        if (el) {
+          el.userData.isCubelet = true;
+          el.userData.normalMaterials = materials;
+          el.userData.ghostMaterials = ghostMaterials;
+        }
+      }}
+      position={position}
+      geometry={geometry}
+      material={materials}
+    />
   );
 }
