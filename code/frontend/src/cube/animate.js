@@ -106,7 +106,35 @@ function attachLayer(cubeGroup, rotationGroup, axis, limit) {
  * place logical state should advance, so the render and the truth can never
  * drift apart.
  */
-export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
+export function createAnimator(optionsOrCubeGroup, maybeRotationGroup, maybeOnMoveDone) {
+  let rawCubeGroup;
+  let rawRotationGroup;
+  let onMoveDone;
+
+  if (
+    optionsOrCubeGroup &&
+    typeof optionsOrCubeGroup === "object" &&
+    ("cubeGroup" in optionsOrCubeGroup || "rotationGroup" in optionsOrCubeGroup || "onMoveDone" in optionsOrCubeGroup)
+  ) {
+    rawCubeGroup = optionsOrCubeGroup.cubeGroup;
+    rawRotationGroup = optionsOrCubeGroup.rotationGroup;
+    onMoveDone = optionsOrCubeGroup.onMoveDone;
+  } else {
+    rawCubeGroup = optionsOrCubeGroup;
+    rawRotationGroup = maybeRotationGroup;
+    onMoveDone = maybeOnMoveDone;
+  }
+
+  // Ensure cubeGroup and rotationGroup are always ref-like ({ current: ... })
+  const cubeGroup =
+    rawCubeGroup && typeof rawCubeGroup === "object" && "current" in rawCubeGroup
+      ? rawCubeGroup
+      : { current: rawCubeGroup };
+  const rotationGroup =
+    rawRotationGroup && typeof rawRotationGroup === "object" && "current" in rawRotationGroup
+      ? rawRotationGroup
+      : { current: rawRotationGroup };
+
   const queue = [];
   let busy = false;
   let speed = 1;

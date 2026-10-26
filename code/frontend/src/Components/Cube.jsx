@@ -120,12 +120,23 @@ export default function Cube({ onAnimatorReady, cubeGroupRef }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sceneEpoch]);
 
+  const onAnimatorReadyRef = useRef(onAnimatorReady);
   useEffect(() => {
-    if (!cubeGroup.current || !rotationGroup.current) return;
-    const animator = createAnimator(cubeGroup.current, rotationGroup.current);
-    onAnimatorReady?.(animator);
+    onAnimatorReadyRef.current = onAnimatorReady;
+  }, [onAnimatorReady]);
+
+  // One animator for the lifetime of the scene
+  useEffect(() => {
+    const animator = createAnimator({
+      cubeGroup,
+      rotationGroup,
+      onMoveDone: (move, count) => {
+        useCubeStore.getState().applyMove(move, count);
+      },
+    });
+    onAnimatorReadyRef.current?.(animator);
     return () => animator.cancel();
-  }, [onAnimatorReady, cubeGroup]);
+  }, [cubeGroup]);
 
   return (
     <>
