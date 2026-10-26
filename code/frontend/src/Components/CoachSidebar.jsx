@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { getStageGuide, getCenterInfo } from "../cube/stageGuides.js";
+import {
+  getStageGuide,
+  getCenterInfo,
+  CUBE_ANATOMY,
+  FOUR_MOVE_SEQUENCES,
+} from "../cube/stageGuides.js";
 import {
   chunkMoves,
   getTurnDirection,
@@ -20,6 +25,102 @@ export function Panel({ title, children, className = "" }) {
       )}
       {children}
     </div>
+  );
+}
+
+export function CubeAnatomyPanel() {
+  return (
+    <Panel
+      title={
+        <div className="flex items-center justify-between w-full">
+          <span className="text-white font-bold">Cube Anatomy</span>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-gray-300 border border-dark-border">
+            26 Pieces
+          </span>
+        </div>
+      }
+      className="border-cyan-500/25"
+    >
+      <div className="space-y-2.5">
+        {CUBE_ANATOMY.map((piece) => (
+          <div
+            key={piece.id}
+            className={`p-2.5 rounded-xl border ${piece.cardClass} space-y-1`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-white">{piece.title}</span>
+              <span
+                className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full border ${piece.badgeClass}`}
+              >
+                {piece.stickerBadge}
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-300 leading-relaxed">
+              {piece.description}
+            </p>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+export function FourMovesBreakdownPanel() {
+  return (
+    <Panel
+      title={
+        <div className="flex items-center justify-between w-full">
+          <span className="text-white font-bold">JPerm&apos;s 4-Move Triggers</span>
+          <a
+            href="https://jperm.net/3x3#4moves"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] font-semibold text-neon-blue hover:underline lowercase"
+          >
+            jperm.net &rarr;
+          </a>
+        </div>
+      }
+      className="border-neon-blue/25"
+    >
+      <div className="space-y-3">
+        {FOUR_MOVE_SEQUENCES.map((seq) => (
+          <div
+            key={seq.id}
+            className={`p-3 rounded-xl border ${seq.accentClass} space-y-2`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-white">{seq.title}</span>
+              <span
+                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border ${seq.badgeClass}`}
+              >
+                {seq.formula}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-4 gap-1.5">
+              {seq.steps.map((st, idx) => (
+                <div
+                  key={`${seq.id}-${idx}`}
+                  title={st.action}
+                  className="bg-dark-bg/80 border border-dark-border rounded-lg p-1.5 text-center flex flex-col items-center gap-0.5"
+                >
+                  <div className="flex items-center gap-0.5 font-mono text-xs font-bold text-white">
+                    <span>{st.move}</span>
+                    <span className="text-[10px] text-neon-blue">{st.arrow}</span>
+                  </div>
+                  <span className="text-[9px] text-gray-400 leading-tight line-clamp-2">
+                    {st.action}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[10px] text-gray-400 leading-snug">{seq.note}</p>
+          </div>
+        ))}
+      </div>
+    </Panel>
   );
 }
 
