@@ -354,3 +354,42 @@ export function getActiveLayerY(stageName) {
   return null;
 }
 
+/**
+ * Cube Anatomy cards for the "Cubing 101" interactive onboarding tab.
+ * Explains the 3 distinct piece types on a 3x3 cube (6 Centers, 12 Edges, 8 Corners).
+ */
+export const CUBE_ANATOMY = [
+  {
+    id: "centers",
+    title: "6 Centers",
+    count: 6,
+    stickers: 1,
+    stickerBadge: "1 Sticker · Fixed",
+    badgeClass: "bg-cyan-400/15 text-cyan-300 border-cyan-400/30",
+    cardClass: "border-cyan-500/25 bg-cyan-500/[0.04]",
+    description:
+      "Fixed to the internal core and never move relative to each other. A center piece always defines which color belongs on that face (White opposite Yellow, Green opposite Blue, Red opposite Orange).",
+  },
+  {
+    id: "edges",
+    title: "12 Edges",
+    count: 12,
+    stickers: 2,
+    stickerBadge: "2 Stickers · Side Bridge",
+    badgeClass: "bg-amber-400/15 text-amber-300 border-amber-400/30",
+    cardClass: "border-amber-500/25 bg-amber-500/[0.04]",
+    description:
+      "Sit between two center pieces and carry 2 colors. An edge piece can only ever move to another edge spot — it can never become a corner or center.",
+  },
+  {
+    id: "corners",
+    title: "8 Corners",
+    count: 8,
+    stickers: 3,
+    stickerBadge: "3 Stickers · 3-Way Corner",
+    badgeClass: "bg-emerald-400/15 text-emerald-300 border-emerald-400/30",
+    cardClass: "border-emerald-500/25 bg-emerald-500/[0.04]",
+    description:
+      "Sit where three faces meet and carry 3 colors. When solved, each corner must rest between the 3 center faces matching its 3 stickers.",
+  },
+];
