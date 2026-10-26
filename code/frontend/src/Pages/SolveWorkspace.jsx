@@ -7,6 +7,7 @@ import KeyboardControls from "../Components/KeyboardControls";
 import SolveHeader from "../Components/SolveHeader";
 import SolveControlsDock from "../Components/SolveControlsDock";
 import CoachSidebar from "../Components/CoachSidebar";
+import SolveCelebration from "../Components/SolveCelebration";
 import { cubeApi, solvesApi } from "../lib/api.js";
 import { isSolved as isFaceletsSolved } from "../cube/facelets.js";
 import { invert } from "../cube/moves.js";
@@ -475,6 +476,7 @@ export default function SolveWorkspace() {
 
   return (
     <AppShell>
+      <SolveCelebration solved={solved} suppressed={drillState.active} />
       <KeyboardControls
         onMove={doMove}
         onUndo={doUndo}
