@@ -61,30 +61,53 @@ def middle_layer_done(fl):
 
 
 def up_cross_done(fl):
+    """Top cross oriented: middle layer done and all 4 U edge stickers match U centre."""
     uc = _centre(fl, 0)
     return middle_layer_done(fl) and all(fl[i] == uc for i in (1, 3, 5, 7))
 
 
-def up_face_done(fl):
-    uc = _centre(fl, 0)
-    return middle_layer_done(fl) and all(fl[k] == uc for k in range(9))
-
-
-def corners_done(fl):
-    """Last-layer corners positioned: the two top-row corner stickers (col 0
-    and col 2) of every side face match that face's centre."""
-    if not up_face_done(fl):
+def up_cross_matched(fl):
+    """Match cross colors (JPerm Step 5 / Sune): top cross is built and the 4
+    top-edge side stickers match their respective side centres under top alignment."""
+    if not up_cross_done(fl):
         return False
-    return all(
-        fl[b * 9 + 0] == _centre(fl, b) and fl[b * 9 + 2] == _centre(fl, b)
-        for b in _SIDES
+    centres = [fl[b * 9 + 4] for b in _SIDES]
+    for u_turn in ("", "U", "U2", "U'"):
+        tfl = apply_move(fl, u_turn) if u_turn else fl
+        edges = [tfl[i] for i in (19, 10, 46, 37)]
+        if edges == centres:
+            return True
+    return False
+
+
+def corners_matched(fl):
+    """Match corners (JPerm Step 6 / Niklas): all 4 top corners are in their
+    matching 3-colour position slots (even if not yet oriented upright).
+    Verified directly against rubik_solver's placed_corners logic."""
+    if not up_cross_matched(fl):
+        return False
+    c_ufl = {fl[6], fl[18], fl[38]}
+    c_ufr = {fl[8], fl[20], fl[9]}
+    c_ubr = {fl[2], fl[45], fl[11]}
+    c_ubl = {fl[0], fl[47], fl[36]}
+
+    e_uf = fl[19]
+    e_ur = fl[10]
+    e_ub = fl[46]
+    e_ul = fl[37]
+
+    return (
+        e_uf in c_ufl and e_ul in c_ufl
+        and e_uf in c_ufr and e_ur in c_ufr
+        and e_ub in c_ubr and e_ur in c_ubr
+        and e_ub in c_ubl and e_ul in c_ubl
     )
 
 
 def is_solved(fl):
     if len(fl) != 54:
         return False
-    return all(len(set(fl[i * 9 : (i + 1) * 9])) == 1 for i in range(6))
+    return fl == SOLVED or all(len(set(fl[i * 9 : (i + 1) * 9])) == 1 for i in range(6))
 
 
 def oll_done(fl):
@@ -102,8 +125,8 @@ STAGES = [
     ("Bottom layer", first_layer_done),
     ("Middle layer", middle_layer_done),
     ("Top cross", up_cross_done),
-    ("Top face", up_face_done),
-    ("Position corners", corners_done),
+    ("Match cross", up_cross_matched),
+    ("Match corners", corners_matched),
     ("Solved", is_solved),
 ]
 
@@ -123,14 +146,22 @@ def segment(facelets: str, moves: list[str], stage_defs=None) -> list[dict]:
 
     A stage whose predicate never flips before the next one's does is simply
     skipped (its moves fold into the following segment), so the result stays
-    contiguous no matter how the solver ordered things.
+    contiguous no matter how the solver ordered things. Trailing corrective
+    reorientations fold into the final stage so the full move list is covered.
     """
     if stage_defs is None:
         stage_defs = STAGES
+    if not moves:
+        return []
     state, out, cursor, si = facelets, [], 0, 0
     for i, mv in enumerate(moves):
         state = apply_move(state, mv)
-        while si < len(stage_defs) and stage_defs[si][1](state):
+        while si < len(stage_defs) and (
+            stage_defs[si][1](state)
+            or (si == len(stage_defs) - 1 and i == len(moves) - 1)
+        ):
             out.append({"name": stage_defs[si][0], "start": cursor, "end": i + 1})
             cursor, si = i + 1, si + 1
+    if out and out[-1]["end"] < len(moves):
+        out[-1]["end"] = len(moves)
     return out

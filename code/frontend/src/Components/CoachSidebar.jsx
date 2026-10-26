@@ -1,5 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { getStageGuide, getCenterInfo } from "../cube/stageGuides.js";
+import {
+  getStageGuide,
+  getCenterInfo,
+  CUBE_ANATOMY,
+  FOUR_MOVE_SEQUENCES,
+  RESET_DRILL_CYCLE,
+  RESET_DRILL_TOTAL_CYCLES,
+  getDrillProgress,
+} from "../cube/stageGuides.js";
+import {
+  chunkMoves,
+  getTurnDirection,
+  TRIGGER_COLORS,
+} from "../cube/triggerChunker.js";
 import { useAuthStore } from "../store/authStore.js";
 import { useCubeStore, MODES } from "../store/cubeStore.js";
 
@@ -18,7 +31,217 @@ export function Panel({ title, children, className = "" }) {
   );
 }
 
-export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
+export function CubeAnatomyPanel() {
+  return (
+    <Panel
+      title={
+        <div className="flex items-center justify-between w-full">
+          <span className="text-white font-bold">Cube Anatomy</span>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-gray-300 border border-dark-border">
+            26 Pieces
+          </span>
+        </div>
+      }
+      className="border-cyan-500/25"
+    >
+      <div className="space-y-2.5">
+        {CUBE_ANATOMY.map((piece) => (
+          <div
+            key={piece.id}
+            className={`p-2.5 rounded-xl border ${piece.cardClass} space-y-1`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-white">{piece.title}</span>
+              <span
+                className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full border ${piece.badgeClass}`}
+              >
+                {piece.stickerBadge}
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-300 leading-relaxed">
+              {piece.description}
+            </p>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+export function FourMovesBreakdownPanel() {
+  return (
+    <Panel
+      title={
+        <div className="flex items-center justify-between w-full">
+          <span className="text-white font-bold">JPerm&apos;s 4-Move Triggers</span>
+          <a
+            href="https://jperm.net/3x3#4moves"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] font-semibold text-neon-blue hover:underline lowercase"
+          >
+            jperm.net &rarr;
+          </a>
+        </div>
+      }
+      className="border-neon-blue/25"
+    >
+      <div className="space-y-3">
+        {FOUR_MOVE_SEQUENCES.map((seq) => (
+          <div
+            key={seq.id}
+            className={`p-3 rounded-xl border ${seq.accentClass} space-y-2`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-white">{seq.title}</span>
+              <span
+                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border ${seq.badgeClass}`}
+              >
+                {seq.formula}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-4 gap-1.5">
+              {seq.steps.map((st, idx) => (
+                <div
+                  key={`${seq.id}-${idx}`}
+                  title={st.action}
+                  className="bg-dark-bg/80 border border-dark-border rounded-lg p-1.5 text-center flex flex-col items-center gap-0.5"
+                >
+                  <div className="flex items-center gap-0.5 font-mono text-xs font-bold text-white">
+                    <span>{st.move}</span>
+                    <span className="text-[10px] text-neon-blue">{st.arrow}</span>
+                  </div>
+                  <span className="text-[9px] text-gray-400 leading-tight line-clamp-2">
+                    {st.action}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[10px] text-gray-400 leading-snug">{seq.note}</p>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+export function ResetDrillPanel({ drillState, onStartDrill, disabled = false }) {
+  const isRunning = Boolean(drillState?.active);
+  const isCompleted = Boolean(drillState?.completed && !drillState?.active);
+  const progress = getDrillProgress(drillState?.step ?? 0, isCompleted);
+
+  return (
+    <Panel
+      title={
+        <div className="flex items-center justify-between w-full">
+          <span className="text-white font-bold">4-Move Reset Drill</span>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30 font-semibold">
+            R U R&apos; U&apos; &times; 6
+          </span>
+        </div>
+      }
+      className="border-amber-400/30"
+    >
+      <div className="space-y-3">
+        <p className="text-[11px] text-gray-300 leading-relaxed">
+          Repeating <span className="font-mono font-bold text-white">R U R&apos; U&apos;</span>{" "}
+          exactly <span className="font-semibold text-amber-300">6 times (24 moves)</span>{" "}
+          always returns any cube to its exact starting state without affecting your solve timer or move count.
+        </p>
+
+        {/* Live 4-move step indicator */}
+        <div className="grid grid-cols-4 gap-1.5">
+          {RESET_DRILL_CYCLE.map((m, idx) => {
+            const dir = getTurnDirection(m);
+            const isCurrentMove = isRunning && progress.moveInCycle === idx;
+            return (
+              <div
+                key={`drill-move-${idx}`}
+                className={`py-1.5 px-2 rounded-xl border text-center font-mono text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+                  isCurrentMove
+                    ? "bg-neon-blue text-black border-cyan-200 shadow-md shadow-neon-blue/30 scale-105"
+                    : isCompleted
+                      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                      : "bg-dark-bg/80 text-gray-300 border-dark-border"
+                }`}
+              >
+                <span>{m}</span>
+                <span className="text-[10px] opacity-80">{dir.arrow}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 6-Cycle Progress Bar & Live Status */}
+        {(isRunning || isCompleted) && (
+          <div className="space-y-1.5 bg-dark-bg/80 border border-dark-border rounded-xl p-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-400 font-medium">Drill Progress</span>
+              <span
+                className={`font-mono font-bold ${
+                  isCompleted ? "text-emerald-400" : "text-neon-blue"
+                }`}
+              >
+                {progress.label}
+              </span>
+            </div>
+            <div className="grid grid-cols-6 gap-1">
+              {Array.from({ length: RESET_DRILL_TOTAL_CYCLES }).map((_, cIdx) => {
+                const cycleNum = cIdx + 1;
+                const done = isCompleted || cycleNum < progress.cycle;
+                const current = isRunning && cycleNum === progress.cycle;
+                return (
+                  <div
+                    key={`cycle-seg-${cycleNum}`}
+                    className={`h-1.5 rounded-full transition-all ${
+                      done
+                        ? "bg-emerald-400"
+                        : current
+                          ? "bg-neon-blue animate-pulse"
+                          : "bg-white/10"
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onStartDrill}
+          disabled={disabled || isRunning}
+          className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm ${
+            isRunning
+              ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 cursor-wait"
+              : "bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black shadow-amber-500/20 active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
+          }`}
+        >
+          <span>{isRunning ? "⏳" : "▶"}</span>
+          <span>
+            {isRunning
+              ? `${progress.label} (${(drillState?.step ?? 0) + 1}/24)...`
+              : isCompleted
+                ? "Run 4-Move Reset Drill Again (R U R' U' × 6)"
+                : "4-Move Reset Drill (R U R' U' × 6)"}
+          </span>
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
+export default function CoachSidebar({
+  error,
+  saveState,
+  elapsed,
+  turnCount,
+  drillState,
+  onStartDrill,
+  drillDisabled = false,
+}) {
   const token = useAuthStore((s) => s.token);
   const facelets = useCubeStore((s) => s.facelets);
   const mode = useCubeStore((s) => s.mode);
@@ -28,11 +251,21 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
   const solved = useCubeStore((s) => s.isSolved());
   const stage = useCubeStore((s) => s.currentStage());
 
-  const [sidebarTab, setSidebarTab] = useState("coach"); // "coach" | "all_stages"
+  const guided = Boolean(mode === MODES.GUIDED && solution);
+  const [tabState, setTabState] = useState({
+    guided,
+    tab: guided ? "coach" : "cubing_101",
+  }); // "coach" | "all_stages" | "cubing_101"
+  const sidebarTab = !guided
+    ? "cubing_101"
+    : tabState.guided === guided
+      ? tabState.tab
+      : "coach";
+  const setSidebarTab = (tab) => setTabState({ guided, tab });
   const sidebarMovesRef = useRef(null);
   const allStagesRef = useRef(null);
 
-  const activeGuide = getStageGuide(stage?.name);
+  const activeGuide = getStageGuide(stage?.name, facelets);
 
   const targetCenterInfo =
     activeGuide?.targetFace &&
@@ -42,11 +275,45 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
       : null;
   const frontCenterInfo = getCenterInfo(facelets, "F");
 
-  // Auto-scroll active move in current stage moves sequence
+  const isIntuitiveCrossStage =
+    stage?.name === "Cross" || stage?.name?.toLowerCase() === "bottom cross";
+
+  const stageChunks =
+    stage && solution?.moves
+      ? isIntuitiveCrossStage
+        ? solution.moves.slice(stage.start, stage.end).map((m, idx) => ({
+            type: "single",
+            move: m,
+            startIndex: stage.start + idx,
+            endIndex: stage.start + idx + 1,
+          }))
+        : chunkMoves(
+            solution.moves.slice(stage.start, stage.end),
+            stage.start,
+          )
+      : [];
+
+  // Auto-scroll active move in current stage moves sequence (vertical only)
   useEffect(() => {
-    sidebarMovesRef.current
-      ?.querySelector('[data-active="true"]')
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (sidebarTab !== "coach") return;
+    const activeEl = sidebarMovesRef.current?.querySelector('[data-active="true"]');
+    const container = sidebarMovesRef.current;
+    if (!activeEl || !container) return;
+
+    const elRect = activeEl.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+
+    if (elRect.top < containerRect.top) {
+      container.scrollBy({
+        top: elRect.top - containerRect.top - 8,
+        behavior: "smooth",
+      });
+    } else if (elRect.bottom > containerRect.bottom) {
+      container.scrollBy({
+        top: elRect.bottom - containerRect.bottom + 8,
+        behavior: "smooth",
+      });
+    }
   }, [cursor, stage, sidebarTab]);
 
   // Auto-scroll active stage card in All Stages view
@@ -57,38 +324,134 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
       ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [cursor, stage, sidebarTab]);
 
-  const guided = mode === MODES.GUIDED && solution;
+  const optimalMoveCount = useCubeStore((s) => s.optimalMoveCount);
+  const efficiency = useCubeStore.getState().efficiency();
+
+  const solveModeLabel =
+    mode === MODES.AUTO
+      ? "Auto-Solve"
+      : mode === MODES.GUIDED
+        ? `Guided (${solution?.method_used?.toUpperCase() || "Beginner"})`
+        : assisted
+          ? "Interactive (Assisted)"
+          : "Interactive";
+
+  const solveModeBadgeClass = assisted
+    ? "bg-amber-400/15 text-amber-300 border-amber-400/30"
+    : "bg-neon-green/15 text-neon-green border-neon-green/30";
+
+  const effectiveMoveCount =
+    turnCount > 0 ? turnCount : (solution?.moveCount ?? solution?.moves?.length ?? 0);
 
   return (
     <div className="lg:col-span-1 flex flex-col gap-3 min-h-0 lg:h-full lg:overflow-y-auto pr-0.5">
       {solved && (
-        <Panel title="Result" className="border-neon-green/40 shadow-sm">
-          <div className="text-neon-green font-bold text-sm mb-1 flex items-center gap-1.5">
+        <Panel
+          title={
+            <div className="flex items-center justify-between w-full">
+              <span>Solve Summary</span>
+              <span
+                className={`text-[10px] font-mono px-2 py-0.5 rounded-full border font-semibold normal-case ${solveModeBadgeClass}`}
+              >
+                {solveModeLabel}
+              </span>
+            </div>
+          }
+          className="border-neon-green/40 shadow-sm"
+        >
+          <div className="text-neon-green font-bold text-sm mb-2.5 flex items-center gap-1.5">
             <span>🎉</span>
             <span>Cube Solved!</span>
           </div>
-          {!assisted && (
-            <div className="text-xs text-gray-400">
-              {elapsed.toFixed(1)}s &middot; {turnCount} moves
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="bg-dark-bg/80 border border-dark-border rounded-xl p-2">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                Time
+              </div>
+              <div className="font-mono font-bold text-white text-sm mt-0.5">
+                {!assisted || elapsed > 0 ? `${elapsed.toFixed(1)}s` : "Assisted"}
+              </div>
+            </div>
+
+            <div className="bg-dark-bg/80 border border-dark-border rounded-xl p-2">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                Move Count
+              </div>
+              <div className="font-mono font-bold text-white text-sm mt-0.5">
+                {effectiveMoveCount} moves
+              </div>
+            </div>
+
+            <div className="bg-dark-bg/80 border border-dark-border rounded-xl p-2">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                CFOP Optimal Baseline
+              </div>
+              <div className="font-mono font-bold text-neon-blue text-sm mt-0.5">
+                {optimalMoveCount ? `${optimalMoveCount} moves` : "--"}
+              </div>
+            </div>
+
+            <div className="bg-dark-bg/80 border border-dark-border rounded-xl p-2">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                Efficiency %
+              </div>
+              <div
+                className={`font-mono font-bold text-sm mt-0.5 ${
+                  !assisted && efficiency >= 50
+                    ? "text-neon-green"
+                    : "text-white"
+                }`}
+              >
+                {!assisted && efficiency > 0
+                  ? `${efficiency.toFixed(0)}%`
+                  : assisted
+                    ? "Assisted"
+                    : "--"}
+              </div>
+            </div>
+          </div>
+
+          {!assisted && efficiency > 0 && (
+            <div className="mt-2.5 space-y-1">
+              <div className="flex items-center justify-between text-[10px] text-gray-400">
+                <span>CFOP Efficiency Rating</span>
+                <span className="font-mono text-gray-300 font-semibold">
+                  {efficiency >= 80
+                    ? "Elite"
+                    : efficiency >= 50
+                      ? "Solid"
+                      : "Keep Practicing"}
+                </span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-dark-bg overflow-hidden border border-dark-border">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    efficiency >= 50 ? "bg-neon-green" : "bg-neon-blue"
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(6, efficiency))}%` }}
+                />
+              </div>
             </div>
           )}
+
           {saveState === "saving" && (
-            <div className="text-[11px] text-gray-400 mt-1.5">
+            <div className="text-[11px] text-gray-400 mt-2">
               Saving solve to your history...
             </div>
           )}
           {saveState === "saved" && (
-            <div className="text-[11px] text-neon-green mt-1.5">
+            <div className="text-[11px] text-neon-green mt-2">
               ✓ Saved to your dashboard &amp; leaderboard.
             </div>
           )}
           {!token && !assisted && (
-            <div className="text-[11px] text-amber-300 mt-1.5">
+            <div className="text-[11px] text-amber-300 mt-2">
               Log in to save your solve to the dashboard and leaderboard.
             </div>
           )}
           {saveState && saveState !== "saving" && saveState !== "saved" && (
-            <div className="text-[11px] text-rose-400 mt-1.5">
+            <div className="text-[11px] text-rose-400 mt-2">
               Could not save solve: {saveState}
             </div>
           )}
@@ -103,12 +466,12 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
 
       {guided && (
         <>
-          {/* Segmented Tab Controls: Coach & Moves vs All Stages */}
-          <div className="flex rounded-xl bg-dark-bg/80 p-1 border border-dark-border text-xs shrink-0">
+          {/* Segmented Tab Controls: Coach & Moves | All Stages | Cubing 101 */}
+          <div className="flex rounded-xl bg-dark-bg/80 p-1 border border-dark-border text-[11px] shrink-0 gap-0.5">
             <button
               type="button"
               onClick={() => setSidebarTab("coach")}
-              className={`flex-1 py-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center ${
+              className={`flex-1 py-1.5 px-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
                 sidebarTab === "coach"
                   ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
                   : "text-gray-400 hover:text-white"
@@ -119,13 +482,24 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
             <button
               type="button"
               onClick={() => setSidebarTab("all_stages")}
-              className={`flex-1 py-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center ${
+              className={`flex-1 py-1.5 px-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
                 sidebarTab === "all_stages"
                   ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
                   : "text-gray-400 hover:text-white"
               }`}
             >
               All Stages ({solution.stages.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarTab("cubing_101")}
+              className={`flex-1 py-1.5 px-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
+                sidebarTab === "cubing_101"
+                  ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Cubing 101
             </button>
           </div>
 
@@ -157,31 +531,114 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
                   </div>
                   <div
                     ref={sidebarMovesRef}
-                    className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1 scrollbar-thin scroll-smooth"
+                    className="flex flex-wrap items-center gap-1.5 max-h-48 overflow-y-auto overflow-x-hidden pr-1 scrollbar-thin scroll-smooth"
                   >
-                    {solution.moves
-                      .slice(stage.start, stage.end)
-                      .map((m, mIdx) => {
-                        const globalIdx = stage.start + mIdx;
-                        const isCurrent = globalIdx === cursor;
-                        const isPast = globalIdx < cursor;
+                    {stageChunks.map((chunk) => {
+                      if (chunk.type === "trigger") {
+                        const isInside =
+                          cursor >= chunk.startIndex && cursor < chunk.endIndex;
+                        const isDone = cursor >= chunk.endIndex;
+                        const colorPreset =
+                          TRIGGER_COLORS[chunk.color] || TRIGGER_COLORS.cyan;
 
                         return (
-                          <span
-                            key={globalIdx}
-                            data-active={isCurrent ? "true" : undefined}
-                            className={`text-xs font-mono px-2.5 py-1 rounded-xl transition-all font-bold shrink-0 ${
-                              isCurrent
-                                ? "bg-neon-blue text-black shadow-lg shadow-neon-blue/30 scale-105 border-2 border-cyan-200 ring-2 ring-neon-blue/30"
-                                : isPast
-                                  ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20 line-through"
-                                  : "bg-dark-bg text-gray-300 border border-dark-border"
+                          <div
+                            key={`chunk-${chunk.startIndex}`}
+                            className={`p-1.5 rounded-xl border flex flex-col gap-1 transition-all w-full min-w-0 ${
+                              isInside
+                                ? `${colorPreset.border} bg-white/[0.04] ring-1 ring-neon-blue/30`
+                                : isDone
+                                  ? "border-emerald-500/20 bg-emerald-500/[0.02] opacity-80"
+                                  : "border-dark-border bg-dark-bg/60"
                             }`}
                           >
-                            {m}
-                          </span>
+                            <div className="flex items-center justify-between gap-1.5 px-0.5">
+                              <span
+                                className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border select-none ${colorPreset.badge}`}
+                                title={chunk.description}
+                              >
+                                {chunk.badge}
+                              </span>
+                              {isInside ? (
+                                <span className="text-[9px] font-mono text-neon-blue font-bold">
+                                  {cursor - chunk.startIndex + 1}/{chunk.moves.length}
+                                </span>
+                              ) : isDone ? (
+                                <span className="text-[9px] text-emerald-400 font-bold">
+                                  ✓
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {chunk.moves.map((m, idx) => {
+                                const globalIdx = chunk.startIndex + idx;
+                                const isCurrent = globalIdx === cursor;
+                                const isPast = globalIdx < cursor;
+                                const dir = getTurnDirection(m);
+
+                                return (
+                                  <span
+                                    key={globalIdx}
+                                    data-active={isCurrent ? "true" : undefined}
+                                    title={`${m}: ${dir.label}`}
+                                    className={`text-xs font-mono px-2 py-0.5 rounded-lg transition-all font-bold shrink-0 flex items-center gap-0.5 ${
+                                      isCurrent
+                                        ? "bg-neon-blue text-black shadow-md shadow-neon-blue/30 scale-105 border border-cyan-200 ring-1 ring-neon-blue/40"
+                                        : isPast
+                                          ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20 line-through"
+                                          : "bg-black/30 text-gray-300 border border-dark-border/60"
+                                    }`}
+                                  >
+                                    <span>{m}</span>
+                                    <span
+                                      className={`text-[10px] select-none ${
+                                        isCurrent
+                                          ? "text-black/80 font-bold"
+                                          : "text-gray-500 font-normal"
+                                      }`}
+                                    >
+                                      {dir.arrow}
+                                    </span>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
                         );
-                      })}
+                      }
+
+                      // Single move
+                      const globalIdx = chunk.startIndex;
+                      const isCurrent = globalIdx === cursor;
+                      const isPast = globalIdx < cursor;
+                      const dir = getTurnDirection(chunk.move);
+
+                      return (
+                        <span
+                          key={globalIdx}
+                          data-active={isCurrent ? "true" : undefined}
+                          title={`${chunk.move}: ${dir.label}`}
+                          className={`text-xs font-mono px-2.5 py-1 rounded-xl transition-all font-bold shrink-0 flex items-center gap-1 self-center ${
+                            isCurrent
+                              ? "bg-neon-blue text-black shadow-lg shadow-neon-blue/30 scale-105 border-2 border-cyan-200 ring-2 ring-neon-blue/30"
+                              : isPast
+                                ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20 line-through"
+                                : "bg-dark-bg text-gray-300 border border-dark-border"
+                          }`}
+                        >
+                          <span>{chunk.move}</span>
+                          <span
+                            className={`text-[10px] select-none ${
+                              isCurrent
+                                ? "text-black/80 font-bold"
+                                : "text-gray-500 font-normal"
+                            }`}
+                          >
+                            {dir.arrow}
+                          </span>
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -284,7 +741,7 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
                 </div>
               </Panel>
             )
-          ) : (
+          ) : sidebarTab === "all_stages" ? (
             /* --- Tab 2: All Stages Overview View --- */
             <Panel
               title={
@@ -367,12 +824,14 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
                           const globalIdx = stg.start + mIdx;
                           const isMCurrent = globalIdx === cursor;
                           const isMPast = globalIdx < cursor;
+                          const dir = getTurnDirection(m);
 
                           return (
                             <span
                               key={globalIdx}
                               data-active={isMCurrent ? "true" : undefined}
-                              className={`text-[11px] font-mono px-2 py-0.5 rounded-md transition-all font-bold ${
+                              title={`${m}: ${dir.label}`}
+                              className={`text-[11px] font-mono px-1.5 py-0.5 rounded-md transition-all font-bold flex items-center gap-0.5 ${
                                 isMCurrent
                                   ? "bg-neon-blue text-black shadow scale-105 border border-cyan-200"
                                   : isMPast
@@ -380,7 +839,14 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
                                     : "text-gray-300 bg-black/20"
                               }`}
                             >
-                              {m}
+                              <span>{m}</span>
+                              <span
+                                className={`text-[9px] select-none ${
+                                  isMCurrent ? "text-black/80 font-bold" : "text-gray-500"
+                                }`}
+                              >
+                                {dir.arrow}
+                              </span>
                             </span>
                           );
                         })}
@@ -390,8 +856,41 @@ export default function CoachSidebar({ error, saveState, elapsed, turnCount }) {
                 })}
               </div>
             </Panel>
+          ) : (
+            /* --- Tab 3: Cubing 101 View in Guided Mode --- */
+            <div className="flex flex-col gap-3">
+              <ResetDrillPanel
+                drillState={drillState}
+                onStartDrill={onStartDrill}
+                disabled={drillDisabled}
+              />
+              <FourMovesBreakdownPanel />
+              <CubeAnatomyPanel />
+            </div>
           )}
         </>
+      )}
+
+      {/* Interactive Mode Default Sidebar: 🎓 Cubing 101 */}
+      {!guided && mode === MODES.INTERACTIVE && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between rounded-xl bg-dark-bg/80 px-3 py-2 border border-dark-border text-xs shrink-0">
+            <span className="font-bold text-neon-blue flex items-center gap-1.5">
+              <span>🎓</span>
+              <span>Cubing 101</span>
+            </span>
+            <span className="text-[10px] font-mono text-gray-400">
+              Practice &amp; Reference
+            </span>
+          </div>
+          <ResetDrillPanel
+            drillState={drillState}
+            onStartDrill={onStartDrill}
+            disabled={drillDisabled}
+          />
+          <FourMovesBreakdownPanel />
+          <CubeAnatomyPanel />
+        </div>
       )}
     </div>
   );

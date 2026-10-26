@@ -87,13 +87,49 @@ def solve_optimal(facelets: str) -> list[str]:
     return list(_solve_optimal_cached(facelets))
 
 
+_MOVE_VALS = {"": 1, "2": 2, "'": 3}
+_MOVE_REV = {1: "", 2: "2", 3: "'"}
+
+
+def simplify_moves(moves: list[str]) -> list[str]:
+    """Cancels out consecutive moves or whole-cube rotations on the same axis.
+    e.g. Y' Y' Y' Y' -> [] (cancels full 360° spin produced by solver search loops)
+         U U' -> [] (cancels redundant back-and-forth)
+         U U U -> U' (reduces 270° turn to 90° turn)
+         U2 U2 -> []
+    """
+    changed = True
+    while changed:
+        changed = False
+        new_moves = []
+        i = 0
+        while i < len(moves):
+            if i + 1 < len(moves) and moves[i][0] == moves[i + 1][0]:
+                base = moves[i][0]
+                mod1 = moves[i][1:]
+                mod2 = moves[i + 1][1:]
+                if mod1 in _MOVE_VALS and mod2 in _MOVE_VALS:
+                    net = (_MOVE_VALS[mod1] + _MOVE_VALS[mod2]) % 4
+                    if net != 0:
+                        new_moves.append(base + _MOVE_REV[net])
+                    i += 2
+                    changed = True
+                    continue
+            new_moves.append(moves[i])
+            i += 1
+        moves = new_moves
+    return moves
+
+
 @lru_cache(maxsize=512)
 def _solve_guided_cached(facelets: str, method: str = "Beginner") -> tuple[str, ...]:
     if facelets == SOLVED:
         return ()
     raw = [str(m) for m in rs_utils.solve(to_rubik_solver(facelets), method)]
     moves = [_translate(m) for m in raw]
+    moves = simplify_moves(moves)
     moves += _corrective_rotation(apply_moves(facelets, moves))
+    moves = simplify_moves(moves)
     return tuple(_trim_after_solved(facelets, moves))
 
 

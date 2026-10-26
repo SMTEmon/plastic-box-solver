@@ -7,10 +7,11 @@ import KeyboardControls from "../Components/KeyboardControls";
 import SolveHeader from "../Components/SolveHeader";
 import SolveControlsDock from "../Components/SolveControlsDock";
 import CoachSidebar from "../Components/CoachSidebar";
+import SolveCelebration from "../Components/SolveCelebration";
 import { cubeApi, solvesApi } from "../lib/api.js";
 import { isSolved as isFaceletsSolved } from "../cube/facelets.js";
 import { invert } from "../cube/moves.js";
-import { getStageGuide } from "../cube/stageGuides.js";
+import { getStageGuide, RESET_DRILL_MOVES } from "../cube/stageGuides.js";
 import { useAuthStore } from "../store/authStore.js";
 import { useCubeStore, MODES } from "../store/cubeStore.js";
 
@@ -41,6 +42,9 @@ export default function SolveWorkspace() {
   const assisted = useCubeStore((s) => s.assisted);
   const solved = useCubeStore((s) => s.isSolved());
   const stage = useCubeStore((s) => s.currentStage());
+  const facelets = useCubeStore((s) => s.facelets);
+  const focusMode = useCubeStore((s) => s.focusMode);
+  const toggleFocusMode = useCubeStore((s) => s.toggleFocusMode);
   const token = useAuthStore((s) => s.token);
 
   const turnCount = useMemo(
@@ -52,6 +56,13 @@ export default function SolveWorkspace() {
   const controlsRef = useRef(null);
   const submittedRef = useRef(false);
   const playbackRef = useRef({ isPlaying: false, targetEnd: 0 });
+  const playbackTimerRef = useRef(null);
+  const drillRef = useRef({
+    active: false,
+    step: 0,
+    startedWallMs: 0,
+    snapshot: null,
+  });
 
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
@@ -60,26 +71,85 @@ export default function SolveWorkspace() {
   const [speed, setSpeed] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [autoTrackCamera, setAutoTrackCamera] = useState(true);
+  const [drillState, setDrillState] = useState({
+    active: false,
+    step: 0,
+    completed: false,
+  });
   const lastTrackedFaceRef = useRef(null);
 
-  const activeGuide = getStageGuide(stage?.name);
+  const activeGuide = getStageGuide(stage?.name, facelets);
+
+  // Clean up any pending playback timer on unmount
+  useEffect(() => {
+    return () => {
+      if (playbackTimerRef.current) {
+        clearTimeout(playbackTimerRef.current);
+      }
+    };
+  }, []);
 
   // Unified playback callback invoked on each animation step completion
-  const handleStepDone = useCallback(() => {
-    if (!playbackRef.current.isPlaying) return;
+  const handleStepDone = useCallback(
+    (_move, count) => {
+      if (drillRef.current.active && count === "drill") {
+        const nextStep = drillRef.current.step + 1;
+        if (nextStep >= RESET_DRILL_MOVES.length) {
+          const deltaMs = Date.now() - drillRef.current.startedWallMs;
+          drillRef.current = {
+            active: false,
+            step: RESET_DRILL_MOVES.length,
+            startedWallMs: 0,
+            snapshot: null,
+          };
+          useCubeStore.getState().shiftStartTime(deltaMs);
+          setDrillState({
+            active: false,
+            step: RESET_DRILL_MOVES.length,
+            completed: true,
+          });
+        } else {
+          drillRef.current.step = nextStep;
+          setDrillState({
+            active: true,
+            step: nextStep,
+            completed: false,
+          });
+          animatorRef.current?.enqueue(RESET_DRILL_MOVES[nextStep], "drill");
+        }
+        return;
+      }
 
-    const s = useCubeStore.getState();
-    const targetEnd = playbackRef.current.targetEnd;
+      if (!playbackRef.current.isPlaying) return;
 
-    if (s.cursor >= targetEnd || s.cursor >= s.solution?.moves?.length) {
-      playbackRef.current.isPlaying = false;
-      setIsPlaying(false);
-    } else {
-      const nextMove = s.solution.moves[s.cursor];
-      animatorRef.current?.enqueue(nextMove, false);
-      s.setCursor(s.cursor + 1);
-    }
-  }, []);
+      const s = useCubeStore.getState();
+      const targetEnd = playbackRef.current.targetEnd;
+
+      if (s.cursor >= targetEnd || s.cursor >= s.solution?.moves?.length) {
+        playbackRef.current.isPlaying = false;
+        setIsPlaying(false);
+      } else {
+        // Natural breather between consecutive moves in playback (~180ms at 1x, ~360ms at 0.5x)
+        const breatherMs = Math.round(180 / speed);
+        playbackTimerRef.current = setTimeout(() => {
+          if (!playbackRef.current.isPlaying) return;
+          const curStore = useCubeStore.getState();
+          if (
+            curStore.cursor >= targetEnd ||
+            curStore.cursor >= curStore.solution?.moves?.length
+          ) {
+            playbackRef.current.isPlaying = false;
+            setIsPlaying(false);
+            return;
+          }
+          const nextMove = curStore.solution.moves[curStore.cursor];
+          animatorRef.current?.enqueue(nextMove, false);
+          curStore.setCursor(curStore.cursor + 1);
+        }, breatherMs);
+      }
+    },
+    [speed],
+  );
 
   const handleSetSpeed = useCallback((s) => {
     setSpeed(s);
@@ -136,6 +206,7 @@ export default function SolveWorkspace() {
 
   // FR-13a: save a finished unassisted solve
   useEffect(() => {
+    if (drillState.active) return;
     if (!solved) {
       submittedRef.current = false;
       return;
@@ -172,7 +243,30 @@ export default function SolveWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [solved, assisted, turnCount, token, initial]);
+  }, [solved, assisted, turnCount, token, initial, drillState.active]);
+
+  const cancelResetDrill = useCallback((restorePreDrill = true) => {
+    if (!drillRef.current.active) return;
+    const { snapshot, startedWallMs } = drillRef.current;
+    drillRef.current = {
+      active: false,
+      step: 0,
+      startedWallMs: 0,
+      snapshot: null,
+    };
+    animatorRef.current?.cancel();
+    if (restorePreDrill && snapshot) {
+      useCubeStore.getState().restoreSnapshot(snapshot);
+      if (startedWallMs > 0) {
+        useCubeStore.getState().shiftStartTime(Date.now() - startedWallMs);
+      }
+    }
+    setDrillState({
+      active: false,
+      step: 0,
+      completed: false,
+    });
+  }, []);
 
   // User interactive moves
   const doMove = useCallback((move) => {
@@ -212,12 +306,21 @@ export default function SolveWorkspace() {
   }, []);
 
   const pausePlayback = useCallback(() => {
+    if (playbackTimerRef.current) {
+      clearTimeout(playbackTimerRef.current);
+      playbackTimerRef.current = null;
+    }
     playbackRef.current.isPlaying = false;
     setIsPlaying(false);
     animatorRef.current?.fastForward();
   }, []);
 
   const startPlayback = useCallback(() => {
+    cancelResetDrill(true);
+    if (playbackTimerRef.current) {
+      clearTimeout(playbackTimerRef.current);
+      playbackTimerRef.current = null;
+    }
     animatorRef.current?.fastForward();
     const s = useCubeStore.getState();
     if (!s.solution || !s.solution.moves?.length) return;
@@ -237,7 +340,7 @@ export default function SolveWorkspace() {
     const move = s.solution.moves[s.cursor];
     animatorRef.current?.enqueue(move, false);
     s.setCursor(s.cursor + 1);
-  }, [speed]);
+  }, [speed, cancelResetDrill]);
 
   const togglePlay = useCallback(() => {
     if (isPlaying) {
@@ -248,6 +351,7 @@ export default function SolveWorkspace() {
   }, [isPlaying, pausePlayback, startPlayback]);
 
   const stepForward = useCallback(() => {
+    cancelResetDrill(true);
     if (isPlaying) pausePlayback();
     animatorRef.current?.fastForward();
     const s = useCubeStore.getState();
@@ -256,9 +360,10 @@ export default function SolveWorkspace() {
     animatorRef.current?.setSpeed(speed);
     animatorRef.current?.enqueue(move, false);
     s.setCursor(s.cursor + 1);
-  }, [isPlaying, pausePlayback, speed]);
+  }, [isPlaying, pausePlayback, speed, cancelResetDrill]);
 
   const stepBack = useCallback(() => {
+    cancelResetDrill(true);
     if (isPlaying) pausePlayback();
     animatorRef.current?.fastForward();
     const s = useCubeStore.getState();
@@ -267,44 +372,75 @@ export default function SolveWorkspace() {
     animatorRef.current?.setSpeed(speed);
     animatorRef.current?.enqueue(move, false);
     s.setCursor(s.cursor - 1);
-  }, [isPlaying, pausePlayback, speed]);
+  }, [isPlaying, pausePlayback, speed, cancelResetDrill]);
 
   const runAutoSolve = useCallback(async () => {
+    cancelResetDrill(true);
     pausePlayback();
     useCubeStore.getState().markAssisted();
     if (useCubeStore.getState().mode === MODES.AUTO) return;
     useCubeStore.getState().setMode(MODES.AUTO);
     await fetchSolution("optimal");
-  }, [fetchSolution, pausePlayback]);
+  }, [fetchSolution, pausePlayback, cancelResetDrill]);
 
   const startGuided = useCallback(
     async (method) => {
+      cancelResetDrill(true);
       pausePlayback();
       useCubeStore.getState().markAssisted();
       useCubeStore.getState().setMode(MODES.GUIDED);
       await fetchSolution(method);
     },
-    [fetchSolution, pausePlayback],
+    [fetchSolution, pausePlayback, cancelResetDrill],
   );
 
   const backToInteractive = useCallback(() => {
+    cancelResetDrill(true);
     pausePlayback();
     animatorRef.current?.fastForwardAll();
     animatorRef.current?.setSpeed(1);
     useCubeStore.getState().setMode(MODES.INTERACTIVE);
-  }, [pausePlayback]);
+  }, [pausePlayback, cancelResetDrill]);
 
   const resetCube = useCallback(() => {
+    cancelResetDrill(false);
     pausePlayback();
     animatorRef.current?.cancel();
     submittedRef.current = false;
     setSaveState(null);
+    setDrillState({ active: false, step: 0, completed: false });
     useCubeStore.getState().reset();
+  }, [pausePlayback, cancelResetDrill]);
+
+  const startResetDrill = useCallback(() => {
+    if (!animatorRef.current || drillRef.current.active) return;
+    pausePlayback();
+    animatorRef.current.fastForwardAll();
+
+    const s = useCubeStore.getState();
+    drillRef.current = {
+      active: true,
+      step: 0,
+      startedWallMs: Date.now(),
+      snapshot: {
+        facelets: s.facelets,
+        startedAt: s.startedAt,
+        finishedAt: s.finishedAt,
+      },
+    };
+    setDrillState({
+      active: true,
+      step: 0,
+      completed: false,
+    });
+    animatorRef.current.enqueue(RESET_DRILL_MOVES[0], "drill");
   }, [pausePlayback]);
 
   const guided = mode === MODES.GUIDED && solution;
-  const showSidebar = Boolean(guided || solved || error);
-  const canTurn = ready && mode === MODES.INTERACTIVE;
+  const showSidebar = Boolean(
+    mode === MODES.INTERACTIVE || guided || solved || error,
+  );
+  const canTurn = ready && mode === MODES.INTERACTIVE && !drillState.active;
 
   // Auto-track camera to active target face when enabled
   useEffect(() => {
@@ -340,6 +476,7 @@ export default function SolveWorkspace() {
 
   return (
     <AppShell>
+      <SolveCelebration solved={solved} suppressed={drillState.active} />
       <KeyboardControls
         onMove={doMove}
         onUndo={doUndo}
@@ -410,6 +547,24 @@ export default function SolveWorkspace() {
                     <div className="w-px h-3.5 bg-dark-border mx-0.5" />
                     <button
                       type="button"
+                      onClick={toggleFocusMode}
+                      title={
+                        focusMode
+                          ? "Focus Mode: ON (dims non-target layers - click to disable)"
+                          : "Focus Mode: OFF (click to ghost inactive layers)"
+                      }
+                      className={`px-2 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-colors flex items-center gap-1 ${
+                        focusMode
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <span>{focusMode ? "👁" : "👁‍🗨"}</span>
+                      <span>Focus {focusMode ? "ON" : "OFF"}</span>
+                    </button>
+                    <div className="w-px h-3.5 bg-dark-border mx-0.5" />
+                    <button
+                      type="button"
                       onClick={toggleAutoTrack}
                       title={
                         autoTrackCamera
@@ -453,6 +608,9 @@ export default function SolveWorkspace() {
               saveState={saveState}
               elapsed={useCubeStore.getState().elapsedSeconds()}
               turnCount={turnCount}
+              drillState={drillState}
+              onStartDrill={startResetDrill}
+              drillDisabled={!ready || isPlaying}
             />
           )}
         </div>
