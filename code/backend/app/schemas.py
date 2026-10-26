@@ -80,3 +80,39 @@ class SolveOut(BaseModel):
 class HistoryResponse(BaseModel):
     solves: list[SolveOut]
     personal_best: Optional[SolveOut] = None
+
+
+# --- Tutorial System Schemas ------------------------------------------------
+
+class TutorialStageInfo(BaseModel):
+    id: str
+    stage_name: str
+    title: str
+    category: str
+    formula: str
+    formula_name: str
+    description: str
+    tip: str
+    difficulty: str
+    method: str
+    icon: str
+
+
+class TutorialCaseRequest(BaseModel):
+    stage_id: str = "top_cross"
+
+
+class TutorialCaseResponse(BaseModel):
+    id: str
+    stage_name: str
+    title: str
+    category: str
+    formula: str
+    formula_name: str
+    description: str
+    tip: str
+    difficulty: str
+    facelets: str
+    target_moves: list[str]
+    target_facelets: str
+    scramble_moves: Optional[list[str]] = None
