@@ -156,6 +156,20 @@ export const leaderboardApi = {
   list: () => request("/leaderboard"),
 };
 
+// --- Tutorials --------------------------------------------------------------
+
+export const tutorialApi = {
+  /** -> [{ id, stage_name, title, category, formula, formula_name, description, tip, difficulty, method, icon }] */
+  getStages: () => request("/cube/tutorial/stages"),
+
+  /**
+   * body: { stage_id }
+   * -> { id, stage_name, title, category, formula, formula_name, description, tip, difficulty, facelets, target_moves, target_facelets, scramble_moves }
+   */
+  generateCase: (stage_id = "top_cross") =>
+    request("/cube/tutorial/generate", { method: "POST", json: { stage_id } }),
+};
+
 /** Cheap liveness probe used by the connection badge in the UI. */
 export async function ping() {
   try {

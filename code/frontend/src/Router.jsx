@@ -5,6 +5,7 @@ import CubeInput from "./Pages/CubeInput";
 import SolveWorkspace from "./Pages/SolveWorkspace";
 import Leaderboard from "./Pages/Leaderboard";
 import Login from "./Pages/Login";
+import Tutorial from "./Pages/Tutorial";
 import { useAuthStore } from "./store/authStore";
 
 export default function Router() {
@@ -22,6 +23,8 @@ export default function Router() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/cube-input" element={<CubeInput />} />
         <Route path="/solve" element={<SolveWorkspace />} />
+        <Route path="/tutorial" element={<Tutorial />} />
+        <Route path="/tutorials" element={<Tutorial />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         {/* Catch-all: an unknown URL used to render a blank page. */}
         <Route path="*" element={<Navigate to="/cube-input" replace />} />

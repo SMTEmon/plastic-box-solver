@@ -15,6 +15,10 @@ export default function CubeScene({
   controlsRef,
   onMove,
   swipeEnabled,
+  facelets,
+  sceneEpoch,
+  onMoveDone,
+  activeFace,
 }) {
   const cubeGroupRef = useRef();
   const fallbackControlsRef = useRef();
@@ -25,7 +29,14 @@ export default function CubeScene({
       <Suspense fallback={null}>
         <Environment preset="forest" />
       </Suspense>
-      <Cube onAnimatorReady={onAnimatorReady} cubeGroupRef={cubeGroupRef} />
+      <Cube
+        onAnimatorReady={onAnimatorReady}
+        cubeGroupRef={cubeGroupRef}
+        facelets={facelets}
+        sceneEpoch={sceneEpoch}
+        onMoveDone={onMoveDone}
+        activeFace={activeFace}
+      />
       <OrbitControls ref={effectiveControlsRef} target={[0, 0, 0]} enablePan={false} makeDefault />
       <SwipeControls
         cubeGroupRef={cubeGroupRef}

@@ -32,12 +32,20 @@ const FIXED_LABELS = [
  * turning a layer physically moves those meshes and their colours travel with
  * them. Re-deriving colours on every move would apply each turn twice.
  */
-export default function Cube({ onAnimatorReady, cubeGroupRef }) {
+export default function Cube({
+  onAnimatorReady,
+  cubeGroupRef,
+  facelets: propFacelets,
+  sceneEpoch: propEpoch,
+  onMoveDone: propOnMoveDone,
+  activeFace: propActiveFace,
+}) {
   const internalRef = useRef();
   const cubeGroup = cubeGroupRef ?? internalRef;
   const rotationGroup = useRef();
 
-  const sceneEpoch = useCubeStore((s) => s.sceneEpoch);
+  const storeEpoch = useCubeStore((s) => s.sceneEpoch);
+  const sceneEpoch = propEpoch !== undefined ? propEpoch : storeEpoch;
   const solution = useCubeStore((s) => s.solution);
   const cursor = useCubeStore((s) => s.cursor);
   const mode = useCubeStore((s) => s.mode);
@@ -46,7 +54,9 @@ export default function Cube({ onAnimatorReady, cubeGroupRef }) {
       ? solution?.moves?.[cursor]
       : null;
   const activeFace =
-    currentMove && "URFDLB".includes(currentMove[0]) ? currentMove[0] : null;
+    propActiveFace !== undefined
+      ? propActiveFace
+      : (currentMove && "URFDLB".includes(currentMove[0]) ? currentMove[0] : null);
 
   const tempVec = useRef(new THREE.Vector3()).current;
   const wasFocusModeRef = useRef(false);
@@ -113,12 +123,16 @@ export default function Cube({ onAnimatorReady, cubeGroupRef }) {
   // Read facelets imperatively so this only recomputes when the epoch changes.
   const stickersMap = useMemo(() => {
     try {
-      return mapFacesToCubelets(faceletsToFaces(useCubeStore.getState().facelets));
+      const fl =
+        propFacelets !== undefined
+          ? propFacelets
+          : useCubeStore.getState().facelets;
+      return mapFacesToCubelets(faceletsToFaces(fl));
     } catch {
       return null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sceneEpoch]);
+  }, [sceneEpoch, propFacelets]);
 
   const onAnimatorReadyRef = useRef(onAnimatorReady);
   useEffect(() => {
@@ -131,12 +145,16 @@ export default function Cube({ onAnimatorReady, cubeGroupRef }) {
       cubeGroup,
       rotationGroup,
       onMoveDone: (move, count) => {
-        useCubeStore.getState().applyMove(move, count);
+        if (propOnMoveDone) {
+          propOnMoveDone(move, count);
+        } else {
+          useCubeStore.getState().applyMove(move, count);
+        }
       },
     });
     onAnimatorReadyRef.current?.(animator);
     return () => animator.cancel();
-  }, [cubeGroup]);
+  }, [cubeGroup, propOnMoveDone]);
 
   return (
     <>

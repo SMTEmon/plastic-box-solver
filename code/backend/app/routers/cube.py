@@ -1,6 +1,6 @@
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
-from app.cube import solver, stages as stages_mod, validate as validate_mod
+from app.cube import solver, stages as stages_mod, tutorials, validate as validate_mod
 from app.cube.scramble import random_scramble
 from app.schemas import (
     FaceQuality,
@@ -8,6 +8,9 @@ from app.schemas import (
     ScrambleResponse,
     SolveRequest,
     SolveResponse,
+    TutorialCaseRequest,
+    TutorialCaseResponse,
+    TutorialStageInfo,
     ValidateRequest,
     ValidateResponse,
 )
@@ -121,3 +124,17 @@ def solve(body: SolveRequest):
         optimalMoveCount=len(cfop_moves),
         method_used=body.method,
     )
+
+
+# --- Tutorial Endpoints -----------------------------------------------------
+
+@router.get("/tutorial/stages", response_model=list[TutorialStageInfo])
+def get_tutorial_stages():
+    """Returns available tutorial stages and formula categories."""
+    return tutorials.get_available_stages()
+
+
+@router.post("/tutorial/generate", response_model=TutorialCaseResponse)
+def generate_tutorial_case(body: TutorialCaseRequest):
+    """Dynamically generates a partial cube state for the requested stage."""
+    return tutorials.generate_tutorial_case(body.stage_id)
