@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getStageGuide,
   getCenterInfo,
@@ -8,8 +8,10 @@ import {
   RESET_DRILL_TOTAL_CYCLES,
   getDrillProgress,
 } from "../cube/stageGuides.js";
+import { BEGINNER_STAGES } from "../cube/stagePredicates.js";
 import {
   chunkMoves,
+  getTriggerAtMove,
   getTurnDirection,
   TRIGGER_COLORS,
 } from "../cube/triggerChunker.js";
@@ -241,6 +243,7 @@ export default function CoachSidebar({
   drillState,
   onStartDrill,
   drillDisabled = false,
+  onCancelAnimation,
 }) {
   const token = useAuthStore((s) => s.token);
   const facelets = useCubeStore((s) => s.facelets);
@@ -250,6 +253,8 @@ export default function CoachSidebar({
   const assisted = useCubeStore((s) => s.assisted);
   const solved = useCubeStore((s) => s.isSolved());
   const stage = useCubeStore((s) => s.currentStage());
+  const stageCheckpoints = useCubeStore((s) => s.stageCheckpoints);
+  const restoreCheckpoint = useCubeStore((s) => s.restoreCheckpoint);
 
   const guided = Boolean(mode === MODES.GUIDED && solution);
   const [tabState, setTabState] = useState({
@@ -262,6 +267,8 @@ export default function CoachSidebar({
       ? tabState.tab
       : "coach";
   const setSidebarTab = (tab) => setTabState({ guided, tab });
+  const [interactiveTab, setInteractiveTab] = useState("interactive_coach"); // "interactive_coach" | "cubing_101"
+
   const sidebarMovesRef = useRef(null);
   const allStagesRef = useRef(null);
 
@@ -274,24 +281,37 @@ export default function CoachSidebar({
       ? getCenterInfo(facelets, activeGuide.targetFace)
       : null;
   const frontCenterInfo = getCenterInfo(facelets, "F");
+  const bottomCenterInfo = getCenterInfo(facelets, "D");
+  const bottomColorName = bottomCenterInfo?.name?.toLowerCase() ?? "white";
 
   const isIntuitiveCrossStage =
     stage?.name === "Cross" || stage?.name?.toLowerCase() === "bottom cross";
 
-  const stageChunks =
-    stage && solution?.moves
-      ? isIntuitiveCrossStage
-        ? solution.moves.slice(stage.start, stage.end).map((m, idx) => ({
-            type: "single",
-            move: m,
-            startIndex: stage.start + idx,
-            endIndex: stage.start + idx + 1,
-          }))
-        : chunkMoves(
-            solution.moves.slice(stage.start, stage.end),
-            stage.start,
-          )
-      : [];
+  const stageChunks = useMemo(() => {
+    if (
+      mode !== MODES.GUIDED ||
+      !stage ||
+      !solution?.moves ||
+      stage.start === undefined ||
+      stage.end === undefined
+    ) {
+      return [];
+    }
+    return isIntuitiveCrossStage
+      ? solution.moves.slice(stage.start, stage.end).map((m, idx) => ({
+          type: "single",
+          move: m,
+          startIndex: stage.start + idx,
+          endIndex: stage.start + idx + 1,
+        }))
+      : chunkMoves(solution.moves.slice(stage.start, stage.end), stage.start);
+  }, [mode, stage, solution, isIntuitiveCrossStage]);
+
+  const activeTrigger = useMemo(
+    () => (stageChunks.length > 0 ? getTriggerAtMove(stageChunks, cursor) : null),
+    [stageChunks, cursor],
+  );
+  const currentMove = solution?.moves?.[cursor];
 
   // Auto-scroll active move in current stage moves sequence (vertical only)
   useEffect(() => {
@@ -505,7 +525,7 @@ export default function CoachSidebar({
 
           {sidebarTab === "coach" ? (
             /* --- Tab 1: Coach & Current Stage Moves View --- */
-            stage ? (
+            stage && stage.end !== undefined ? (
               <Panel
                 title={
                   <div className="flex items-center justify-between w-full">
@@ -642,17 +662,95 @@ export default function CoachSidebar({
                   </div>
                 </div>
 
-                {/* Stage Algorithm box if available */}
-                {activeGuide?.formula && (
+                {/* Dynamic Trigger / Algorithm Box */}
+                {activeTrigger ? (
+                  <div className="bg-dark-bg/95 border border-neon-blue/40 rounded-xl p-3 my-3 shadow-sm shadow-neon-blue/10">
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="w-2 h-2 rounded-full bg-neon-blue animate-pulse shrink-0" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-neon-blue truncate">
+                          Active: {activeTrigger.name}
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-neon-blue/20 text-neon-blue font-bold shrink-0 border border-neon-blue/30">
+                        Step {activeTrigger.stepInTrigger}/{activeTrigger.totalSteps}
+                      </span>
+                    </div>
+
+                    {/* Exact formula tokens with current move highlighted */}
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap my-1.5 font-mono text-xs">
+                      {activeTrigger.moves.map((m, idx) => {
+                        const isCurStep = activeTrigger.startIndex + idx === cursor;
+                        return (
+                          <span
+                            key={idx}
+                            className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
+                              isCurStep
+                                ? "bg-neon-blue text-black font-extrabold shadow-sm scale-105 ring-2 ring-cyan-200"
+                                : "bg-white/[0.06] text-gray-300 border border-white/5"
+                            }`}
+                          >
+                            {m}
+                          </span>
+                        );
+                      })}
+                    </div>
+
+                    {activeTrigger.description && (
+                      <p className="text-[11px] text-gray-400 text-center mt-1.5 leading-snug">
+                        {activeTrigger.description}
+                      </p>
+                    )}
+
+                    {/* Beginner First Layer Corner Pedagogical Alternative Note */}
+                    {stage?.name === "Bottom layer" && (
+                      <div className="text-[10px] text-amber-300/90 bg-amber-400/10 border border-amber-400/20 rounded-lg p-2 mt-2 leading-relaxed">
+                        💡 <strong>Beginner tip:</strong> If you prefer JPerm&apos;s repetition method, hold this corner in front-right and repeat Sexy Move (<span className="font-mono text-amber-200 font-bold">R U R&apos; U&apos;</span>) until the {bottomColorName} sticker faces down.
+                      </div>
+                    )}
+                  </div>
+                ) : currentMove && cursor >= (stage?.start ?? 0) && cursor < (stage?.end ?? 0) ? (
+                  /* Move is an alignment turn or cube rotation between triggers */
+                  <div className="bg-dark-bg/90 border border-dark-border rounded-xl p-2.5 my-3">
+                    <div className="flex items-center justify-between text-[10px] uppercase tracking-wider mb-1">
+                      <span className="text-gray-400 font-semibold">
+                        {["X", "Y", "Z", "x", "y", "z"].includes(currentMove[0])
+                          ? "Cube Reorientation"
+                          : currentMove.startsWith("U")
+                            ? "Top Layer Setup / Alignment"
+                            : "Setup Move"}
+                      </span>
+                      <span className="font-mono text-neon-blue font-bold px-1.5 py-0.5 rounded bg-neon-blue/15 border border-neon-blue/30">
+                        {currentMove}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-gray-300">
+                      {["X", "Y", "Z", "x", "y", "z"].includes(currentMove[0])
+                        ? "Rotate the whole cube to face the next target slot."
+                        : currentMove.startsWith("U")
+                          ? "Turn the top layer to position the piece directly above its target slot."
+                          : `Execute setup turn ${currentMove} to prepare the slot.`}
+                    </div>
+                    {activeGuide?.formula && (
+                      <div className="mt-2 pt-1.5 border-t border-dark-border/60 flex items-center justify-between text-[10px] text-gray-400">
+                        <span>Stage baseline:</span>
+                        <span className="font-mono text-neon-blue/90 font-semibold truncate max-w-[200px]">
+                          {activeGuide.formula}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : activeGuide?.formula ? (
+                  /* Stage baseline when solve is not actively on a move */
                   <div className="bg-dark-bg/90 border border-dark-border rounded-xl p-2.5 text-center my-3">
                     <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-0.5">
-                      Algorithm
+                      Stage Baseline Formula
                     </div>
                     <div className="font-mono text-sm font-bold text-neon-blue tracking-wider">
                       {activeGuide.formula}
                     </div>
                   </div>
-                )}
+                ) : null}
 
                 {/* Target Face & Reference Center */}
                 <div className="mt-3 pt-2.5 border-t border-dark-border text-xs space-y-1.5">
@@ -871,25 +969,149 @@ export default function CoachSidebar({
         </>
       )}
 
-      {/* Interactive Mode Default Sidebar: 🎓 Cubing 101 */}
-      {!guided && mode === MODES.INTERACTIVE && (
+      {/* Interactive Mode Sidebar: 🧭 Coach Checklist vs 🎓 Cubing 101 */}
+      {!guided && mode === MODES.INTERACTIVE && !solved && (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between rounded-xl bg-dark-bg/80 px-3 py-2 border border-dark-border text-xs shrink-0">
-            <span className="font-bold text-neon-blue flex items-center gap-1.5">
-              <span>🎓</span>
-              <span>Cubing 101</span>
-            </span>
-            <span className="text-[10px] font-mono text-gray-400">
-              Practice &amp; Reference
-            </span>
+          <div className="flex rounded-xl bg-dark-bg/80 p-1 border border-dark-border text-[11px] shrink-0 gap-0.5">
+            <button
+              type="button"
+              onClick={() => setInteractiveTab("interactive_coach")}
+              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
+                interactiveTab === "interactive_coach"
+                  ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              🧭 Coach ({Math.max(0, (stage?.completedIndex ?? -1) + 1)}/7)
+            </button>
+            <button
+              type="button"
+              onClick={() => setInteractiveTab("cubing_101")}
+              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
+                interactiveTab === "cubing_101"
+                  ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              🎓 Cubing 101
+            </button>
           </div>
-          <ResetDrillPanel
-            drillState={drillState}
-            onStartDrill={onStartDrill}
-            disabled={drillDisabled}
-          />
-          <FourMovesBreakdownPanel />
-          <CubeAnatomyPanel />
+
+          {interactiveTab === "interactive_coach" ? (
+            <Panel
+              title={
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-white font-bold">Interactive Coach</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neon-blue/15 text-neon-blue border border-neon-blue/30 font-semibold">
+                    {Math.max(0, (stage?.completedIndex ?? -1) + 1)}/7 stages
+                  </span>
+                </div>
+              }
+              className="border-neon-blue/30"
+            >
+              {/* Stage Progress Checklist */}
+              <div className="space-y-1.5 mb-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Beginner Stages:
+                </div>
+                <div className="grid grid-cols-1 gap-1">
+                  {BEGINNER_STAGES.map((stg, idx) => {
+                    const isDone = (stage?.completedIndex ?? -1) >= idx;
+                    const isCurrent = (stage?.completedIndex ?? -1) + 1 === idx;
+                    const startKey = idx === 0 ? "__initial__" : BEGINNER_STAGES[idx - 1].name;
+                    const hasCheckpoint = Boolean(stageCheckpoints?.[startKey]);
+
+                    return (
+                      <div
+                        key={stg.name}
+                        className={`px-2.5 py-1.5 rounded-xl border text-xs flex items-center justify-between transition-all ${
+                          isCurrent
+                            ? "border-neon-blue/50 bg-neon-blue/10 text-white shadow-sm ring-1 ring-neon-blue/30"
+                            : isDone
+                              ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
+                              : "border-dark-border bg-dark-bg/40 text-gray-400"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold">
+                            {isDone ? "✓" : isCurrent ? "▶" : `${idx + 1}`}
+                          </span>
+                          <span className="font-medium text-[11px]">{stg.name}</span>
+                        </div>
+
+                        {hasCheckpoint && isCurrent && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onCancelAnimation?.();
+                              restoreCheckpoint(startKey);
+                            }}
+                            className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 cursor-pointer"
+                            title="Revert cube to checkpoint when this stage started"
+                          >
+                            ↺ Revert
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Current Stage Guidance */}
+              {activeGuide && (
+                <div className="border-t border-dark-border pt-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-neon-blue">
+                      Target: {activeGuide.targetLabel ?? activeGuide.title}
+                    </span>
+                    {targetCenterInfo && (
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 ${targetCenterInfo.bg} ${targetCenterInfo.text} ${targetCenterInfo.border}`}
+                      >
+                        <span>{targetCenterInfo.dot}</span>
+                        <span>{targetCenterInfo.name}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {activeGuide.formula && (
+                    <div className="bg-dark-bg/90 border border-dark-border rounded-xl p-2.5 text-center my-2">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-0.5">
+                        Algorithm / Strategy
+                      </div>
+                      <div className="font-mono text-xs font-bold text-neon-blue tracking-wide">
+                        {activeGuide.formula}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeGuide.tip && (
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      {activeGuide.tip}
+                    </p>
+                  )}
+
+                  {activeGuide.learn?.humanNote && (
+                    <p className="text-[11px] text-gray-400 border-t border-dark-border/60 pt-2">
+                      <span className="text-amber-400 font-semibold">Human Tip:</span>{" "}
+                      {activeGuide.learn.humanNote}
+                    </p>
+                  )}
+                </div>
+              )}
+            </Panel>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <ResetDrillPanel
+                drillState={drillState}
+                onStartDrill={onStartDrill}
+                disabled={drillDisabled}
+              />
+              <FourMovesBreakdownPanel />
+              <CubeAnatomyPanel />
+            </div>
+          )}
         </div>
       )}
     </div>

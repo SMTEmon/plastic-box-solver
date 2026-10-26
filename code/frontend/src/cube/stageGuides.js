@@ -45,14 +45,16 @@ export const STAGE_GUIDES = {
     title: (ctx) => `Step 1: Bottom Cross (${ctx.bottomColor})`,
     targetFace: "D",
     targetLabel: "Bottom Cross",
-    formula: "Intuitive (Align side color first)",
+    formula: "Top Align (U) + F2 Insert | Direct Bottom Insert",
     tip: (ctx) =>
-      `Match each ${ctx.bottomColorLower} edge's side sticker with its matching side center first, then rotate it onto the bottom (D) face.`,
+      `Align each ${ctx.bottomColorLower} edge's side sticker with its matching side center on the top layer, then turn Front twice (F2) to drop it into the bottom cross.`,
     learn: {
       summary: (ctx) =>
         `Form a cross on the bottom face where each edge matches both the ${ctx.bottomColorLower} center and its adjacent side center.`,
       humanNote: (ctx) =>
         `Look at both colors on each edge piece — never just the ${ctx.bottomColorLower} sticker alone.`,
+      engineNote:
+        "The solver brings edges to the top layer, rotates U to align side colors with their centers, then turns F2 to insert.",
       jpermUrl: "https://jperm.net/3x3",
     },
   },
@@ -60,14 +62,16 @@ export const STAGE_GUIDES = {
     title: "Step 2: First Layer Corners",
     targetFace: "D",
     targetLabel: "Bottom Corners",
-    formula: "Right 4-Moves: R U R' U' | Left: L' U' L U",
+    formula: "Front: F' U' F | Right: R U R' | Top: R U2 R' U' R U R'",
     tip: (ctx) =>
-      `Position the corner in the top layer directly above its matching slot, hold it in front-right, and repeat the 4-moves (R U R' U') until it slots in with ${ctx.bottomColorLower} facing down.`,
+      `Position the corner in the top layer directly above its matching slot. Use F' U' F if ${ctx.bottomColorLower} faces front, R U R' if it faces right, or repeat R U R' U' until it drops in facing down.`,
     learn: {
       summary:
-        "Slot each first-layer corner into place between its matching color centers using the foundational 4-move trigger.",
+        "Slot each first-layer corner into place between its matching color centers using direct 3-move inserts or repeated 4-moves.",
       humanNote:
-        "The 4-move sequence (R U R' U') is the single most important muscle-memory trigger in cubing ('Sexy Move').",
+        "JPerm Beginner method: repeat Sexy Move (R U R' U') 1, 3, or 5 times. Direct insert method: 3 moves (F' U' F for front, R U R' for right). Both achieve the exact same solved corner!",
+      engineNote:
+        "The solver executes fast 3-move insertions (F' U' F or R U R') to minimize move count.",
       jpermUrl: "https://jperm.net/3x3#4moves",
     },
   },
@@ -179,16 +183,16 @@ export const STAGE_GUIDES = {
     targetFace: "U",
     targetLabel: "Orient Top Face",
     formula:
-      "2-Look: F (R U R' U') F' (Edges) + Sune: R U R' U R U2 R' (Corners)",
+      "1-Look OLL (57 cases) | 2-Look: F (R U R' U') F' + Sune",
     tip: (ctx) =>
-      `Make the entire top face solid ${ctx.topColorLower} in a single algorithm (or 2-look: edges cross first, then corners).`,
+      `Make the entire top face solid ${ctx.topColorLower}. The solver executes the exact 1-look algorithm matching the active badge.`,
     learn: {
       summary:
         "Orientation of the Last Layer: makes the entire top face solid in a single algorithm.",
       engineNote:
-        "The solver executes 1 of 57 canonical algorithms in a single step.",
+        "The solver executes 1 of 57 canonical algorithms matching the active badge.",
       humanNote:
-        "Speedcubers learn '2-Look OLL' (only 9 algorithms: Cross + Corners) before learning all 57.",
+        "Speedcubers learn '2-Look OLL' (only 9 algorithms: Cross + Corners) before memorizing all 57.",
       jpermUrl: "https://jperm.net/algs/2look/oll",
     },
   },
@@ -196,15 +200,15 @@ export const STAGE_GUIDES = {
     title: "Permute Last Layer (PLL)",
     targetFace: "U",
     targetLabel: "Permute Top Layer",
-    formula: "2-Look: T-Perm (Corners) + U-Perm / H-Perm (Edges)",
-    tip: "Permute the edges and corners of the top layer around the center to complete the solve.",
+    formula: "1-Look PLL (21 cases) | 2-Look: T-Perm + U-Perm",
+    tip: "Permute the edges and corners of the top layer around the center to complete the solve. The solver executes the exact 1-look algorithm matching the active badge.",
     learn: {
       summary:
         "Permutation of the Last Layer: rearranges the top-layer pieces into their solved positions.",
       engineNote:
-        "The solver executes 1 of 21 canonical permutation algorithms.",
+        "The solver executes 1 of 21 canonical permutation algorithms (matching the active badge).",
       humanNote:
-        "Speedcubers start with '2-Look PLL' (6 algorithms: Corners first, then Edges).",
+        "Speedcubers start with '2-Look PLL' (6 algorithms: Corners first, then Edges) before learning all 21.",
       jpermUrl: "https://jperm.net/algs/2look/pll",
     },
   },
@@ -473,3 +477,5 @@ export function getDrillProgress(stepIndex = 0, completed = false) {
     label: `Cycle ${cycle}/${RESET_DRILL_TOTAL_CYCLES}`,
   };
 }
+
+
