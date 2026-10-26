@@ -326,36 +326,105 @@ export default function CoachSidebar({
     }
   }, [guided, mode]);
 
+  const optimalMoveCount = useCubeStore((s) => s.optimalMoveCount);
+  const efficiency = useCubeStore.getState().efficiency();
+
+  const solveModeLabel =
+    mode === MODES.AUTO
+      ? "Auto-Solve"
+      : mode === MODES.GUIDED
+        ? `Guided (${solution?.method_used?.toUpperCase() || "Beginner"})`
+        : assisted
+          ? "Interactive (Assisted)"
+          : "Interactive";
+
+  const effectiveMoveCount =
+    turnCount > 0 ? turnCount : (solution?.moveCount ?? solution?.moves?.length ?? 0);
+
   return (
     <div className="lg:col-span-1 flex flex-col gap-3 min-h-0 lg:h-full lg:overflow-y-auto pr-0.5">
       {solved && (
-        <Panel title="Result" className="border-neon-green/40 shadow-sm">
-          <div className="text-neon-green font-bold text-sm mb-1 flex items-center gap-1.5">
+        <Panel
+          title={
+            <div className="flex items-center justify-between w-full">
+              <span>Solve Summary</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neon-green/15 text-neon-green border border-neon-green/30 font-semibold normal-case">
+                {solveModeLabel}
+              </span>
+            </div>
+          }
+          className="border-neon-green/40 shadow-sm"
+        >
+          <div className="text-neon-green font-bold text-sm mb-2.5 flex items-center gap-1.5">
             <span>🎉</span>
             <span>Cube Solved!</span>
           </div>
-          {!assisted && (
-            <div className="text-xs text-gray-400">
-              {elapsed.toFixed(1)}s &middot; {turnCount} moves
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="bg-dark-bg/80 border border-dark-border rounded-xl p-2">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                Time
+              </div>
+              <div className="font-mono font-bold text-white text-sm mt-0.5">
+                {!assisted || elapsed > 0 ? `${elapsed.toFixed(1)}s` : "Assisted"}
+              </div>
             </div>
-          )}
+
+            <div className="bg-dark-bg/80 border border-dark-border rounded-xl p-2">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                Move Count
+              </div>
+              <div className="font-mono font-bold text-white text-sm mt-0.5">
+                {effectiveMoveCount} moves
+              </div>
+            </div>
+
+            <div className="bg-dark-bg/80 border border-dark-border rounded-xl p-2">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                CFOP Baseline
+              </div>
+              <div className="font-mono font-bold text-neon-blue text-sm mt-0.5">
+                {optimalMoveCount ? `${optimalMoveCount} moves` : "--"}
+              </div>
+            </div>
+
+            <div className="bg-dark-bg/80 border border-dark-border rounded-xl p-2">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                Efficiency
+              </div>
+              <div
+                className={`font-mono font-bold text-sm mt-0.5 ${
+                  !assisted && efficiency >= 50
+                    ? "text-neon-green"
+                    : "text-white"
+                }`}
+              >
+                {!assisted && efficiency > 0
+                  ? `${efficiency.toFixed(0)}%`
+                  : assisted
+                    ? "Assisted"
+                    : "--"}
+              </div>
+            </div>
+          </div>
+
           {saveState === "saving" && (
-            <div className="text-[11px] text-gray-400 mt-1.5">
+            <div className="text-[11px] text-gray-400 mt-2">
               Saving solve to your history...
             </div>
           )}
           {saveState === "saved" && (
-            <div className="text-[11px] text-neon-green mt-1.5">
+            <div className="text-[11px] text-neon-green mt-2">
               ✓ Saved to your dashboard &amp; leaderboard.
             </div>
           )}
           {!token && !assisted && (
-            <div className="text-[11px] text-amber-300 mt-1.5">
+            <div className="text-[11px] text-amber-300 mt-2">
               Log in to save your solve to the dashboard and leaderboard.
             </div>
           )}
           {saveState && saveState !== "saving" && saveState !== "saved" && (
-            <div className="text-[11px] text-rose-400 mt-1.5">
+            <div className="text-[11px] text-rose-400 mt-2">
               Could not save solve: {saveState}
             </div>
           )}
