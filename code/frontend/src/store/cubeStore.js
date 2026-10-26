@@ -31,7 +31,7 @@ export const useCubeStore = create((set, get) => ({
   facelets: SOLVED, // current logical state -- the truth
   history: [], // moves the USER made (excludes assisted playback)
   redoStack: [], // FR-18
-  stageCheckpoints: {}, // name -> facelets captured at stage transitions
+  stageCheckpoints: {}, // name -> { facelets, history } captured at stage transitions
   interactiveStage: {
     name: "Bottom cross",
     interactive: true,
@@ -101,6 +101,7 @@ export const useCubeStore = create((set, get) => ({
           completedIndex: evalResult.completedIndex,
           allDone: evalResult.allDone,
         },
+        stageCheckpoints: {},
         history: [],
         redoStack: [],
         startedAt: null,
@@ -113,17 +114,20 @@ export const useCubeStore = create((set, get) => ({
   /** Revert to the cube state when a specific stage was reached */
   restoreCheckpoint: (stageName) =>
     set((s) => {
-      const target = s.stageCheckpoints[stageName] ?? s.initial;
+      const cp = s.stageCheckpoints[stageName];
+      const target = cp?.facelets ?? s.initial;
+      const history = cp?.history ?? [];
       const stageEval = evaluateCubeStages(target);
       return {
         facelets: target,
+        history,
+        redoStack: [],
         interactiveStage: {
           name: stageEval.currentStage.name,
           interactive: true,
           completedIndex: stageEval.completedIndex,
           allDone: stageEval.allDone,
         },
-        redoStack: [],
         sceneEpoch: s.sceneEpoch + 1,
       };
     }),
@@ -134,22 +138,33 @@ export const useCubeStore = create((set, get) => ({
    * Advance logical state by one move.
    * countIt=false for assisted playback, so auto-solve moves never inflate
    * the user's move count.
+   * countIt="drill" for practice drills (e.g. 4-Move Reset Drill), updating
+   * only facelets without touching history, redoStack, startedAt, or finishedAt.
    */
   applyMove: (move, countIt = true) =>
     set((s) => {
       const next = applyMoveToFacelets(s.facelets, move);
+      if (countIt === "drill") {
+        return {
+          facelets: next,
+        };
+      }
       const solved = isSolved(next);
       const now = Date.now();
       const isRot = Boolean(move && ["X", "Y", "Z"].includes(move[0]));
       const startedAt = s.startedAt ?? (countIt && !isRot ? now : (solved ? now : null));
 
-      const stageEval = evaluateCubeStages(next);
+      // Skip re-evaluating interactiveStage on whole-cube rotations (X/Y/Z)
+      const stageEval = isRot ? s.interactiveStage : evaluateCubeStages(next);
+
+      // Snapshot { facelets, history } only on counted user turns, never during assisted playback
+      const nextHistory = countIt ? [...s.history, move] : s.history;
       const stageCheckpoints = { ...s.stageCheckpoints };
-      if (stageEval.completedIndex >= 0) {
+      if (countIt && !s.assisted && !isRot && stageEval?.completedIndex >= 0) {
         for (let i = 0; i <= stageEval.completedIndex; i++) {
           const name = BEGINNER_STAGES[i].name;
           if (!stageCheckpoints[name]) {
-            stageCheckpoints[name] = next;
+            stageCheckpoints[name] = { facelets: next, history: nextHistory };
           }
         }
       }
@@ -158,17 +173,34 @@ export const useCubeStore = create((set, get) => ({
         facelets: next,
         stageCheckpoints,
         interactiveStage: {
-          name: stageEval.currentStage.name,
+          name: stageEval.name ?? stageEval.currentStage?.name ?? "Bottom cross",
           interactive: true,
-          completedIndex: stageEval.completedIndex,
-          allDone: stageEval.allDone,
+          completedIndex: stageEval.completedIndex ?? -1,
+          allDone: stageEval.allDone ?? false,
         },
-        history: countIt ? [...s.history, move] : s.history,
+        history: nextHistory,
         redoStack: countIt ? [] : s.redoStack,
         startedAt,
         finishedAt: solved ? (s.finishedAt ?? now) : null,
       };
     }),
+
+  /** Offset startedAt by duration spent in a practice drill so solve timer is unaffected. */
+  shiftStartTime: (deltaMs) =>
+    set((s) =>
+      s.startedAt && !s.finishedAt && deltaMs > 0
+        ? { startedAt: s.startedAt + deltaMs }
+        : {},
+    ),
+
+  /** Restore a pre-drill cube state snapshot and remount the 3D scene if interrupted. */
+  restoreSnapshot: (snapshot) =>
+    set((s) => ({
+      facelets: snapshot.facelets ?? s.facelets,
+      startedAt: snapshot.startedAt !== undefined ? snapshot.startedAt : s.startedAt,
+      finishedAt: snapshot.finishedAt !== undefined ? snapshot.finishedAt : s.finishedAt,
+      sceneEpoch: s.sceneEpoch + 1,
+    })),
 
   /**
    * FR-18 undo. Updates the move bookkeeping ONLY and returns the move to
@@ -242,15 +274,17 @@ export const useCubeStore = create((set, get) => ({
 
   /** Which stage the guided cursor is currently inside (works for both
    *  beginner's 7 stages and CFOP's 4 stages — driven by solution.stages).
-   *  In Interactive mode, evaluates live stage progress against beginner method. */
+   *  In Interactive mode, evaluates live stage progress against beginner method.
+   *  Returns null in Auto-Solve or when guided stages are empty. */
   currentStage: () => {
     const { solution, cursor, mode, interactiveStage } = get();
+    if (mode === MODES.INTERACTIVE) return interactiveStage;
     if (mode === MODES.GUIDED && solution?.stages?.length) {
       return (
         solution.stages.find((s) => cursor >= s.start && cursor < s.end) ??
         solution.stages[solution.stages.length - 1]
       );
     }
-    return interactiveStage;
+    return null;
   },
 }));
