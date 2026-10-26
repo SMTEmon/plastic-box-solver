@@ -205,6 +205,7 @@ export default function SolveWorkspace() {
 
   // FR-13a: save a finished unassisted solve
   useEffect(() => {
+    if (drillState.active) return;
     if (!solved) {
       submittedRef.current = false;
       return;
@@ -241,7 +242,30 @@ export default function SolveWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [solved, assisted, turnCount, token, initial]);
+  }, [solved, assisted, turnCount, token, initial, drillState.active]);
+
+  const cancelResetDrill = useCallback((restorePreDrill = true) => {
+    if (!drillRef.current.active) return;
+    const { snapshot, startedWallMs } = drillRef.current;
+    drillRef.current = {
+      active: false,
+      step: 0,
+      startedWallMs: 0,
+      snapshot: null,
+    };
+    animatorRef.current?.cancel();
+    if (restorePreDrill && snapshot) {
+      useCubeStore.getState().restoreSnapshot(snapshot);
+      if (startedWallMs > 0) {
+        useCubeStore.getState().shiftStartTime(Date.now() - startedWallMs);
+      }
+    }
+    setDrillState({
+      active: false,
+      step: 0,
+      completed: false,
+    });
+  }, []);
 
   // User interactive moves
   const doMove = useCallback((move) => {
@@ -291,6 +315,7 @@ export default function SolveWorkspace() {
   }, []);
 
   const startPlayback = useCallback(() => {
+    cancelResetDrill(true);
     if (playbackTimerRef.current) {
       clearTimeout(playbackTimerRef.current);
       playbackTimerRef.current = null;
@@ -314,7 +339,7 @@ export default function SolveWorkspace() {
     const move = s.solution.moves[s.cursor];
     animatorRef.current?.enqueue(move, false);
     s.setCursor(s.cursor + 1);
-  }, [speed]);
+  }, [speed, cancelResetDrill]);
 
   const togglePlay = useCallback(() => {
     if (isPlaying) {
@@ -325,6 +350,7 @@ export default function SolveWorkspace() {
   }, [isPlaying, pausePlayback, startPlayback]);
 
   const stepForward = useCallback(() => {
+    cancelResetDrill(true);
     if (isPlaying) pausePlayback();
     animatorRef.current?.fastForward();
     const s = useCubeStore.getState();
@@ -333,9 +359,10 @@ export default function SolveWorkspace() {
     animatorRef.current?.setSpeed(speed);
     animatorRef.current?.enqueue(move, false);
     s.setCursor(s.cursor + 1);
-  }, [isPlaying, pausePlayback, speed]);
+  }, [isPlaying, pausePlayback, speed, cancelResetDrill]);
 
   const stepBack = useCallback(() => {
+    cancelResetDrill(true);
     if (isPlaying) pausePlayback();
     animatorRef.current?.fastForward();
     const s = useCubeStore.getState();
@@ -344,40 +371,45 @@ export default function SolveWorkspace() {
     animatorRef.current?.setSpeed(speed);
     animatorRef.current?.enqueue(move, false);
     s.setCursor(s.cursor - 1);
-  }, [isPlaying, pausePlayback, speed]);
+  }, [isPlaying, pausePlayback, speed, cancelResetDrill]);
 
   const runAutoSolve = useCallback(async () => {
+    cancelResetDrill(true);
     pausePlayback();
     useCubeStore.getState().markAssisted();
     if (useCubeStore.getState().mode === MODES.AUTO) return;
     useCubeStore.getState().setMode(MODES.AUTO);
     await fetchSolution("optimal");
-  }, [fetchSolution, pausePlayback]);
+  }, [fetchSolution, pausePlayback, cancelResetDrill]);
 
   const startGuided = useCallback(
     async (method) => {
+      cancelResetDrill(true);
       pausePlayback();
       useCubeStore.getState().markAssisted();
       useCubeStore.getState().setMode(MODES.GUIDED);
       await fetchSolution(method);
     },
-    [fetchSolution, pausePlayback],
+    [fetchSolution, pausePlayback, cancelResetDrill],
   );
 
   const backToInteractive = useCallback(() => {
+    cancelResetDrill(true);
     pausePlayback();
     animatorRef.current?.fastForwardAll();
     animatorRef.current?.setSpeed(1);
     useCubeStore.getState().setMode(MODES.INTERACTIVE);
-  }, [pausePlayback]);
+  }, [pausePlayback, cancelResetDrill]);
 
   const resetCube = useCallback(() => {
+    cancelResetDrill(false);
     pausePlayback();
     animatorRef.current?.cancel();
     submittedRef.current = false;
     setSaveState(null);
+    setDrillState({ active: false, step: 0, completed: false });
     useCubeStore.getState().reset();
-  }, [pausePlayback]);
+  }, [pausePlayback, cancelResetDrill]);
 
   const startResetDrill = useCallback(() => {
     if (!animatorRef.current || drillRef.current.active) return;
