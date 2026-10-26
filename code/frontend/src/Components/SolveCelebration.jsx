@@ -3,9 +3,9 @@
  * Uses the 6 canonical Rubik's Cube sticker colors plus neon accents.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
-export const RUBIK_CONFETTI_COLORS = [
+const RUBIK_CONFETTI_COLORS = [
   "#ffffff", // White (U)
   "#facc15", // Yellow (D)
   "#22c55e", // Green (F)
@@ -22,7 +22,7 @@ export const RUBIK_CONFETTI_COLORS = [
  * @param {number} height Canvas height in CSS pixels
  * @param {number} [count=90] Number of particles to spawn
  */
-export function createCelebrationParticles(width = 800, height = 600, count = 90) {
+function createCelebrationParticles(width = 800, height = 600, count = 90) {
   const safeW = Math.max(200, width);
   const safeH = Math.max(200, height);
   const origins = [
@@ -65,7 +65,7 @@ export function createCelebrationParticles(width = 800, height = 600, count = 90
  * @param {number} [dt=1]
  * @param {number} [maxHeight=2000]
  */
-export function stepCelebrationParticles(particles, dt = 1, maxHeight = 2000) {
+function stepCelebrationParticles(particles, dt = 1, maxHeight = 2000) {
   const next = [];
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
@@ -97,7 +97,7 @@ export function stepCelebrationParticles(particles, dt = 1, maxHeight = 2000) {
  * Pure transition detector: returns true only when `solved` transitions
  * from false -> true while not suppressed (e.g. during a practice drill).
  */
-export function shouldTriggerCelebration(prevSolved, solved, suppressed = false) {
+function shouldTriggerCelebration(prevSolved, solved, suppressed = false) {
   if (suppressed) return false;
   return !prevSolved && Boolean(solved);
 }
@@ -105,18 +105,17 @@ export function shouldTriggerCelebration(prevSolved, solved, suppressed = false)
 export default function SolveCelebration({ solved = false, suppressed = false }) {
   const canvasRef = useRef(null);
   const prevSolvedRef = useRef(Boolean(solved));
-  const [burstId, setBurstId] = useState(0);
 
   useEffect(() => {
-    if (suppressed) return;
-    if (shouldTriggerCelebration(prevSolvedRef.current, solved, suppressed)) {
-      setBurstId((id) => id + 1);
+    const shouldFire = shouldTriggerCelebration(
+      prevSolvedRef.current,
+      solved,
+      suppressed,
+    );
+    if (!suppressed) {
+      prevSolvedRef.current = Boolean(solved);
     }
-    prevSolvedRef.current = Boolean(solved);
-  }, [solved, suppressed]);
-
-  useEffect(() => {
-    if (!burstId) return undefined;
+    if (!shouldFire) return undefined;
 
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
@@ -185,9 +184,7 @@ export default function SolveCelebration({ solved = false, suppressed = false })
       if (rafId) window.cancelAnimationFrame(rafId);
       ctx.clearRect(0, 0, width, height);
     };
-  }, [burstId]);
-
-  if (!burstId) return null;
+  }, [solved, suppressed]);
 
   return (
     <canvas

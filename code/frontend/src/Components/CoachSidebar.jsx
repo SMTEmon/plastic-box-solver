@@ -251,9 +251,17 @@ export default function CoachSidebar({
   const solved = useCubeStore((s) => s.isSolved());
   const stage = useCubeStore((s) => s.currentStage());
 
-  const [sidebarTab, setSidebarTab] = useState(
-    mode === MODES.GUIDED ? "coach" : "cubing_101",
-  ); // "coach" | "all_stages" | "cubing_101"
+  const guided = Boolean(mode === MODES.GUIDED && solution);
+  const [tabState, setTabState] = useState({
+    guided,
+    tab: guided ? "coach" : "cubing_101",
+  }); // "coach" | "all_stages" | "cubing_101"
+  const sidebarTab = !guided
+    ? "cubing_101"
+    : tabState.guided === guided
+      ? tabState.tab
+      : "coach";
+  const setSidebarTab = (tab) => setTabState({ guided, tab });
   const sidebarMovesRef = useRef(null);
   const allStagesRef = useRef(null);
 
@@ -316,16 +324,6 @@ export default function CoachSidebar({
       ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [cursor, stage, sidebarTab]);
 
-  const guided = mode === MODES.GUIDED && solution;
-
-  useEffect(() => {
-    if (guided) {
-      setSidebarTab("coach");
-    } else if (mode === MODES.INTERACTIVE) {
-      setSidebarTab("cubing_101");
-    }
-  }, [guided, mode]);
-
   const optimalMoveCount = useCubeStore((s) => s.optimalMoveCount);
   const efficiency = useCubeStore.getState().efficiency();
 
@@ -338,6 +336,10 @@ export default function CoachSidebar({
           ? "Interactive (Assisted)"
           : "Interactive";
 
+  const solveModeBadgeClass = assisted
+    ? "bg-amber-400/15 text-amber-300 border-amber-400/30"
+    : "bg-neon-green/15 text-neon-green border-neon-green/30";
+
   const effectiveMoveCount =
     turnCount > 0 ? turnCount : (solution?.moveCount ?? solution?.moves?.length ?? 0);
 
@@ -348,7 +350,9 @@ export default function CoachSidebar({
           title={
             <div className="flex items-center justify-between w-full">
               <span>Solve Summary</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neon-green/15 text-neon-green border border-neon-green/30 font-semibold normal-case">
+              <span
+                className={`text-[10px] font-mono px-2 py-0.5 rounded-full border font-semibold normal-case ${solveModeBadgeClass}`}
+              >
                 {solveModeLabel}
               </span>
             </div>
@@ -381,7 +385,7 @@ export default function CoachSidebar({
 
             <div className="bg-dark-bg/80 border border-dark-border rounded-xl p-2">
               <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
-                CFOP Baseline
+                CFOP Optimal Baseline
               </div>
               <div className="font-mono font-bold text-neon-blue text-sm mt-0.5">
                 {optimalMoveCount ? `${optimalMoveCount} moves` : "--"}
@@ -390,7 +394,7 @@ export default function CoachSidebar({
 
             <div className="bg-dark-bg/80 border border-dark-border rounded-xl p-2">
               <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
-                Efficiency
+                Efficiency %
               </div>
               <div
                 className={`font-mono font-bold text-sm mt-0.5 ${
@@ -407,6 +411,29 @@ export default function CoachSidebar({
               </div>
             </div>
           </div>
+
+          {!assisted && efficiency > 0 && (
+            <div className="mt-2.5 space-y-1">
+              <div className="flex items-center justify-between text-[10px] text-gray-400">
+                <span>CFOP Efficiency Rating</span>
+                <span className="font-mono text-gray-300 font-semibold">
+                  {efficiency >= 80
+                    ? "Elite"
+                    : efficiency >= 50
+                      ? "Solid"
+                      : "Keep Practicing"}
+                </span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-dark-bg overflow-hidden border border-dark-border">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    efficiency >= 50 ? "bg-neon-green" : "bg-neon-blue"
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(6, efficiency))}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           {saveState === "saving" && (
             <div className="text-[11px] text-gray-400 mt-2">
