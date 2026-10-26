@@ -137,11 +137,16 @@ export function createAnimator({ cubeGroup, rotationGroup, onMoveDone }) {
 
     // Interactive user turns (count === true) always use snappy 200ms duration,
     // scaling up dynamically when moves accumulate in the input queue.
+    // Practice drill turns (count === "drill") use consistent BASE_DURATION_MS
+    // so each cycle of the 4-Move Reset Drill is clearly visible.
     // Assisted moves (count === false, i.e. Guided / Auto-Solve) use dedicated
     // ASSISTED_BASE_DURATION_MS strictly controlled by the user's selected playback speed.
-    const duration = count
-      ? (BASE_DURATION_MS * quarters) / getQueueMultiplier(queue.length)
-      : (ASSISTED_BASE_DURATION_MS * quarters) / speed;
+    const duration =
+      count === true
+        ? (BASE_DURATION_MS * quarters) / getQueueMultiplier(queue.length)
+        : count === "drill"
+          ? BASE_DURATION_MS * quarters
+          : (ASSISTED_BASE_DURATION_MS * quarters) / speed;
 
     currentMoveInfo = { move, count, spec, target, quarters };
 
