@@ -3,6 +3,8 @@
  * Uses the 6 canonical Rubik's Cube sticker colors plus neon accents.
  */
 
+import { useEffect, useRef, useState } from "react";
+
 export const RUBIK_CONFETTI_COLORS = [
   "#ffffff", // White (U)
   "#facc15", // Yellow (D)
@@ -99,3 +101,100 @@ export function shouldTriggerCelebration(prevSolved, solved, suppressed = false)
   if (suppressed) return false;
   return !prevSolved && Boolean(solved);
 }
+
+export default function SolveCelebration({ solved = false, suppressed = false }) {
+  const canvasRef = useRef(null);
+  const prevSolvedRef = useRef(Boolean(solved));
+  const [burstId, setBurstId] = useState(0);
+
+  useEffect(() => {
+    if (suppressed) return;
+    if (shouldTriggerCelebration(prevSolvedRef.current, solved, suppressed)) {
+      setBurstId((id) => id + 1);
+    }
+    prevSolvedRef.current = Boolean(solved);
+  }, [solved, suppressed]);
+
+  useEffect(() => {
+    if (!burstId) return undefined;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return undefined;
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+
+    let width = typeof window !== "undefined" ? window.innerWidth : 800;
+    let height = typeof window !== "undefined" ? window.innerHeight : 600;
+    const dpr = typeof window !== "undefined" ? Math.min(2, window.devicePixelRatio || 1) : 1;
+
+    const syncSize = () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    syncSize();
+    window.addEventListener("resize", syncSize);
+
+    let particles = createCelebrationParticles(
+      width,
+      height,
+      prefersReducedMotion ? 24 : 96,
+    );
+    let rafId = null;
+    let lastTime = performance.now();
+
+    const renderFrame = (now) => {
+      const elapsedMs = Math.min(48, Math.max(8, now - lastTime));
+      lastTime = now;
+      const dt = elapsedMs / 16.667;
+
+      ctx.clearRect(0, 0, width, height);
+      particles = stepCelebrationParticles(particles, dt, height);
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        const w = p.size;
+        const h = p.size * p.aspect * Math.max(0.25, Math.abs(Math.cos(p.tilt)));
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-w / 2, -h / 2, w, h);
+        ctx.restore();
+      }
+
+      if (particles.length > 0) {
+        rafId = window.requestAnimationFrame(renderFrame);
+      } else {
+        ctx.clearRect(0, 0, width, height);
+      }
+    };
+
+    rafId = window.requestAnimationFrame(renderFrame);
+
+    return () => {
+      window.removeEventListener("resize", syncSize);
+      if (rafId) window.cancelAnimationFrame(rafId);
+      ctx.clearRect(0, 0, width, height);
+    };
+  }, [burstId]);
+
+  if (!burstId) return null;
+
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-hidden="true"
+      className="fixed inset-0 pointer-events-none z-50 w-full h-full"
+    />
+  );
+}
+
