@@ -393,3 +393,42 @@ export const CUBE_ANATOMY = [
       "Sit where three faces meet and carry 3 colors. When solved, each corner must rest between the 3 center faces matching its 3 stickers.",
   },
 ];
+
+/**
+ * JPerm's Foundational 4-Move Sequences (Right & Left triggers).
+ */
+export const FOUR_MOVE_SEQUENCES = [
+  {
+    id: "right_4_moves",
+    title: "Right 4-Moves",
+    badge: "Right Hand (R U R' U')",
+    formula: "R U R' U'",
+    moves: ["R", "U", "R'", "U'"],
+    accentClass: "border-neon-blue/35 bg-neon-blue/[0.05]",
+    badgeClass: "bg-neon-blue/15 text-neon-blue border-neon-blue/30",
+    steps: [
+      { move: "R", arrow: "↻", action: "Right side UP (clockwise)" },
+      { move: "U", arrow: "↻", action: "Top layer LEFT with right index (clockwise)" },
+      { move: "R'", arrow: "↺", action: "Right side DOWN (counter-clockwise)" },
+      { move: "U'", arrow: "↺", action: "Top layer RIGHT with left index (counter-clockwise)" },
+    ],
+    note: "Powers Step 2 (Bottom Corners), Step 3 (Middle Edges), and Step 4 (Top Cross).",
+  },
+  {
+    id: "left_4_moves",
+    title: "Left 4-Moves",
+    badge: "Left Hand (L' U' L U)",
+    formula: "L' U' L U",
+    moves: ["L'", "U'", "L", "U"],
+    accentClass: "border-teal-400/35 bg-teal-400/[0.05]",
+    badgeClass: "bg-teal-400/15 text-teal-300 border-teal-400/30",
+    steps: [
+      { move: "L'", arrow: "↺", action: "Left side UP (counter-clockwise)" },
+      { move: "U'", arrow: "↺", action: "Top layer RIGHT with left index (counter-clockwise)" },
+      { move: "L", arrow: "↻", action: "Left side DOWN (clockwise)" },
+      { move: "U", arrow: "↻", action: "Top layer LEFT with right index (clockwise)" },
+    ],
+    note: "Exact mirror of the Right 4-Moves, used for left-side corner and middle-edge insertions.",
+  },
+];
+
