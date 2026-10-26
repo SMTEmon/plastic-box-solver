@@ -432,3 +432,44 @@ export const FOUR_MOVE_SEQUENCES = [
   },
 ];
 
+export const RESET_DRILL_CYCLE = ["R", "U", "R'", "U'"];
+export const RESET_DRILL_TOTAL_CYCLES = 6;
+export const RESET_DRILL_MOVES = Array.from(
+  { length: RESET_DRILL_TOTAL_CYCLES },
+  () => RESET_DRILL_CYCLE,
+).flat();
+
+/**
+ * Computes live cycle progress for the 4-Move Reset Drill (R U R' U' × 6 = 24 moves).
+ *
+ * @param {number} stepIndex 0-based index into RESET_DRILL_MOVES (0..24)
+ * @param {boolean} [completed=false]
+ */
+export function getDrillProgress(stepIndex = 0, completed = false) {
+  if (completed || stepIndex >= RESET_DRILL_MOVES.length) {
+    return {
+      cycle: RESET_DRILL_TOTAL_CYCLES,
+      totalCycles: RESET_DRILL_TOTAL_CYCLES,
+      moveInCycle: RESET_DRILL_CYCLE.length - 1,
+      currentMove: null,
+      isComplete: true,
+      label: `Cycle ${RESET_DRILL_TOTAL_CYCLES}/${RESET_DRILL_TOTAL_CYCLES} — Reset Complete!`,
+    };
+  }
+
+  const clamped = Math.max(0, stepIndex);
+  const cycle = Math.min(
+    RESET_DRILL_TOTAL_CYCLES,
+    Math.floor(clamped / RESET_DRILL_CYCLE.length) + 1,
+  );
+  const moveInCycle = clamped % RESET_DRILL_CYCLE.length;
+
+  return {
+    cycle,
+    totalCycles: RESET_DRILL_TOTAL_CYCLES,
+    moveInCycle,
+    currentMove: RESET_DRILL_MOVES[clamped],
+    isComplete: false,
+    label: `Cycle ${cycle}/${RESET_DRILL_TOTAL_CYCLES}`,
+  };
+}
