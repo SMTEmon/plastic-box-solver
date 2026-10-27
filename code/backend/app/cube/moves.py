@@ -140,3 +140,46 @@ def invert(move: str) -> str:
     if move.endswith("'"):
         return move[0]
     return move + "'"
+
+
+from collections import deque
+from .constants import SOLVED
+
+_ROT_GENS = [t + s for t in "XYZ" for s in ("", "'", "2")]
+
+
+def _build_orientation_maps():
+    """Computes:
+    - ORIENTATIONS: dict mapping rotated SOLVED state -> sequence reaching it from SOLVED
+    - CENTRE_RESTORE_MOVES: dict mapping 6-centre string -> shortest rotation sequence to restore 'wrgyob'
+    """
+    seen = {SOLVED: []}
+    restore_map = {"".join(SOLVED[i * 9 + 4] for i in range(6)): []}
+    q = deque([([], SOLVED)])
+    while q:
+        seq, state = q.popleft()
+        for g in _ROT_GENS:
+            nxt = apply_move(state, g)
+            if nxt not in seen:
+                nseq = seq + [g]
+                seen[nxt] = nseq
+                c = "".join(nxt[i * 9 + 4] for i in range(6))
+                if c not in restore_map:
+                    inv = [invert(m) for m in reversed(nseq)]
+                    restore_map[c] = inv
+                q.append((nseq, nxt))
+    return seen, restore_map
+
+
+ORIENTATIONS, CENTRE_RESTORE_MOVES = _build_orientation_maps()
+
+
+def get_centre_restore_moves(facelets: str) -> list[str] | None:
+    """Returns the shortest rotation sequence that orients the cube's centres back
+    to canonical 'wrgyob' (URFDLB order), or None if the centres are not a valid 3D orientation.
+    """
+    if len(facelets) < 54:
+        return None
+    centres = "".join(facelets[i * 9 + 4] for i in range(6))
+    return CENTRE_RESTORE_MOVES.get(centres)
+

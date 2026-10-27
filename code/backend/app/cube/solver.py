@@ -8,7 +8,7 @@ from rubik_solver import utils as rs_utils # type: ignore
 
 from .adapters import to_kociemba, to_rubik_solver
 from .constants import SOLVED
-from .moves import apply_move, apply_moves
+from .moves import apply_move, apply_moves, ORIENTATIONS, get_centre_restore_moves
 
 # rubik_solver's "Beginner" method emits WHOLE-CUBE rotations (X, Y, Z — cube
 # reorientations, not layer turns) alongside face turns. Two things must be
@@ -36,25 +36,7 @@ def _translate(move: str) -> str:
     return move
 
 
-# The 24 whole-cube orientations, each as a short sequence of our rotation
-# tokens. Used to find the single corrective rotation that re-cans a
-# visually-solved-but-reoriented cube back onto SOLVED.
-def _orientation_sequences():
-    gens = [t + s for t in _ROT_TOKENS for s in ("", "'", "2")]
-    seen = {SOLVED: []}
-    frontier = [[]]
-    while frontier:
-        seq = frontier.pop()
-        state = apply_moves(SOLVED, seq)
-        for g in gens:
-            nxt = apply_move(state, g)
-            if nxt not in seen:
-                seen[nxt] = seq + [g]
-                frontier.append(seq + [g])
-    return seen  # facelets -> rotation-token sequence reaching it from SOLVED
-
-
-_ORIENTATIONS = _orientation_sequences()
+_ORIENTATIONS = ORIENTATIONS
 
 
 def _corrective_rotation(state: str) -> list[str]:
@@ -62,9 +44,9 @@ def _corrective_rotation(state: str) -> list[str]:
     or [] if it's already SOLVED / not a pure reorientation."""
     if state == SOLVED:
         return []
-    for target, seq in _ORIENTATIONS.items():
-        if apply_moves(state, seq) == SOLVED:
-            return seq
+    restore = get_centre_restore_moves(state)
+    if restore is not None and apply_moves(state, restore) == SOLVED:
+        return restore
     return []  # not a pure reorientation (shouldn't happen for a valid solve)
 
 
@@ -72,6 +54,12 @@ def _corrective_rotation(state: str) -> list[str]:
 def _solve_optimal_cached(facelets: str) -> tuple[str, ...]:
     if facelets == SOLVED:
         return ()  # guard: kociemba's C solver doesn't reliably return ""
+    restore_moves = get_centre_restore_moves(facelets)
+    if restore_moves:
+        canonical = apply_moves(facelets, restore_moves)
+        canonical_moves = _solve_optimal_cached(canonical)
+        return tuple(simplify_moves(restore_moves + list(canonical_moves)))
+
     if kociemba:
         moves = kociemba.solve(to_kociemba(facelets)).split()
         return tuple(moves)
@@ -79,6 +67,7 @@ def _solve_optimal_cached(facelets: str) -> tuple[str, ...]:
     moves = [_translate(m) for m in raw]
     moves += _corrective_rotation(apply_moves(facelets, moves))
     return tuple(_trim_after_solved(facelets, moves))
+
 
 
 def solve_optimal(facelets: str) -> list[str]:
@@ -125,12 +114,19 @@ def simplify_moves(moves: list[str]) -> list[str]:
 def _solve_guided_cached(facelets: str, method: str = "Beginner") -> tuple[str, ...]:
     if facelets == SOLVED:
         return ()
+    restore_moves = get_centre_restore_moves(facelets)
+    if restore_moves:
+        canonical = apply_moves(facelets, restore_moves)
+        canonical_moves = _solve_guided_cached(canonical, method)
+        return tuple(simplify_moves(restore_moves + list(canonical_moves)))
+
     raw = [str(m) for m in rs_utils.solve(to_rubik_solver(facelets), method)]
     moves = [_translate(m) for m in raw]
     moves = simplify_moves(moves)
     moves += _corrective_rotation(apply_moves(facelets, moves))
     moves = simplify_moves(moves)
     return tuple(_trim_after_solved(facelets, moves))
+
 
 
 def solve_guided(facelets: str, method: str = "Beginner") -> list[str]:

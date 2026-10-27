@@ -6,6 +6,7 @@ except Exception:
 from rubik_solver import utils as rs_utils # type: ignore
 from .adapters import to_kociemba, to_rubik_solver
 from .constants import COLOURS
+from .moves import apply_moves, get_centre_restore_moves
 
 
 def validate(facelets: str) -> None:
@@ -24,16 +25,20 @@ def validate(facelets: str) -> None:
         if n != 9:
             raise ValueError(f"colour '{c}' appears {n}x, need exactly 9")
 
-    centres = [facelets[i * 9 + 4] for i in range(6)]
-    if centres != list("wrgyob"):
+    restore_moves = get_centre_restore_moves(facelets)
+    if restore_moves is None:
+        centres = "".join(facelets[i * 9 + 4] for i in range(6))
         raise ValueError(
-            f"centres must be 'wrgyob' in URFDLB order, got '{''.join(centres)}'"
+            f"centres '{centres}' must be a valid 3D orientation of 'wrgyob'"
         )
+
+    canonical = apply_moves(facelets, restore_moves) if restore_moves else facelets
 
     try:
         if kociemba:
-            kociemba.solve(to_kociemba(facelets))
+            kociemba.solve(to_kociemba(canonical))
         else:
-            rs_utils.solve(to_rubik_solver(facelets), "Beginner")
+            rs_utils.solve(to_rubik_solver(canonical), "Beginner")
     except Exception as e:
         raise ValueError(f"cube is not solvable: {e}")
+
