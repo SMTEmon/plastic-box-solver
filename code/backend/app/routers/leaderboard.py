@@ -29,10 +29,10 @@ def leaderboard(db: Session = Depends(get_db), me: User | None = Depends(get_opt
     best: dict[int, Solve] = {}
     for s in db.query(Solve).all():
         cur = best.get(s.user_id)
-        if cur is None or (s.solve_time, -s.efficiency) < (cur.solve_time, -cur.efficiency):
+        if cur is None or (s.solve_time, -(s.efficiency or 0.0)) < (cur.solve_time, -(cur.efficiency or 0.0)):
             best[s.user_id] = s
 
-    ranked = sorted(best.values(), key=lambda s: (s.solve_time, -s.efficiency))[:50]
+    ranked = sorted(best.values(), key=lambda s: (s.solve_time, -(s.efficiency or 0.0)))[:50]
 
     # one lookup for the display names we need
     users = {u.id: u for u in db.query(User).filter(User.id.in_(best.keys())).all()} if best else {}
@@ -46,7 +46,7 @@ def leaderboard(db: Session = Depends(get_db), me: User | None = Depends(get_opt
                 user_id=s.user_id,
                 display_name=(u.display_name if u else f"user{s.user_id}"),
                 best_time=s.solve_time,
-                efficiency=s.efficiency,
+                efficiency=s.efficiency or 0.0,
                 is_me=(me is not None and me.id == s.user_id),
             )
         )

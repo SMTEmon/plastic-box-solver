@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.cube.constants import SOLVED
 from app.cube.moves import apply_moves
-from app.cube.solver import solve_optimal
+from app.cube.solver import solve_guided
 from app.db.database import get_db
 from app.db.models import Solve
 from app.routers.auth import get_current_user
@@ -41,7 +41,7 @@ def create_solve(body: SolveCreate, db: Session = Depends(get_db), user=Depends(
 
         move_count = len([m for m in moves if m and m[0].upper() not in "XYZ"])
         try:
-            optimal_moves = len(solve_optimal(body.scramble))
+            optimal_moves = len(solve_guided(body.scramble, method="CFOP"))
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Could not compute optimal moves for scramble: {e}")
 
