@@ -17,6 +17,7 @@ from app.db.models import User
 from app.cube.constants import SOLVED
 from app.cube.scramble import random_scramble
 from app.cube.moves import apply_move, invert
+from app.cube.solver import solve_guided
 from app.vision.detect import _decode
 from app.main import app
 import app.utils.auth_utils as auth_utils
@@ -82,7 +83,8 @@ def test_2_1_create_solve_validation_and_derivation():
 
     # 3. Valid scramble and solution:
     # Scramble: R, Solution: R'
-    # Server should derive move_count=1 and optimal_moves=1 (from solve_optimal)
+    # Server should derive move_count=1 and optimal_moves from CFOP baseline
+    expected_optimal = len(solve_guided(scramble_state, method="CFOP"))
     res = client.post(
         "/api/solves",
         headers=headers,
@@ -97,7 +99,7 @@ def test_2_1_create_solve_validation_and_derivation():
     assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.text}"
     data = res.json()
     assert data["move_count"] == 1, f"Expected server-derived move_count=1, got {data['move_count']}"
-    assert data["optimal_moves"] == 1, f"Expected server-derived optimal_moves=1, got {data['optimal_moves']}"
+    assert data["optimal_moves"] == expected_optimal, f"Expected server-derived optimal_moves={expected_optimal}, got {data['optimal_moves']}"
     assert data["efficiency"] == 100.0, f"Expected 100% efficiency, got {data['efficiency']}"
     print("test_2_1_create_solve_validation_and_derivation: OK")
 
