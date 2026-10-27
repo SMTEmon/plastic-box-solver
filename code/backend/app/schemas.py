@@ -116,3 +116,21 @@ class TutorialCaseResponse(BaseModel):
     target_moves: list[str]
     target_facelets: str
     scramble_moves: Optional[list[str]] = None
+
+
+# --- Saved Cubes (Cross-Device Workspaces) -----------------------------------
+
+class SavedCubeCreate(BaseModel):
+    label: Optional[str] = Field("Scanned Cube", max_length=50)
+    facelets: str = Field(..., min_length=54, max_length=54)
+
+
+class SavedCubeOut(BaseModel):
+    id: int
+    user_id: int
+    label: str
+    facelets: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
