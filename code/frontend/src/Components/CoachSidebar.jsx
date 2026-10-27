@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  getStageGuide,
-  getCenterInfo,
-  CUBE_ANATOMY,
-  FOUR_MOVE_SEQUENCES,
-  RESET_DRILL_CYCLE,
-  RESET_DRILL_TOTAL_CYCLES,
-  getDrillProgress,
-} from "../cube/stageGuides.js";
+import { getStageGuide, getCenterInfo } from "../cube/stageGuides.js";
 import { BEGINNER_STAGES } from "../cube/stagePredicates.js";
 import {
   chunkMoves,
@@ -33,208 +25,6 @@ export function Panel({ title, children, className = "" }) {
   );
 }
 
-export function CubeAnatomyPanel() {
-  return (
-    <Panel
-      title={
-        <div className="flex items-center justify-between w-full">
-          <span className="text-white font-bold">Cube Anatomy</span>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-gray-300 border border-dark-border">
-            26 Pieces
-          </span>
-        </div>
-      }
-      className="border-cyan-500/25"
-    >
-      <div className="space-y-2.5">
-        {CUBE_ANATOMY.map((piece) => (
-          <div
-            key={piece.id}
-            className={`p-2.5 rounded-xl border ${piece.cardClass} space-y-1`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold text-white">{piece.title}</span>
-              <span
-                className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full border ${piece.badgeClass}`}
-              >
-                {piece.stickerBadge}
-              </span>
-            </div>
-            <p className="text-[11px] text-gray-300 leading-relaxed">
-              {piece.description}
-            </p>
-          </div>
-        ))}
-      </div>
-    </Panel>
-  );
-}
-
-export function FourMovesBreakdownPanel() {
-  return (
-    <Panel
-      title={
-        <div className="flex items-center justify-between w-full">
-          <span className="text-white font-bold">JPerm&apos;s 4-Move Triggers</span>
-          <a
-            href="https://jperm.net/3x3#4moves"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] font-semibold text-neon-blue hover:underline lowercase"
-          >
-            jperm.net &rarr;
-          </a>
-        </div>
-      }
-      className="border-neon-blue/25"
-    >
-      <div className="space-y-3">
-        {FOUR_MOVE_SEQUENCES.map((seq) => (
-          <div
-            key={seq.id}
-            className={`p-3 rounded-xl border ${seq.accentClass} space-y-2`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold text-white">{seq.title}</span>
-              <span
-                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border ${seq.badgeClass}`}
-              >
-                {seq.formula}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-4 gap-1.5">
-              {seq.steps.map((st, idx) => (
-                <div
-                  key={`${seq.id}-${idx}`}
-                  title={st.action}
-                  className="bg-dark-bg/80 border border-dark-border rounded-lg p-1.5 text-center flex flex-col items-center gap-0.5"
-                >
-                  <div className="flex items-center gap-0.5 font-mono text-xs font-bold text-white">
-                    <span>{st.move}</span>
-                    <span className="text-[10px] text-neon-blue">{st.arrow}</span>
-                  </div>
-                  <span className="text-[9px] text-gray-400 leading-tight line-clamp-2">
-                    {st.action}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <p className="text-[10px] text-gray-400 leading-snug">{seq.note}</p>
-          </div>
-        ))}
-      </div>
-    </Panel>
-  );
-}
-
-export function ResetDrillPanel({ drillState, onStartDrill, disabled = false }) {
-  const isRunning = Boolean(drillState?.active);
-  const isCompleted = Boolean(drillState?.completed && !drillState?.active);
-  const progress = getDrillProgress(drillState?.step ?? 0, isCompleted);
-
-  return (
-    <Panel
-      title={
-        <div className="flex items-center justify-between w-full">
-          <span className="text-white font-bold">4-Move Reset Drill</span>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30 font-semibold">
-            R U R&apos; U&apos; &times; 6
-          </span>
-        </div>
-      }
-      className="border-amber-400/30"
-    >
-      <div className="space-y-3">
-        <p className="text-[11px] text-gray-300 leading-relaxed">
-          Repeating <span className="font-mono font-bold text-white">R U R&apos; U&apos;</span>{" "}
-          exactly <span className="font-semibold text-amber-300">6 times (24 moves)</span>{" "}
-          always returns any cube to its exact starting state without affecting your solve timer or move count.
-        </p>
-
-        {/* Live 4-move step indicator */}
-        <div className="grid grid-cols-4 gap-1.5">
-          {RESET_DRILL_CYCLE.map((m, idx) => {
-            const dir = getTurnDirection(m);
-            const isCurrentMove = isRunning && progress.moveInCycle === idx;
-            return (
-              <div
-                key={`drill-move-${idx}`}
-                className={`py-1.5 px-2 rounded-xl border text-center font-mono text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                  isCurrentMove
-                    ? "bg-neon-blue text-black border-cyan-200 shadow-md shadow-neon-blue/30 scale-105"
-                    : isCompleted
-                      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                      : "bg-dark-bg/80 text-gray-300 border-dark-border"
-                }`}
-              >
-                <span>{m}</span>
-                <span className="text-[10px] opacity-80">{dir.arrow}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 6-Cycle Progress Bar & Live Status */}
-        {(isRunning || isCompleted) && (
-          <div className="space-y-1.5 bg-dark-bg/80 border border-dark-border rounded-xl p-2.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400 font-medium">Drill Progress</span>
-              <span
-                className={`font-mono font-bold ${
-                  isCompleted ? "text-emerald-400" : "text-neon-blue"
-                }`}
-              >
-                {progress.label}
-              </span>
-            </div>
-            <div className="grid grid-cols-6 gap-1">
-              {Array.from({ length: RESET_DRILL_TOTAL_CYCLES }).map((_, cIdx) => {
-                const cycleNum = cIdx + 1;
-                const done = isCompleted || cycleNum < progress.cycle;
-                const current = isRunning && cycleNum === progress.cycle;
-                return (
-                  <div
-                    key={`cycle-seg-${cycleNum}`}
-                    className={`h-1.5 rounded-full transition-all ${
-                      done
-                        ? "bg-emerald-400"
-                        : current
-                          ? "bg-neon-blue animate-pulse"
-                          : "bg-white/10"
-                    }`}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={onStartDrill}
-          disabled={disabled || isRunning}
-          className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm ${
-            isRunning
-              ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 cursor-wait"
-              : "bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black shadow-amber-500/20 active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
-          }`}
-        >
-          <span>{isRunning ? "⏳" : "▶"}</span>
-          <span>
-            {isRunning
-              ? `${progress.label} (${(drillState?.step ?? 0) + 1}/24)...`
-              : isCompleted
-                ? "Run 4-Move Reset Drill Again (R U R' U' × 6)"
-                : "4-Move Reset Drill (R U R' U' × 6)"}
-          </span>
-        </button>
-      </div>
-    </Panel>
-  );
-}
-
 export default function CoachSidebar({
   error,
   saveState,
@@ -257,17 +47,7 @@ export default function CoachSidebar({
   const restoreCheckpoint = useCubeStore((s) => s.restoreCheckpoint);
 
   const guided = Boolean(mode === MODES.GUIDED && solution);
-  const [tabState, setTabState] = useState({
-    guided,
-    tab: guided ? "coach" : "cubing_101",
-  }); // "coach" | "all_stages" | "cubing_101"
-  const sidebarTab = !guided
-    ? "cubing_101"
-    : tabState.guided === guided
-      ? tabState.tab
-      : "coach";
-  const setSidebarTab = (tab) => setTabState({ guided, tab });
-  const [interactiveTab, setInteractiveTab] = useState("interactive_coach"); // "interactive_coach" | "cubing_101"
+  const [sidebarTab, setSidebarTab] = useState("coach"); // "coach" | "all_stages"
 
   const sidebarMovesRef = useRef(null);
   const allStagesRef = useRef(null);
@@ -487,11 +267,12 @@ export default function CoachSidebar({
       {guided && (
         <>
           {/* Segmented Tab Controls: Coach & Moves | All Stages | Cubing 101 */}
+          {/* Segmented Tab Controls: Coach & Moves | All Stages */}
           <div className="flex rounded-xl bg-dark-bg/80 p-1 border border-dark-border text-[11px] shrink-0 gap-0.5">
             <button
               type="button"
               onClick={() => setSidebarTab("coach")}
-              className={`flex-1 py-1.5 px-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
+              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
                 sidebarTab === "coach"
                   ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
                   : "text-gray-400 hover:text-white"
@@ -502,24 +283,13 @@ export default function CoachSidebar({
             <button
               type="button"
               onClick={() => setSidebarTab("all_stages")}
-              className={`flex-1 py-1.5 px-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
+              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
                 sidebarTab === "all_stages"
                   ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
                   : "text-gray-400 hover:text-white"
               }`}
             >
               All Stages ({solution.stages.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSidebarTab("cubing_101")}
-              className={`flex-1 py-1.5 px-1.5 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
-                sidebarTab === "cubing_101"
-                  ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              Cubing 101
             </button>
           </div>
 
@@ -839,7 +609,7 @@ export default function CoachSidebar({
                 </div>
               </Panel>
             )
-          ) : sidebarTab === "all_stages" ? (
+          ) : (
             /* --- Tab 2: All Stages Overview View --- */
             <Panel
               title={
@@ -954,164 +724,116 @@ export default function CoachSidebar({
                 })}
               </div>
             </Panel>
-          ) : (
-            /* --- Tab 3: Cubing 101 View in Guided Mode --- */
-            <div className="flex flex-col gap-3">
-              <ResetDrillPanel
-                drillState={drillState}
-                onStartDrill={onStartDrill}
-                disabled={drillDisabled}
-              />
-              <FourMovesBreakdownPanel />
-              <CubeAnatomyPanel />
-            </div>
           )}
         </>
       )}
 
-      {/* Interactive Mode Sidebar: 🧭 Coach Checklist vs 🎓 Cubing 101 */}
+      {/* Interactive Mode Sidebar: 🧭 Coach Checklist */}
       {!guided && mode === MODES.INTERACTIVE && !solved && (
         <div className="flex flex-col gap-3">
-          <div className="flex rounded-xl bg-dark-bg/80 p-1 border border-dark-border text-[11px] shrink-0 gap-0.5">
-            <button
-              type="button"
-              onClick={() => setInteractiveTab("interactive_coach")}
-              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
-                interactiveTab === "interactive_coach"
-                  ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              🧭 Coach ({Math.max(0, (stage?.completedIndex ?? -1) + 1)}/7)
-            </button>
-            <button
-              type="button"
-              onClick={() => setInteractiveTab("cubing_101")}
-              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all cursor-pointer text-center truncate ${
-                interactiveTab === "cubing_101"
-                  ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40 shadow-sm"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              🎓 Cubing 101
-            </button>
-          </div>
-
-          {interactiveTab === "interactive_coach" ? (
-            <Panel
-              title={
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-white font-bold">Interactive Coach</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neon-blue/15 text-neon-blue border border-neon-blue/30 font-semibold">
-                    {Math.max(0, (stage?.completedIndex ?? -1) + 1)}/7 stages
-                  </span>
-                </div>
-              }
-              className="border-neon-blue/30"
-            >
-              {/* Stage Progress Checklist */}
-              <div className="space-y-1.5 mb-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  Beginner Stages:
-                </div>
-                <div className="grid grid-cols-1 gap-1">
-                  {BEGINNER_STAGES.map((stg, idx) => {
-                    const isDone = (stage?.completedIndex ?? -1) >= idx;
-                    const isCurrent = (stage?.completedIndex ?? -1) + 1 === idx;
-                    const startKey = idx === 0 ? "__initial__" : BEGINNER_STAGES[idx - 1].name;
-                    const hasCheckpoint = Boolean(stageCheckpoints?.[startKey]);
-
-                    return (
-                      <div
-                        key={stg.name}
-                        className={`px-2.5 py-1.5 rounded-xl border text-xs flex items-center justify-between transition-all ${
-                          isCurrent
-                            ? "border-neon-blue/50 bg-neon-blue/10 text-white shadow-sm ring-1 ring-neon-blue/30"
-                            : isDone
-                              ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
-                              : "border-dark-border bg-dark-bg/40 text-gray-400"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-bold">
-                            {isDone ? "✓" : isCurrent ? "▶" : `${idx + 1}`}
-                          </span>
-                          <span className="font-medium text-[11px]">{stg.name}</span>
-                        </div>
-
-                        {hasCheckpoint && isCurrent && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onCancelAnimation?.();
-                              restoreCheckpoint(startKey);
-                            }}
-                            className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 cursor-pointer"
-                            title="Revert cube to checkpoint when this stage started"
-                          >
-                            ↺ Revert
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+          <Panel
+            title={
+              <div className="flex items-center justify-between w-full">
+                <span className="text-white font-bold">Interactive Coach</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neon-blue/15 text-neon-blue border border-neon-blue/30 font-semibold">
+                  {Math.max(0, (stage?.completedIndex ?? -1) + 1)}/7 stages
+                </span>
               </div>
+            }
+            className="border-neon-blue/30"
+          >
+            {/* Stage Progress Checklist */}
+            <div className="space-y-1.5 mb-3">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Beginner Stages:
+              </div>
+              <div className="grid grid-cols-1 gap-1">
+                {BEGINNER_STAGES.map((stg, idx) => {
+                  const isDone = (stage?.completedIndex ?? -1) >= idx;
+                  const isCurrent = (stage?.completedIndex ?? -1) + 1 === idx;
+                  const startKey = idx === 0 ? "__initial__" : BEGINNER_STAGES[idx - 1].name;
+                  const hasCheckpoint = Boolean(stageCheckpoints?.[startKey]);
 
-              {/* Current Stage Guidance */}
-              {activeGuide && (
-                <div className="border-t border-dark-border pt-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-neon-blue">
-                      Target: {activeGuide.targetLabel ?? activeGuide.title}
-                    </span>
-                    {targetCenterInfo && (
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 ${targetCenterInfo.bg} ${targetCenterInfo.text} ${targetCenterInfo.border}`}
-                      >
-                        <span>{targetCenterInfo.dot}</span>
-                        <span>{targetCenterInfo.name}</span>
-                      </span>
-                    )}
-                  </div>
+                  return (
+                    <div
+                      key={stg.name}
+                      className={`px-2.5 py-1.5 rounded-xl border text-xs flex items-center justify-between transition-all ${
+                        isCurrent
+                          ? "border-neon-blue/50 bg-neon-blue/10 text-white shadow-sm ring-1 ring-neon-blue/30"
+                          : isDone
+                            ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
+                            : "border-dark-border bg-dark-bg/40 text-gray-400"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold">
+                          {isDone ? "✓" : isCurrent ? "▶" : `${idx + 1}`}
+                        </span>
+                        <span className="font-medium text-[11px]">{stg.name}</span>
+                      </div>
 
-                  {activeGuide.formula && (
-                    <div className="bg-dark-bg/90 border border-dark-border rounded-xl p-2.5 text-center my-2">
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-0.5">
-                        Algorithm / Strategy
-                      </div>
-                      <div className="font-mono text-xs font-bold text-neon-blue tracking-wide">
-                        {activeGuide.formula}
-                      </div>
+                      {hasCheckpoint && isCurrent && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onCancelAnimation?.();
+                            restoreCheckpoint(startKey);
+                          }}
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 cursor-pointer"
+                          title="Revert cube to checkpoint when this stage started"
+                        >
+                          ↺ Revert
+                        </button>
+                      )}
                     </div>
-                  )}
+                  );
+                })}
+              </div>
+            </div>
 
-                  {activeGuide.tip && (
-                    <p className="text-xs text-gray-300 leading-relaxed">
-                      {activeGuide.tip}
-                    </p>
-                  )}
-
-                  {activeGuide.learn?.humanNote && (
-                    <p className="text-[11px] text-gray-400 border-t border-dark-border/60 pt-2">
-                      <span className="text-amber-400 font-semibold">Human Tip:</span>{" "}
-                      {activeGuide.learn.humanNote}
-                    </p>
+            {/* Current Stage Guidance */}
+            {activeGuide && (
+              <div className="border-t border-dark-border pt-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-neon-blue">
+                    Target: {activeGuide.targetLabel ?? activeGuide.title}
+                  </span>
+                  {targetCenterInfo && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 ${targetCenterInfo.bg} ${targetCenterInfo.text} ${targetCenterInfo.border}`}
+                    >
+                      <span>{targetCenterInfo.dot}</span>
+                      <span>{targetCenterInfo.name}</span>
+                    </span>
                   )}
                 </div>
-              )}
-            </Panel>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <ResetDrillPanel
-                drillState={drillState}
-                onStartDrill={onStartDrill}
-                disabled={drillDisabled}
-              />
-              <FourMovesBreakdownPanel />
-              <CubeAnatomyPanel />
-            </div>
-          )}
+
+                {activeGuide.formula && (
+                  <div className="bg-dark-bg/90 border border-dark-border rounded-xl p-2.5 text-center my-2">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-0.5">
+                      Algorithm / Strategy
+                    </div>
+                    <div className="font-mono text-xs font-bold text-neon-blue tracking-wide">
+                      {activeGuide.formula}
+                    </div>
+                  </div>
+                )}
+
+                {activeGuide.tip && (
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    {activeGuide.tip}
+                  </p>
+                )}
+
+                {activeGuide.learn?.humanNote && (
+                  <p className="text-[11px] text-gray-400 border-t border-dark-border/60 pt-2">
+                    <span className="text-amber-400 font-semibold">Human Tip:</span>{" "}
+                    {activeGuide.learn.humanNote}
+                  </p>
+                )}
+              </div>
+            )}
+          </Panel>
         </div>
       )}
     </div>
