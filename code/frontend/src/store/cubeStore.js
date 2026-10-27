@@ -89,6 +89,44 @@ export const useCubeStore = create((set, get) => ({
       };
     }),
 
+  /** Load a recorded past solve for full 3D replay playback */
+  loadReplay: (scramble, solutionMoves, optimalMoveCount = 0) =>
+    set((s) => {
+      const evalResult = evaluateCubeStages(scramble);
+      const moves = Array.isArray(solutionMoves)
+        ? solutionMoves
+        : typeof solutionMoves === "string"
+        ? solutionMoves.split(/\s+/).filter(Boolean)
+        : [];
+      return {
+        initial: scramble,
+        facelets: scramble,
+        history: [],
+        redoStack: [],
+        stageCheckpoints: {},
+        interactiveStage: {
+          name: evalResult.currentStage.name,
+          interactive: true,
+          completedIndex: evalResult.completedIndex,
+          allDone: evalResult.allDone,
+        },
+        startedAt: null,
+        finishedAt: null,
+        assisted: true,
+        mode: MODES.GUIDED,
+        solution: {
+          moves,
+          moveCount: moves.length,
+          stages: [{ name: "Solve Replay", start: 0, end: moves.length }],
+          optimalMoves: moves,
+          optimalMoveCount,
+        },
+        cursor: 0,
+        optimalMoveCount,
+        sceneEpoch: s.sceneEpoch + 1,
+      };
+    }),
+
   /** Rewind to the scramble without clearing the solution we fetched. */
   reset: () =>
     set((s) => {

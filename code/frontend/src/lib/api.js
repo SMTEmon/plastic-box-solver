@@ -147,8 +147,9 @@ export const solvesApi = {
    */
   create: (body) => request("/solves", { method: "POST", json: body }),
 
-  /** -> { solves: [...], personal_best: {...} | null } */
-  history: () => request("/solves"),
+  /** -> { solves: [...], personal_best: {...} | null, total: int } */
+  history: (limit = 10, offset = 0) =>
+    request(`/solves?limit=${limit}&offset=${offset}`),
 };
 
 export const leaderboardApi = {

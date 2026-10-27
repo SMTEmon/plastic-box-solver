@@ -9,6 +9,8 @@ from app.db.database import get_db
 from app.db.models import User
 from app.routers.auth import get_current_user
 
+from datetime import datetime
+
 router = APIRouter(prefix="/api/profile", tags=["profile"])
 
 
@@ -17,6 +19,7 @@ class ProfileOut(BaseModel):
     email: str
     display_name: str
     avatar: str | None = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
