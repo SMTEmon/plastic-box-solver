@@ -90,4 +90,5 @@ def history(
     # Empty history -> None, which the schema renders as null (FR-13a empty-state, not an error).
     all_solves = solves if (offset_val == 0 and len(solves) < limit_val) else user_solves.all()
     pb = min(all_solves, key=lambda s: (s.solve_time, -(s.efficiency or 0.0)), default=None)
-    return HistoryResponse(solves=solves, personal_best=pb)
+    total = user_solves.count()
+    return HistoryResponse(solves=solves, personal_best=pb, total=total)

@@ -72,6 +72,8 @@ class SolveOut(BaseModel):
     efficiency: float
     method: str
     created_at: datetime
+    scramble: Optional[str] = None
+    solution: Optional[str] = None
 
     class Config:
         from_attributes = True   # read straight off the SQLAlchemy row
@@ -80,6 +82,7 @@ class SolveOut(BaseModel):
 class HistoryResponse(BaseModel):
     solves: list[SolveOut]
     personal_best: Optional[SolveOut] = None
+    total: Optional[int] = None
 
 
 # --- Tutorial System Schemas ------------------------------------------------
