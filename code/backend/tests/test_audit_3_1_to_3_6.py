@@ -36,7 +36,13 @@ def test_3_1_validate_colours_and_centres():
     with pytest.raises(ValueError, match="centres"):
         validate_mod.validate(bad_centres)
 
+    # 4. Valid reoriented centres (e.g. bwogyr from X then Y rotation) must pass
+    from app.cube.moves import apply_moves
+    bwogyr = apply_moves(SOLVED, ["X", "Y"])
+    validate_mod.validate(bwogyr)
+
     print("test_3_1_validate_colours_and_centres: OK")
+
 
 
 def test_3_2_fixed_centre_letters_in_detect():
