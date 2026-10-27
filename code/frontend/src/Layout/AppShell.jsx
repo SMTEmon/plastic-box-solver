@@ -198,10 +198,7 @@ export default function AppShell({ title = "Plastic Box Solver", children }) {
       <header className="md:hidden flex items-center justify-between px-3 py-2.5 border-b border-dark-border bg-dark-surface/95 backdrop-blur-md shrink-0 z-30">
         <div className="flex items-center gap-2.5">
           <CubeLogo size={28} />
-          <div>
-            <span className="font-extrabold text-xs tracking-tight text-white block leading-tight">{title}</span>
-            <span className="text-[9px] text-gray-400 font-medium block">Interactive 3D Solver</span>
-          </div>
+          <span className="font-extrabold text-sm tracking-tight text-white leading-tight">{title}</span>
         </div>
         <div className="flex items-center gap-2">
           <BackendBadge compact />
@@ -323,7 +320,7 @@ export default function AppShell({ title = "Plastic Box Solver", children }) {
       >
         {collapsed ? (
           <div className="flex flex-col items-center gap-2 mb-1 mt-0.5">
-            <div title={`${title} - Interactive 3D Solver`}>
+            <div title={title}>
               <CubeLogo size={34} />
             </div>
             <button
@@ -343,12 +340,16 @@ export default function AppShell({ title = "Plastic Box Solver", children }) {
             <div className="flex items-center gap-2.5 min-w-0">
               <CubeLogo size={36} />
               <div className="min-w-0">
-                <div className="font-extrabold text-[15px] leading-tight tracking-tight text-white truncate">
-                  {title}
-                </div>
-                <div className="text-[10px] text-gray-400 font-medium tracking-wide truncate mt-0.5">
-                  Interactive 3D Solver
-                </div>
+                {title === "Plastic Box Solver" ? (
+                  <div className="font-extrabold text-[13.5px] leading-[1.15] tracking-tight text-white">
+                    <div>Plastic Box</div>
+                    <div>Solver</div>
+                  </div>
+                ) : (
+                  <div className="font-extrabold text-sm leading-tight tracking-tight text-white">
+                    {title}
+                  </div>
+                )}
               </div>
             </div>
 
