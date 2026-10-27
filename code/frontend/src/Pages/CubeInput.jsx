@@ -7,8 +7,9 @@ import NetEditor from "../Components/NetEditor";
 import CameraScan from "../Components/CameraScan";
 import { parseCubeString } from "../lib/cubeInput.js";
 import { facesToFacelets, faceletsToFaces } from "../cube/facelets.js";
-import { cubeApi, ApiError } from "../lib/api.js";
+import { cubeApi, savedCubesApi, ApiError } from "../lib/api.js";
 import { useCubeStore } from "../store/cubeStore.js";
+import { useAuthStore } from "../store/authStore.js";
 
 function Card({ title, right, children, className = "" }) {
   return (
@@ -44,11 +45,85 @@ export default function CubeInput() {
   const [busy, setBusy] = useState(false);
   const [apiError, setApiError] = useState("");
 
-  // --- input mode: "text" | "manual" | "camera" ---
-  const [inputMode, setInputMode] = useState("text");
+  // --- input mode: "text" | "manual" | "camera" (defaults to 2D net) ---
+  const [inputMode, setInputMode] = useState("manual");
   const [netKey, setNetKey] = useState(0);
   const [netInitial, setNetInitial] = useState(null);
   const [scanNotice, setScanNotice] = useState("");
+
+  // --- saved cubes (cross-device) ---
+  const user = useAuthStore((s) => s.user);
+  const [savedCubes, setSavedCubes] = useState([]);
+  const [loadingSaved, setLoadingSaved] = useState(false);
+  const [showSavedModal, setShowSavedModal] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saveLabel, setSaveLabel] = useState("");
+  const [savingCube, setSavingCube] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  const refreshSavedCubes = useCallback(async () => {
+    if (!user) {
+      setSavedCubes([]);
+      return;
+    }
+    setLoadingSaved(true);
+    try {
+      const list = await savedCubesApi.list();
+      setSavedCubes(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.error("Failed to load saved cubes:", err);
+    } finally {
+      setLoadingSaved(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    refreshSavedCubes();
+  }, [refreshSavedCubes]);
+
+  const handleSaveCube = async () => {
+    if (!facelets) return;
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    setSavingCube(true);
+    setSaveError("");
+    try {
+      const label =
+        saveLabel.trim() ||
+        `Cube (${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})`;
+      await savedCubesApi.save(facelets, label);
+      setShowSaveModal(false);
+      setSaveLabel("");
+      setScanNotice(`✓ Saved "${label}" to your account! Available on PC/mobile.`);
+      await refreshSavedCubes();
+    } catch (err) {
+      setSaveError(err.message || "Failed to save cube");
+    } finally {
+      setSavingCube(false);
+    }
+  };
+
+  const handleLoadSavedCube = (saved) => {
+    setFacelets(saved.facelets);
+    setInputStr(saved.facelets.toUpperCase());
+    setNetInitial(saved.facelets);
+    setNetKey((k) => k + 1);
+    loadScramble(saved.facelets);
+    setScanNotice(`✓ Loaded saved cube: "${saved.label}"`);
+    setShowSavedModal(false);
+  };
+
+  const handleDeleteSavedCube = async (id, e) => {
+    e.stopPropagation();
+    try {
+      await savedCubesApi.delete(id);
+      await refreshSavedCubes();
+    } catch (err) {
+      console.error("Failed to delete saved cube:", err);
+    }
+  };
 
   /** Parse locally on every keystroke -- instant feedback, no network. */
   const handleInputChange = (e) => {
@@ -246,6 +321,22 @@ export default function CubeInput() {
 
             <div className="flex items-center gap-2 flex-wrap">
               <button
+                type="button"
+                onClick={() => {
+                  if (!user) {
+                    navigate("/login");
+                  } else {
+                    setShowSavedModal(true);
+                  }
+                }}
+                className="px-3 py-1.5 rounded-xl border border-neon-blue/40 bg-neon-blue/10 text-neon-blue text-xs font-semibold cursor-pointer transition-all hover:bg-neon-blue/20 flex items-center gap-1.5 shadow-sm"
+                title={user ? "View and load your saved cubes" : "Log in to access saved cubes"}
+              >
+                <span>📂</span>
+                <span>Saved Cubes {user ? `(${savedCubes.length}/3)` : ""}</span>
+              </button>
+
+              <button
                 onClick={handleScramble}
                 disabled={busy}
                 className="px-3 py-1.5 rounded-xl border border-neon-green/40 bg-neon-green/10 text-neon-green text-xs font-semibold cursor-pointer transition-all hover:bg-neon-green/20 disabled:opacity-40 flex items-center gap-1.5 shadow-sm"
@@ -291,18 +382,33 @@ export default function CubeInput() {
 
           {/* ── scan notice if available ── */}
           {scanNotice && (
-            <div className="text-xs p-3 rounded-2xl border border-neon-blue/40 bg-neon-blue/10 text-neon-blue flex items-center justify-between shadow-sm">
+            <div className="text-xs p-3 rounded-2xl border border-neon-blue/40 bg-neon-blue/10 text-neon-blue flex items-center justify-between shadow-sm flex-wrap gap-2">
               <span className="flex items-center gap-2">
                 <span>ℹ️</span>
                 <span>{scanNotice}</span>
               </span>
-              <button
-                type="button"
-                onClick={() => setScanNotice("")}
-                className="text-gray-400 hover:text-white ml-2 text-sm cursor-pointer"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                {ready && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!user) navigate("/login");
+                      else setShowSaveModal(true);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-neon-blue/20 hover:bg-neon-blue/30 text-neon-blue font-semibold border border-neon-blue/40 transition-colors text-[11px] cursor-pointer flex items-center gap-1"
+                  >
+                    <span>💾</span>
+                    <span>Save to Account</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setScanNotice("")}
+                  className="text-gray-400 hover:text-white text-sm cursor-pointer ml-1"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           )}
 
@@ -434,6 +540,20 @@ export default function CubeInput() {
             >
               {busy ? "Contacting solver..." : "Solve Cube →"}
             </button>
+
+            {ready && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!user) navigate("/login");
+                  else setShowSaveModal(true);
+                }}
+                className="w-full mt-2 py-2 px-3 rounded-xl border border-neon-blue/40 bg-neon-blue/10 hover:bg-neon-blue/20 text-neon-blue text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <span>💾</span>
+                <span>Save to Account (Phone ➔ PC)</span>
+              </button>
+            )}
           </Card>
 
           <Card title="Algorithm Engine">
@@ -472,6 +592,176 @@ export default function CubeInput() {
           </Card>
         </div>
       </div>
+
+      {/* ── Modal: Saved Cubes Drawer (Slot Management) ── */}
+      {showSavedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-dark-surface border border-dark-border rounded-2xl max-w-lg w-full p-5 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-3 border-b border-dark-border/60">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>📂</span>
+                  <span>Saved Cubes</span>
+                  <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-neon-blue/20 text-neon-blue border border-neon-blue/30">
+                    {savedCubes.length}/3 Slots
+                  </span>
+                </h3>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  Scan on phone, save to account, and load here on PC anytime.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSavedModal(false)}
+                className="text-gray-400 hover:text-white text-lg p-1 cursor-pointer transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="py-4 space-y-3 max-h-[60vh] overflow-y-auto">
+              {loadingSaved ? (
+                <div className="py-8 text-center text-xs text-gray-400">Loading saved cubes...</div>
+              ) : savedCubes.length === 0 ? (
+                <div className="py-8 text-center text-xs text-gray-400 space-y-2">
+                  <div className="text-2xl">🧊</div>
+                  <p className="font-semibold text-gray-300">No saved cubes yet</p>
+                  <p className="text-[11px] text-gray-500 max-w-xs mx-auto">
+                    Take a Camera Scan on your phone or paint a cube, then tap &apos;Save to Account&apos; to sync across devices.
+                  </p>
+                </div>
+              ) : (
+                savedCubes.map((cube) => (
+                  <div
+                    key={cube.id}
+                    className="p-3.5 rounded-xl border border-dark-border bg-dark-bg/60 hover:border-neon-blue/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-sm text-white tracking-tight truncate">
+                        {cube.label}
+                      </div>
+                      <div className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-2">
+                        <span>
+                          {new Date(cube.created_at).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        <span>•</span>
+                        <span className="font-mono text-neon-blue">54 stickers valid</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleLoadSavedCube(cube)}
+                        className="px-3 py-1.5 rounded-lg bg-neon-blue text-black font-bold text-xs hover:bg-neon-blue/90 transition-all shadow-sm cursor-pointer"
+                      >
+                        Load Cube →
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSavedCube(cube.id, e)}
+                        className="px-2.5 py-1.5 rounded-lg border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 text-xs transition-all cursor-pointer"
+                        title="Delete saved cube"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {/* Remaining slot indicator */}
+              {savedCubes.length < 3 && (
+                <div className="p-3 rounded-xl border border-dashed border-dark-border/80 text-center text-[11px] text-gray-500">
+                  + {3 - savedCubes.length} slot{3 - savedCubes.length > 1 ? "s" : ""} available
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-dark-border/60 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowSavedModal(false)}
+                className="px-4 py-2 rounded-xl border border-dark-border text-xs text-gray-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Save Cube Dialog ── */}
+      {showSaveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-dark-surface border border-dark-border rounded-2xl max-w-md w-full p-5 shadow-2xl">
+            <h3 className="text-base font-bold text-white flex items-center gap-2 mb-1">
+              <span>💾</span>
+              <span>Save Cube to Account</span>
+            </h3>
+            <p className="text-xs text-gray-400 mb-4">
+              Save this cube so you can continue solving on any device ({savedCubes.length}/3 slots used).
+            </p>
+
+            {saveError && (
+              <div className="text-xs text-rose-400 mb-3 border border-rose-500/30 bg-rose-500/10 rounded-xl p-2.5">
+                {saveError}
+              </div>
+            )}
+
+            {savedCubes.length >= 3 ? (
+              <div className="text-xs text-amber-300 border border-amber-500/30 bg-amber-500/10 rounded-xl p-3 mb-4">
+                ⚠️ All 3 saved cube slots are full. Please delete an older cube from your saved list before saving a new one.
+              </div>
+            ) : (
+              <div className="space-y-3 mb-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                    Cube Label
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={50}
+                    value={saveLabel}
+                    onChange={(e) => setSaveLabel(e.target.value)}
+                    placeholder="e.g., Living Room Cube, Scanned Scan 1"
+                    className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-xl text-xs text-white focus:outline-none focus:border-neon-blue/50"
+                    autoFocus
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-dark-border/60">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSaveModal(false);
+                  setSaveError("");
+                }}
+                className="px-4 py-2 rounded-xl border border-dark-border text-xs text-gray-300 hover:text-white transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              {savedCubes.length < 3 && (
+                <button
+                  type="button"
+                  onClick={handleSaveCube}
+                  disabled={savingCube}
+                  className="px-4 py-2 rounded-xl bg-neon-blue text-black font-bold text-xs hover:bg-neon-blue/90 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {savingCube ? "Saving..." : "Save Cube"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Database imports
 from app.db.database import engine, Base
-from app.routers import cube, auth, solves, leaderboard, profile
+from app.routers import cube, auth, solves, leaderboard, profile, saved_cubes
 
 
 @asynccontextmanager
@@ -35,6 +35,7 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(cube.router)
+app.include_router(saved_cubes.router)
 app.include_router(auth.router)
 app.include_router(solves.router)
 app.include_router(leaderboard.router)

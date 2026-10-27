@@ -170,6 +170,20 @@ export const tutorialApi = {
     request("/cube/tutorial/generate", { method: "POST", json: { stage_id } }),
 };
 
+// --- Saved Cubes (Cross-Device Workspaces) -----------------------------------
+
+export const savedCubesApi = {
+  /** -> [{ id, user_id, label, facelets, created_at }] */
+  list: () => request("/cube/saved"),
+
+  /** body: { facelets, label? } -> SavedCubeOut */
+  save: (facelets, label = "Scanned Cube") =>
+    request("/cube/saved", { method: "POST", json: { facelets, label } }),
+
+  /** -> { status: "deleted", id } */
+  delete: (id) => request(`/cube/saved/${id}`, { method: "DELETE" }),
+};
+
 /** Cheap liveness probe used by the connection badge in the UI. */
 export async function ping() {
   try {

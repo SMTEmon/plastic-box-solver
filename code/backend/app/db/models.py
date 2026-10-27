@@ -12,6 +12,7 @@ class User(Base):
     hashed_password = Column(String)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     solves = relationship("Solve", back_populates="user")
+    saved_cubes = relationship("SavedCube", back_populates="user", cascade="all, delete-orphan")
 
 class Solve(Base):
     __tablename__ = "solves"
@@ -26,3 +27,13 @@ class Solve(Base):
     method = Column(String, default="Beginner")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     user = relationship("User", back_populates="solves")
+
+
+class SavedCube(Base):
+    __tablename__ = "saved_cubes"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    label = Column(String, default="Scanned Cube")
+    facelets = Column(String(54), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    user = relationship("User", back_populates="saved_cubes")
