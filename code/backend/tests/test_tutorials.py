@@ -36,7 +36,8 @@ def test_generate_tutorial_case_top_cross():
     assert data["id"] == "top_cross"
     assert len(data["facelets"]) == 54
     assert len(data["target_facelets"]) == 54
-    assert len(data["target_moves"]) > 0
+    assert data["target_moves"] == ["F", "R", "U", "R'", "U'", "F'"]
+    assert not any(m[0] in "XYZ" for m in data["target_moves"])
     # Applying target_moves from initial facelets should produce target_facelets
     result = apply_moves(data["facelets"], data["target_moves"])
     assert result == data["target_facelets"]

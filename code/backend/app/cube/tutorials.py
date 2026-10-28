@@ -240,94 +240,14 @@ def _generate_synthetic_case(meta: Dict[str, Any]) -> Dict[str, Any]:
 
 def generate_tutorial_case(stage_id: str, max_attempts: int = 12) -> Dict[str, Any]:
     """
-    Generate a randomized partial-cube state for the specified tutorial stage.
+    Generate a clean, formula-matching partial-cube state for the tutorial stage.
     
-    1. Look up stage metadata in TUTORIAL_CATALOG.
-    2. Attempt dynamic solve-to-stage generation using random scramble and rubik_solver:
-       - Generate random 20-move scramble.
-       - Solve with solver.solve_guided(scramble, method).
-       - Segment solve moves into stage boundaries.
-       - Locate target stage.
-       - If found, extract initial state before stage moves, and the target moves.
-    3. If dynamic search does not find the stage within max_attempts (e.g. stage skipped
-       by solver optimization or drill case), fallback gracefully to synthetic inverse case.
+    Guarantees 100% valid states where target_moves strictly matches the formula
+    being taught, with zero unwanted whole-cube rotations (X, Y, Z) or conflicting
+    search loops.
     """
     meta = _CATALOG_BY_ID.get(stage_id)
     if not meta:
-        # Default to top_cross if unknown ID
         meta = _CATALOG_BY_ID["top_cross"]
 
-    # For pure drills or explicit algorithm cases, synthetic inverse generation is canonical
-    if meta.get("method") == "Drill" or stage_id in ("cfop_t_perm", "cfop_y_perm"):
-        return _generate_synthetic_case(meta)
-
-    stage_name = meta["stage_name"]
-    method = meta.get("method", "Beginner")
-    stage_defs = stages_mod.CFOP_STAGES if method == "CFOP" else stages_mod.STAGES
-
-    for _ in range(max_attempts):
-        fl, sc = random_scramble(random.randint(18, 22))
-        try:
-            moves = solver.solve_guided(fl, method=method)
-            segs = stages_mod.segment(fl, moves, stage_defs)
-        except Exception:
-            continue
-
-        target_seg = None
-        for s in segs:
-            if s["name"] == stage_name and s["end"] > s["start"]:
-                target_seg = s
-                break
-
-        if not target_seg:
-            continue
-
-        start = target_seg["start"]
-        end = target_seg["end"]
-        prefix = moves[:start]
-        stage_moves = moves[start:end]
-
-        initial_facelets = apply_moves(fl, prefix)
-
-        # If stage_moves is a reasonable length (e.g. <= 16 moves), use it directly
-        if len(stage_moves) <= 16:
-            target_facelets = apply_moves(initial_facelets, stage_moves)
-            return {
-                "id": meta["id"],
-                "stage_name": meta["stage_name"],
-                "title": meta["title"],
-                "category": meta["category"],
-                "formula": meta["formula"],
-                "formula_name": meta["formula_name"],
-                "description": meta["description"],
-                "tip": meta["tip"],
-                "difficulty": meta["difficulty"],
-                "facelets": initial_facelets,
-                "target_moves": stage_moves,
-                "target_facelets": target_facelets,
-                "scramble_moves": sc,
-            }
-
-        # For longer stages (e.g. Middle layer with 40 moves), extract the target formula moves
-        formula_moves = _extract_formula_moves(meta["formula"])
-        if formula_moves:
-            # Check if formula_moves can be applied to this state, or use synthetic
-            target_facelets = apply_moves(initial_facelets, formula_moves)
-            return {
-                "id": meta["id"],
-                "stage_name": meta["stage_name"],
-                "title": meta["title"],
-                "category": meta["category"],
-                "formula": meta["formula"],
-                "formula_name": meta["formula_name"],
-                "description": meta["description"],
-                "tip": meta["tip"],
-                "difficulty": meta["difficulty"],
-                "facelets": initial_facelets,
-                "target_moves": formula_moves,
-                "target_facelets": target_facelets,
-                "scramble_moves": sc,
-            }
-
-    # If dynamic solver loops didn't isolate in time, use reliable synthetic case
     return _generate_synthetic_case(meta)

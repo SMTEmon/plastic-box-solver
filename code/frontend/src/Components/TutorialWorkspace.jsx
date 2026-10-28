@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import CubeScene from "../Three/CubeScene";
 import { getMoveDescription } from "../cube/stageGuides.js";
+import { processKeyEvent } from "../cube/keyboard.js";
 import { useTutorialStore } from "../store/tutorialStore.js";
 import TutorialCelebration from "./TutorialCelebration.jsx";
 
@@ -59,11 +60,10 @@ export default function TutorialWorkspace() {
         return;
       }
 
-      const key = e.key.toUpperCase();
-      if ("URFDLB".includes(key)) {
+      const action = processKeyEvent(e);
+      if (action?.type === "move") {
         e.preventDefault();
-        const move = e.shiftKey ? `${key}'` : key;
-        handleUserMove(move);
+        handleUserMove(action.move);
       }
     };
 
@@ -288,8 +288,8 @@ export default function TutorialWorkspace() {
                 </div>
               ))}
             </div>
-            <div className="text-center text-[10px] text-gray-500 mt-1.5 hidden sm:block">
-              Or use keyboard: U, R, F, D, L, B (hold Shift for counter-clockwise)
+            <div className="text-center text-[10px] text-gray-400 mt-1.5 hidden sm:block">
+              Keyboard: <span className="font-mono text-gray-200">U, R, F, D, L, B</span> &middot; <span className="font-mono text-gray-200">Shift</span> for prime &middot; <span className="font-mono text-gray-200">Arrows</span> for cube rotation
             </div>
           </div>
         )}
