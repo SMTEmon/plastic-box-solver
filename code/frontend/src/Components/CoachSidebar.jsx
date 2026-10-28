@@ -34,6 +34,7 @@ export default function CoachSidebar({
   onStartDrill,
   drillDisabled = false,
   onCancelAnimation,
+  onToggleHide,
 }) {
   const token = useAuthStore((s) => s.token);
   const facelets = useCubeStore((s) => s.facelets);
@@ -735,9 +736,24 @@ export default function CoachSidebar({
             title={
               <div className="flex items-center justify-between w-full">
                 <span className="text-white font-bold">Interactive Coach</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neon-blue/15 text-neon-blue border border-neon-blue/30 font-semibold">
-                  {Math.max(0, (stage?.completedIndex ?? -1) + 1)}/7 stages
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neon-blue/15 text-neon-blue border border-neon-blue/30 font-semibold">
+                    {Math.max(0, (stage?.completedIndex ?? -1) + 1)}/7 stages
+                  </span>
+                  {onToggleHide && (
+                    <button
+                      type="button"
+                      onClick={onToggleHide}
+                      title="Hide Coach Sidebar"
+                      className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             }
             className="border-neon-blue/30"

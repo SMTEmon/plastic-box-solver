@@ -301,7 +301,6 @@ export default function SolveWorkspace() {
     }
     playbackRef.current.isPlaying = false;
     setIsPlaying(false);
-    animatorRef.current?.fastForward();
   }, []);
 
   const startPlayback = useCallback(() => {
@@ -342,7 +341,6 @@ export default function SolveWorkspace() {
   const stepForward = useCallback(() => {
     cancelResetDrill(true);
     if (isPlaying) pausePlayback();
-    animatorRef.current?.fastForward();
     const s = useCubeStore.getState();
     if (!s.solution || s.cursor >= s.solution.moves.length) return;
     const move = s.solution.moves[s.cursor];
@@ -354,7 +352,6 @@ export default function SolveWorkspace() {
   const stepBack = useCallback(() => {
     cancelResetDrill(true);
     if (isPlaying) pausePlayback();
-    animatorRef.current?.fastForward();
     const s = useCubeStore.getState();
     if (!s.solution || s.cursor <= 0) return;
     const move = invert(s.solution.moves[s.cursor - 1]);
@@ -375,7 +372,6 @@ export default function SolveWorkspace() {
           if (followAlongTimerRef.current) clearTimeout(followAlongTimerRef.current);
           setFollowAlongNotice({ type: "success", text: `✓ Correct turn! Executed ${move}` });
           followAlongTimerRef.current = setTimeout(() => setFollowAlongNotice(null), 1500);
-          animatorRef.current?.fastForward();
           animatorRef.current?.setSpeed(speed);
           animatorRef.current?.enqueue(move, false);
           s.setCursor(s.cursor + 1);
@@ -482,9 +478,27 @@ export default function SolveWorkspace() {
     animatorRef.current.enqueue(RESET_DRILL_MOVES[0], "drill");
   }, [pausePlayback]);
 
+  const [hideInteractiveCoach, setHideInteractiveCoach] = useState(() => {
+    try {
+      return localStorage.getItem("hide-interactive-coach") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleInteractiveCoach = useCallback(() => {
+    setHideInteractiveCoach((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("hide-interactive-coach", String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
   const guided = mode === MODES.GUIDED && solution;
   const showSidebar = Boolean(
-    mode === MODES.INTERACTIVE || guided || solved || error,
+    (mode === MODES.INTERACTIVE && !hideInteractiveCoach) || guided || solved || error,
   );
   const canTurn = ready && ((mode === MODES.INTERACTIVE && !drillState.active) || mode === MODES.GUIDED);
 
@@ -588,6 +602,23 @@ export default function SolveWorkspace() {
                   <span>↺</span>
                   <span>Align</span>
                 </button>
+                {mode === MODES.INTERACTIVE && !solved && (
+                  <>
+                    <div className="w-px h-3.5 bg-dark-border mx-0.5" />
+                    <button
+                      type="button"
+                      onClick={toggleInteractiveCoach}
+                      title={hideInteractiveCoach ? "Show Coaching Sidebar" : "Hide Coaching Sidebar"}
+                      className={`px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1 ${
+                        hideInteractiveCoach
+                          ? "bg-neon-blue/20 text-neon-blue border border-neon-blue/40"
+                          : "text-gray-300 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      <span>{hideInteractiveCoach ? "📋 Show Coach" : "✕ Hide Coach"}</span>
+                    </button>
+                  </>
+                )}
                 {guided && (
                   <>
                     <div className="w-px h-3.5 bg-dark-border mx-0.5" />
@@ -659,6 +690,7 @@ export default function SolveWorkspace() {
               onStartDrill={startResetDrill}
               drillDisabled={!ready || isPlaying}
               onCancelAnimation={() => animatorRef.current?.cancel()}
+              onToggleHide={toggleInteractiveCoach}
             />
           )}
         </div>

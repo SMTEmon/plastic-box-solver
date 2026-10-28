@@ -90,34 +90,33 @@ export default function SolveControlsDock({
       const tag = e.target.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
 
-      if (
-        e.code === "Space" ||
-        e.key === " " ||
-        (mode === MODES.AUTO && e.key === "ArrowRight")
-      ) {
+      // Space = Toggle Play / Pause
+      if (e.code === "Space" || e.key === " ") {
         e.preventDefault();
-        if (isPlaying) {
-          onTogglePlay();
-        } else if (e.shiftKey) {
-          onStepBack();
-        } else if (e.code === "Space" || e.key === " ") {
-          onTogglePlay();
-        } else {
+        onTogglePlay();
+        return;
+      }
+
+      // Next move = ArrowRight or Enter
+      if (e.key === "ArrowRight" || e.key === "Enter") {
+        e.preventDefault();
+        if (!isPlaying) {
           onStepForward();
         }
         return;
       }
 
+      // Previous move = ArrowLeft or Backspace
       if (
+        e.key === "ArrowLeft" ||
         e.key === "Backspace" ||
-        (mode === MODES.AUTO &&
-          (e.key === "ArrowLeft" ||
-            ((e.ctrlKey || e.metaKey) &&
-              !e.shiftKey &&
-              e.key.toLowerCase() === "z")))
+        ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z")
       ) {
         e.preventDefault();
-        onStepBack();
+        if (!isPlaying) {
+          onStepBack();
+        }
+        return;
       }
     };
 
@@ -128,7 +127,7 @@ export default function SolveControlsDock({
   const isAssistedMode = (mode === MODES.GUIDED || mode === MODES.AUTO) && solution;
 
   return (
-    <div className="bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl p-2.5 sm:px-4 sm:py-3 shrink-0 shadow-md min-h-[74px] flex flex-col justify-center">
+    <div className="bg-dark-surface/90 backdrop-blur-md border border-dark-border rounded-2xl p-2.5 sm:px-4 sm:py-2.5 shrink-0 shadow-md h-[74px] min-h-[74px] overflow-hidden flex flex-col justify-center">
       {followAlongNotice && (
         <div
           className={`px-3 py-1.5 rounded-xl text-xs font-semibold mb-2 flex items-center justify-between transition-all ${
@@ -143,28 +142,29 @@ export default function SolveControlsDock({
 
       {isAssistedMode ? (
         cursor < solution.moves.length ? (
-          <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-3">
-            {/* Left: Active Move Focus */}
-            <div className="flex items-center gap-3 min-w-[200px] max-w-[340px] shrink-0">
+          <div className="flex items-center justify-between gap-3 flex-nowrap w-full">
+            {/* Left: Active Move Focus (fluid width with ellipsis, never pushes controls) */}
+            <div className="flex items-center gap-3 min-w-0 flex-1 max-w-[420px]">
               <div
-                className="relative w-13 h-13 rounded-xl bg-neon-blue text-black flex items-center justify-center font-mono font-black text-2xl shadow-lg shadow-neon-blue/25 border-2 border-cyan-200 shrink-0 select-none"
+                className="relative w-12 h-12 rounded-xl bg-neon-blue text-black flex items-center justify-center font-mono font-black text-xl shadow-lg shadow-neon-blue/25 border-2 border-cyan-200 shrink-0 select-none"
                 title={`${solution.moves[cursor]}: ${turnDir.label}`}
               >
                 <span>{solution.moves[cursor]}</span>
-                <span className="absolute bottom-0.5 right-1 text-[11px] font-bold text-black/75">
+                <span className="absolute bottom-0.5 right-1 text-[10px] font-bold text-black/75">
                   {turnDir.arrow}
                 </span>
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="min-w-0 flex-1">
+                {/* Badges line: strictly single line, never wraps */}
+                <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden text-ellipsis whitespace-nowrap">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-neon-blue/15 text-neon-blue border border-neon-blue/30 shrink-0">
                     {mode === MODES.AUTO
-                      ? `Auto-Solve ${cursor + 1}/${solution.moves.length}`
+                      ? `Auto ${cursor + 1}/${solution.moves.length}`
                       : `Move ${cursor + 1}/${solution.moves.length}`}
                   </span>
                   {activeTrigger && (
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 truncate max-w-[130px] ${
                         TRIGGER_COLORS[activeTrigger.color]?.badge ??
                         "bg-cyan-400/15 text-cyan-300 border-cyan-400/30"
                       }`}
@@ -179,19 +179,23 @@ export default function SolveControlsDock({
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 mt-0.5">
+
+                {/* Description line: strictly single line */}
+                <div className="flex items-center gap-2 mt-0.5 min-w-0">
                   <span className="text-xs font-bold text-white truncate">
                     {getMoveDescription(solution.moves[cursor])}
                   </span>
                   <span
-                    className="inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded bg-white/10 text-gray-300 border border-white/10 shrink-0"
+                    className="inline-flex items-center gap-0.5 text-[9px] font-mono font-semibold px-1 py-0.2 rounded bg-white/10 text-gray-300 border border-white/10 shrink-0"
                     title={turnDir.label}
                   >
                     <span>{turnDir.arrow}</span>
                     <span>{turnDir.short}</span>
                   </span>
                 </div>
-                <div className="text-[11px] text-gray-400 font-mono">
+
+                {/* Next preview line: strictly single line */}
+                <div className="text-[10px] text-gray-400 font-mono truncate leading-tight mt-0.5">
                   {cursor + 1 < solution.moves.length ? (
                     <span>
                       Next:{" "}
@@ -208,23 +212,19 @@ export default function SolveControlsDock({
               </div>
             </div>
 
-            {/* Center & Right: Playback Control Trio & Speed */}
-            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
-              <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Right: Pinned Playback Controls Trio & Speed (fixed width, zero horizontal drift) */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0 flex-nowrap">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
                   onClick={onStepBack}
                   disabled={cursor <= 0 || isPlaying}
-                  title={
-                    mode === MODES.AUTO
-                      ? "Previous move (Backspace or ←)"
-                      : "Previous move (Backspace)"
-                  }
-                  className="py-1.5 sm:py-2 px-2.5 sm:px-3 rounded-xl border border-dark-border bg-dark-bg text-gray-200 text-xs font-semibold cursor-pointer hover:text-white hover:border-gray-500 transition-all flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                  title="Previous move (← or Backspace)"
+                  className="w-20 sm:w-22 py-1.5 sm:py-2 px-2 rounded-xl border border-dark-border bg-dark-bg text-gray-200 text-xs font-semibold cursor-pointer hover:text-white hover:border-gray-500 transition-all flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shrink-0"
                 >
                   <span>← Back</span>
                   <kbd className="hidden 2xl:inline text-[9px] font-mono text-gray-400 px-1 py-0.5 rounded bg-black/40 border border-dark-border">
-                    Backspace
+                    ←
                   </kbd>
                 </button>
 
@@ -232,53 +232,37 @@ export default function SolveControlsDock({
                   type="button"
                   onClick={onTogglePlay}
                   disabled={cursor >= solution.moves.length}
-                  title="Toggle play/pause (Space)"
-                  className={`py-1.5 sm:py-2 px-3 sm:px-3.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm ${
+                  title="Play / Pause (Space)"
+                  className={`w-20 sm:w-22 py-1.5 sm:py-2 px-2 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shrink-0 ${
                     isPlaying
                       ? "border-amber-400/50 bg-amber-400/20 text-amber-300 hover:bg-amber-400/30"
                       : "border-neon-blue/40 bg-neon-blue/15 text-neon-blue hover:bg-neon-blue/25"
                   }`}
                 >
                   <span>{isPlaying ? "⏸ Pause" : "▶ Play"}</span>
+                  <kbd className={`hidden 2xl:inline text-[9px] font-mono px-1 py-0.5 rounded font-bold ${
+                    isPlaying ? "bg-amber-400/25 text-amber-200" : "bg-neon-blue/20 text-neon-blue"
+                  }`}>
+                    Space
+                  </kbd>
                 </button>
 
                 <button
                   type="button"
                   onClick={onStepForward}
                   disabled={cursor >= solution.moves.length || isPlaying}
-                  title={
-                    mode === MODES.AUTO
-                      ? "Next move (Space or →)"
-                      : "Next move (Space)"
-                  }
-                  className="py-1.5 sm:py-2 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-neon-blue to-blue-500 hover:from-neon-blue/90 hover:to-blue-400 text-black text-xs font-bold cursor-pointer transition-all flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-neon-blue/25 active:scale-95"
+                  title="Next move (→ or Enter)"
+                  className="w-20 sm:w-22 py-1.5 sm:py-2 px-2 rounded-xl bg-gradient-to-r from-neon-blue to-blue-500 hover:from-neon-blue/90 hover:to-blue-400 text-black text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-neon-blue/25 active:scale-95 shrink-0"
                 >
                   <span>Next →</span>
-                  <kbd className="hidden 2xl:inline text-[9px] font-mono text-black/80 font-bold px-1.5 py-0.5 rounded bg-black/15">
-                    Space
+                  <kbd className="hidden 2xl:inline text-[9px] font-mono text-black/80 font-bold px-1 py-0.5 rounded bg-black/15">
+                    →
                   </kbd>
                 </button>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="shrink-0">
                 <SpeedControl speed={speed} onSetSpeed={onSetSpeed} />
-                {mode === MODES.GUIDED && stage && (
-                  <div className="hidden xl:flex flex-col items-end text-right shrink-0">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                      Stage Progress
-                    </span>
-                    <span className="text-xs font-mono font-bold text-gray-300">
-                      {Math.max(
-                        0,
-                        Math.min(
-                          stage.end - stage.start,
-                          cursor - stage.start,
-                        ),
-                      )}
-                      /{stage.end - stage.start}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
 

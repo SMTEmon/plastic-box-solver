@@ -174,7 +174,7 @@ export function createAnimator(optionsOrCubeGroup, maybeRotationGroup, maybeOnMo
         ? (BASE_DURATION_MS * quarters) / getQueueMultiplier(queue.length)
         : count === "drill"
           ? BASE_DURATION_MS * quarters
-          : (ASSISTED_BASE_DURATION_MS * quarters) / speed;
+          : (ASSISTED_BASE_DURATION_MS * quarters) / (speed * getQueueMultiplier(queue.length));
 
     currentMoveInfo = { move, count, spec, target, quarters };
 
