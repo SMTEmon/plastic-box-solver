@@ -2,7 +2,7 @@
 *.DS_Store
 
 # Ignore LaTeX auxiliary files
-*.pdf
+#*.pdf
 *.aux
 *.fdb_latexmk
 *.fls
